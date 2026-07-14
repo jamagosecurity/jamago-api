@@ -1,5 +1,7 @@
+using Jama.Application.Common;
 using Jama.Application.DTOs;
 using Jama.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jama.Web.Controllers;
@@ -9,6 +11,7 @@ namespace Jama.Web.Controllers;
 public class ContactsController(IContactService contacts) : ControllerBase
 {
     [HttpGet]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<ActionResult<IReadOnlyList<ContactSubmissionDto>>> GetContacts(CancellationToken ct = default)
     {
         var result = await contacts.GetAllAsync(ct);
@@ -16,6 +19,7 @@ public class ContactsController(IContactService contacts) : ControllerBase
     }
 
     [HttpPost]
+    [AllowAnonymous]
     public async Task<ActionResult<ContactSubmissionDto>> CreateContact(
         [FromBody] CreateContactSubmissionRequest request,
         CancellationToken ct = default)

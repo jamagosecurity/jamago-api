@@ -4,3 +4,5 @@ obj/
 *.user
 appsettings.Development.json
 appsettings.Production.json
+PGADMIN-VPS-CONNECT.txt
+GOLDEN-RULES.txt
