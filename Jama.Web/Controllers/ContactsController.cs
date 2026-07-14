@@ -1,4 +1,3 @@
-using Jama.Application.Common;
 using Jama.Application.DTOs;
 using Jama.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -10,12 +9,9 @@ namespace Jama.Web.Controllers;
 public class ContactsController(IContactService contacts) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<PagedResult<ContactSubmissionDto>>> GetContacts(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        CancellationToken ct = default)
+    public async Task<ActionResult<IReadOnlyList<ContactSubmissionDto>>> GetContacts(CancellationToken ct = default)
     {
-        var result = await contacts.GetPagedAsync(new PaginationQuery { Page = page, PageSize = pageSize }, ct);
+        var result = await contacts.GetAllAsync(ct);
         return Ok(result);
     }
 
@@ -33,6 +29,6 @@ public class ContactsController(IContactService contacts) : ControllerBase
         }
 
         var created = await contacts.CreateAsync(request, ct);
-        return CreatedAtAction(nameof(GetContacts), new { page = 1, pageSize = 20 }, created);
+        return CreatedAtAction(nameof(GetContacts), created);
     }
 }

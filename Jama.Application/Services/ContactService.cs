@@ -1,4 +1,3 @@
-using Jama.Application.Common;
 using Jama.Application.DTOs;
 using Jama.Application.Interfaces;
 using Jama.Domain.Entities;
@@ -7,19 +6,10 @@ namespace Jama.Application.Services;
 
 public class ContactService(IContactRepository repository) : IContactService
 {
-    public async Task<PagedResult<ContactSubmissionDto>> GetPagedAsync(
-        PaginationQuery query,
-        CancellationToken ct = default)
+    public async Task<IReadOnlyList<ContactSubmissionDto>> GetAllAsync(CancellationToken ct = default)
     {
-        var (items, total) = await repository.GetPagedAsync(query, ct);
-
-        return new PagedResult<ContactSubmissionDto>
-        {
-            Items = items.Select(MapToDto).ToList(),
-            Page = query.NormalizedPage,
-            PageSize = query.NormalizedPageSize,
-            TotalCount = total,
-        };
+        var items = await repository.GetAllAsync(ct);
+        return items.Select(MapToDto).ToList();
     }
 
     public async Task<ContactSubmissionDto> CreateAsync(
