@@ -1,0 +1,19 @@
+[Unit]
+Description=Jama Go API (ASP.NET Core)
+After=network.target postgresql.service
+
+[Service]
+WorkingDirectory=/var/www/jamago-api
+ExecStart=/usr/bin/dotnet /var/www/jamago-api/Jama.Web.dll
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+SyslogIdentifier=jamago-api
+User=www-data
+Group=www-data
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5093
+Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+[Install]
+WantedBy=multi-user.target

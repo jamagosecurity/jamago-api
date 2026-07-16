@@ -1,0 +1,26 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=127.0.0.1;Port=5432;Database=jamago_db;Username=jamago_admin;Password=YOUR_PASSWORD_HERE"
+  },
+  "Cors": {
+    "Origins": [ "https://jamago.qa", "https://www.jamago.qa" ]
+  },
+  "Jwt": {
+    "Issuer": "https://jamago.qa",
+    "Audience": "jamago-admin",
+    "Key": "REPLACE_WITH_LONG_RANDOM_SECRET_AT_LEAST_32_CHARS",
+    "AccessTokenMinutes": 60
+  },
+  "AdminSeed": {
+    "Email": "admin@jamago.qa",
+    "Password": "REPLACE_ADMIN_PASSWORD",
+    "FullName": "Jam Go Administrator"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "jamago.qa;www.jamago.qa;localhost"
+}

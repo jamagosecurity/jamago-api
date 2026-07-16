@@ -7,10 +7,19 @@ using Jama.Web.Infrastructure;
 using Jama.Web.Middleware;
 using Jama.Web.OpenApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Nginx on the same host terminates TLS.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? throw new InvalidOperationException("Jwt configuration is required.");
@@ -62,6 +71,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+
 try
 {
     await app.InitialiseDatabaseAsync();
@@ -76,24 +87,25 @@ catch (Exception ex)
         "If tables were created with EnsureCreated before migrations, align schema/history first.");
 }
 
+app.MapOpenApi();
+app.MapScalarApiReference(options =>
+{
+    options.WithTitle("Jama Go API");
+    options.AddPreferredSecuritySchemes("Bearer");
+    options.AddHttpAuthentication("Bearer", auth =>
+    {
+        // Leave empty — paste accessToken once in Scalar Auth UI.
+        auth.Token = string.Empty;
+    });
+});
+
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference(options =>
-    {
-        options.WithTitle("Jama Go API");
-        options.AddPreferredSecuritySchemes("Bearer");
-        options.AddHttpAuthentication("Bearer", auth =>
-        {
-            // Leave empty — paste accessToken once in Scalar Auth UI.
-            auth.Token = string.Empty;
-        });
-    });
+    app.UseHttpsRedirection();
 }
 
 app.UseCors("JamGoCors");
 app.UseMiddleware<ValidationExceptionMiddleware>();
-app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapEndpoints();
