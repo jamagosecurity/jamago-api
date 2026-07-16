@@ -1,7 +1,7 @@
-using Jama.Application.Interfaces;
+using Jama.Application.Auth;
+using Jama.Application.Common.Interfaces;
 using Jama.Application.Options;
 using Jama.Infrastructure.Data;
-using Jama.Infrastructure.Repositories;
 using Jama.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -16,11 +16,11 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
         services.Configure<AdminSeedSettings>(config.GetSection(AdminSeedSettings.SectionName));
 
-        services.AddDbContext<AppDbContext>(options =>
+        services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
+        services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
+        services.AddScoped<ApplicationDbContextInitialiser>();
 
-        services.AddScoped<IContactRepository, ContactRepository>();
-        services.AddScoped<IAdminUserRepository, AdminUserRepository>();
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
 

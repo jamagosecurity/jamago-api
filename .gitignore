@@ -6,3 +6,7 @@ appsettings.Development.json
 appsettings.Production.json
 PGADMIN-VPS-CONNECT.txt
 GOLDEN-RULES.txt
+scripts/node_modules/
+scripts/package.json
+scripts/package-lock.json
+scripts/*.mjs

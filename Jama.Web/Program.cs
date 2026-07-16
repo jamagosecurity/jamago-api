@@ -3,6 +3,9 @@ using Jama.Application;
 using Jama.Application.Options;
 using Jama.Infrastructure;
 using Jama.Infrastructure.Data;
+using Jama.Web.Infrastructure;
+using Jama.Web.Middleware;
+using Jama.Web.OpenApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -17,8 +20,10 @@ if (string.IsNullOrWhiteSpace(jwtSettings.Key) || jwtSettings.Key.Length < 32)
     throw new InvalidOperationException("Jwt:Key must be at least 32 characters.");
 }
 
-builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
+});
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -59,12 +64,16 @@ var app = builder.Build();
 
 try
 {
-    await DatabaseInitializer.InitializeAsync(app.Services);
+    await app.InitialiseDatabaseAsync();
 }
 catch (Exception ex)
 {
     var logger = app.Services.GetRequiredService<ILogger<Program>>();
-    logger.LogWarning(ex, "Database not ready at startup. API will run, but DB endpoints need PostgreSQL.");
+    // Keep API up when the tunnel/DB is offline, but make schema failures obvious.
+    logger.LogError(
+        ex,
+        "Database initialise failed. Staff/Auth/Contacts will break until MigrateAsync succeeds. " +
+        "If tables were created with EnsureCreated before migrations, align schema/history first.");
 }
 
 if (app.Environment.IsDevelopment())
@@ -73,13 +82,20 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference(options =>
     {
         options.WithTitle("Jama Go API");
+        options.AddPreferredSecuritySchemes("Bearer");
+        options.AddHttpAuthentication("Bearer", auth =>
+        {
+            // Leave empty — paste accessToken once in Scalar Auth UI.
+            auth.Token = string.Empty;
+        });
     });
 }
 
 app.UseCors("JamGoCors");
+app.UseMiddleware<ValidationExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapControllers();
+app.MapEndpoints();
 
 app.Run();

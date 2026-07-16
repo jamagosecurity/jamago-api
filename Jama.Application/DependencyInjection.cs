@@ -1,5 +1,7 @@
-using Jama.Application.Interfaces;
-using Jama.Application.Services;
+using System.Reflection;
+using FluentValidation;
+using Jama.Application.Common.Behaviors;
+using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Jama.Application;
@@ -8,8 +10,12 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
-        services.AddScoped<IContactService, ContactService>();
-        services.AddScoped<IAuthService, AuthService>();
+        var assembly = Assembly.GetExecutingAssembly();
+
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
+        services.AddValidatorsFromAssembly(assembly);
+        services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
         return services;
     }
 }

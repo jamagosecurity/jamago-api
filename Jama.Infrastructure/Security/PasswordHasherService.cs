@@ -1,4 +1,4 @@
-using Jama.Application.Interfaces;
+using Jama.Application.Auth;
 using Jama.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 

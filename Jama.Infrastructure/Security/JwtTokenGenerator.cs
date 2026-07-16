@@ -1,8 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Jama.Application.DTOs;
-using Jama.Application.Interfaces;
+using Jama.Application.Auth;
 using Jama.Application.Options;
 using Jama.Domain.Entities;
 using Microsoft.Extensions.Options;
