@@ -54,5 +54,6 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
 Write-Host "API deployed." -ForegroundColor Green
-Write-Host "  Health:  https://jamago.qa/api/Staff" -ForegroundColor Green
+Write-Host "  Health:  https://jamago.qa/api/staff" -ForegroundColor Green
+Write-Host "  Docs:    https://jamago.qa/scalar/v1" -ForegroundColor Green
 Write-Host "  Admin:   https://jamago.qa/admin/login  (after frontend deploy)" -ForegroundColor Green

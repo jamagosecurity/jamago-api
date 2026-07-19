@@ -74,7 +74,9 @@ PY
 fi
 
 echo "==> health checks"
-curl -sS -o /dev/null -w "local_api=%{http_code}\n" http://127.0.0.1:5093/api/Staff || true
-curl -sS -o /dev/null -w "public_api=%{http_code}\n" https://jamago.qa/api/Staff || true
+curl -sS -o /tmp/jamago-local-staff.json -w "local_api=%{http_code}\n" -H "Host: jamago.qa" http://127.0.0.1:5093/api/staff || true
+curl -sS -o /tmp/jamago-public-staff.json -w "public_api=%{http_code}\n" https://jamago.qa/api/staff || true
+head -c 200 /tmp/jamago-local-staff.json 2>/dev/null; echo
+head -c 200 /tmp/jamago-public-staff.json 2>/dev/null; echo
 
 echo "Done."

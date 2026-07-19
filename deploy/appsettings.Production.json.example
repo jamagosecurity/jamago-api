@@ -22,5 +22,5 @@
       "Microsoft.AspNetCore": "Warning"
     }
   },
-  "AllowedHosts": "jamago.qa;www.jamago.qa;localhost"
+  "AllowedHosts": "jamago.qa;www.jamago.qa;localhost;127.0.0.1"
 }
