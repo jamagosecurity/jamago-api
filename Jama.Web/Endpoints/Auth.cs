@@ -19,10 +19,13 @@ public class Auth : EndpointGroupBase
             .MapGet(Me, "me", requireAuthorization: true);
     }
 
-    public async Task<Results<Ok<TypedResult<LoginResponse>>, JsonHttpResult<TypedResult<LoginResponse>>, StatusCodeHttpResult>> Login(
+    public async Task<Results<Ok<TypedResult<LoginResponse>>, JsonHttpResult<TypedResult<LoginResponse>>>> Login(
         ISender sender,
-        LoginCommand command)
+        LoginCommand command,
+        ILoggerFactory loggerFactory)
     {
+        var logger = loggerFactory.CreateLogger("Jama.Web.Endpoints.Auth");
+
         try
         {
             var result = await sender.Send(command);
@@ -38,7 +41,7 @@ public class Auth : EndpointGroupBase
             or TimeoutException
             or Npgsql.NpgsqlException)
         {
-            // DB down / bad connection string — return TypedResult so the UI can show a message.
+            logger.LogError(ex, "Login failed due to database/connectivity error");
             return TypedResults.Json(
                 TypedResult<LoginResponse>.Failure(
                     "Database unavailable. Check Postgres connection and try again."),

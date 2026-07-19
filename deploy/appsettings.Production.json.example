@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=127.0.0.1;Port=5432;Database=jamago_db;Username=jamago_admin;Password=YOUR_PASSWORD_HERE"
+    "DefaultConnection": "Host=127.0.0.1;Port=5432;Database=jamago_db;Username=jamago_admin;Password=YOUR_PASSWORD_HERE;SSL Mode=Disable"
   },
   "Cors": {
     "Origins": [ "https://jamago.qa", "https://www.jamago.qa" ]
