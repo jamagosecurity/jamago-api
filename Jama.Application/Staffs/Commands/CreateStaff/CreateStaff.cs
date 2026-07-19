@@ -5,7 +5,7 @@ using MediatR;
 
 namespace Jama.Application.Staffs.Commands.CreateStaff;
 
-public record CreateStaffCommand : IRequest<TypedResult<Guid>>
+public record CreateStaffCommand : IRequest<TypedResult<string>>
 {
     public string? FullName { get; init; }
     public string? Role { get; init; }
@@ -15,7 +15,7 @@ public record CreateStaffCommand : IRequest<TypedResult<Guid>>
     public bool IsActive { get; init; } = true;
 }
 
-public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, TypedResult<Guid>>
+public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, TypedResult<string>>
 {
     private readonly IApplicationDbContext _context;
 
@@ -24,14 +24,14 @@ public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, Typ
         _context = context;
     }
 
-    public async Task<TypedResult<Guid>> Handle(CreateStaffCommand request, CancellationToken cancellationToken)
+    public async Task<TypedResult<string>> Handle(CreateStaffCommand request, CancellationToken cancellationToken)
     {
         var entity = new Staff
         {
             Id = Guid.CreateVersion7(),
-            FullName = request.FullName!,
-            Role = request.Role!,
-            Responsibility = request.Responsibility!,
+            FullName = request.FullName!.Trim(),
+            Role = request.Role!.Trim(),
+            Responsibility = request.Responsibility!.Trim(),
             Department = string.IsNullOrWhiteSpace(request.Department) ? null : request.Department.Trim(),
             DisplayOrder = request.DisplayOrder,
             IsActive = request.IsActive,
@@ -40,6 +40,6 @@ public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, Typ
         _context.Staff.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
 
-        return TypedResult<Guid>.Success(entity.Id);
+        return TypedResult<string>.Success(entity.Id.ToString());
     }
 }

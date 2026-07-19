@@ -19,7 +19,7 @@ public class Auth : EndpointGroupBase
             .MapGet(Me, "me", requireAuthorization: true);
     }
 
-    public async Task<Results<Ok<TypedResult<LoginResponse>>, UnauthorizedHttpResult, StatusCodeHttpResult>> Login(
+    public async Task<Results<Ok<TypedResult<LoginResponse>>, JsonHttpResult<TypedResult<LoginResponse>>, StatusCodeHttpResult>> Login(
         ISender sender,
         LoginCommand command)
     {
@@ -28,7 +28,7 @@ public class Auth : EndpointGroupBase
             var result = await sender.Send(command);
             if (!result.Succeeded)
             {
-                return TypedResults.Unauthorized();
+                return TypedResults.Json(result, statusCode: StatusCodes.Status401Unauthorized);
             }
 
             return TypedResults.Ok(result);

@@ -7,7 +7,8 @@ public static class EndpointRouteBuilderExtensions
 {
     public static RouteGroupBuilder MapGroup(this WebApplication app, EndpointGroupBase group)
     {
-        var groupName = group.GetType().Name;
+        // Lowercase routes so they match the Angular client (/api/auth, /api/staff, /api/contacts).
+        var groupName = group.GetType().Name.ToLowerInvariant();
         return app.MapGroup($"/api/{groupName}")
             .WithTags(groupName);
     }

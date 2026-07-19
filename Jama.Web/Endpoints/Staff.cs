@@ -38,32 +38,72 @@ public class Staff : EndpointGroupBase
         return TypedResults.Ok(result);
     }
 
-    public async Task<Ok<TypedResult<StaffDto>>> GetStaff(ISender sender, Guid id)
+    public async Task<Results<Ok<TypedResult<StaffDto>>, NotFound<TypedResult<StaffDto>>>> GetStaff(
+        ISender sender,
+        Guid id)
     {
         var result = await sender.Send(new GetStaffByIdQuery { Id = id });
+        if (!result.Succeeded)
+        {
+            return TypedResults.NotFound(result);
+        }
+
         return TypedResults.Ok(result);
     }
 
-    public async Task<Created<TypedResult<Guid>>> CreateStaff(ISender sender, CreateStaffCommand command)
+    public async Task<Results<Created<TypedResult<string>>, BadRequest<TypedResult<string>>>> CreateStaff(
+        ISender sender,
+        CreateStaffCommand command)
     {
         var result = await sender.Send(command);
-        return TypedResults.Created($"/{nameof(Staff)}/{result.Data}", result);
+        if (!result.Succeeded || result.Data is null)
+        {
+            return TypedResults.BadRequest(
+                TypedResult<string>.Failure(result.Errors.Length > 0 ? result.Errors : ["Could not create staff member."]));
+        }
+
+        var payload = TypedResult<string>.Success(result.Data);
+        return TypedResults.Created($"/api/staff/{result.Data}", payload);
     }
 
-    public async Task<TypedResult<string>> UpdateStaff(ISender sender, Guid id, UpdateStaffCommand command)
+    public async Task<Results<Ok<TypedResult<string>>, BadRequest<TypedResult<string>>, NotFound<TypedResult<string>>>> UpdateStaff(
+        ISender sender,
+        Guid id,
+        UpdateStaffCommand command)
     {
         if (id != command.Id)
         {
-            return TypedResult<string>.BadRequest();
+            return TypedResults.BadRequest(TypedResult<string>.BadRequest());
         }
 
-        await sender.Send(command);
-        return TypedResult<string>.Success(string.Empty);
+        var result = await sender.Send(command);
+        if (!result.Succeeded || result.Data is null)
+        {
+            var failure = TypedResult<string>.Failure(
+                result.Errors.Length > 0 ? result.Errors : ["Could not update staff member."]);
+
+            if (result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase)))
+            {
+                return TypedResults.NotFound(failure);
+            }
+
+            return TypedResults.BadRequest(failure);
+        }
+
+        return TypedResults.Ok(TypedResult<string>.Success(result.Data));
     }
 
-    public async Task<TypedResult<string>> DeleteStaff(ISender sender, Guid id)
+    public async Task<Results<Ok<TypedResult<string>>, NotFound<TypedResult<string>>>> DeleteStaff(
+        ISender sender,
+        Guid id)
     {
-        await sender.Send(new DeleteStaffCommand { Id = id });
-        return TypedResult<string>.Success(string.Empty);
+        var result = await sender.Send(new DeleteStaffCommand { Id = id });
+        if (!result.Succeeded || result.Data is null)
+        {
+            return TypedResults.NotFound(
+                TypedResult<string>.Failure(result.Errors.Length > 0 ? result.Errors : ["Staff member not found."]));
+        }
+
+        return TypedResults.Ok(TypedResult<string>.Success(result.Data));
     }
 }
