@@ -125,32 +125,48 @@ public class ApplicationDbContextInitialiser
 
     private async Task SeedAdminUserAsync()
     {
-        if (await _context.AdminUsers.AnyAsync())
-        {
-            return;
-        }
-
         var seed = _configuration.GetSection(AdminSeedSettings.SectionName).Get<AdminSeedSettings>();
         if (seed is null ||
             string.IsNullOrWhiteSpace(seed.Email) ||
             string.IsNullOrWhiteSpace(seed.Password))
         {
-            _logger.LogWarning("No admin user exists and AdminSeed is not configured. Skipping admin seed.");
+            if (!await _context.AdminUsers.AnyAsync())
+            {
+                _logger.LogWarning("No admin user exists and AdminSeed is not configured. Skipping admin seed.");
+            }
+
             return;
         }
 
-        var user = new AdminUser
-        {
-            Email = seed.Email.Trim().ToLowerInvariant(),
-            FullName = seed.FullName.Trim(),
-            Role = Roles.Admin,
-            IsActive = true,
-            PasswordHash = _passwordHasher.Hash(new AdminUser(), seed.Password),
-        };
+        var email = seed.Email.Trim().ToLowerInvariant();
+        var fullName = string.IsNullOrWhiteSpace(seed.FullName) ? "Administrator" : seed.FullName.Trim();
+        var existing = await _context.AdminUsers.FirstOrDefaultAsync(u => u.Email == email);
 
-        _context.AdminUsers.Add(user);
+        if (existing is null)
+        {
+            var user = new AdminUser
+            {
+                Email = email,
+                FullName = fullName,
+                Role = Roles.Admin,
+                IsActive = true,
+                PasswordHash = _passwordHasher.Hash(new AdminUser(), seed.Password),
+            };
+
+            _context.AdminUsers.Add(user);
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Seeded default admin user {Email}", user.Email);
+            return;
+        }
+
+        // Keep deploy-time AdminSeed password in sync so login credentials stay predictable.
+        existing.FullName = fullName;
+        existing.Role = Roles.Admin;
+        existing.IsActive = true;
+        existing.PasswordHash = _passwordHasher.Hash(existing, seed.Password);
+        existing.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-        _logger.LogInformation("Seeded default admin user {Email}", user.Email);
+        _logger.LogInformation("Synced admin user credentials for {Email}", existing.Email);
     }
 
     private async Task SeedStaffAsync()

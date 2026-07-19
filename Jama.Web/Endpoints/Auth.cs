@@ -38,7 +38,11 @@ public class Auth : EndpointGroupBase
             or TimeoutException
             or Npgsql.NpgsqlException)
         {
-            return TypedResults.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            // DB down / bad connection string — return TypedResult so the UI can show a message.
+            return TypedResults.Json(
+                TypedResult<LoginResponse>.Failure(
+                    "Database unavailable. Check Postgres connection and try again."),
+                statusCode: StatusCodes.Status503ServiceUnavailable);
         }
     }
 
