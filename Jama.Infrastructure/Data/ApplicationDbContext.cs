@@ -11,6 +11,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
     public DbSet<ContactSubmission> ContactSubmissions => Set<ContactSubmission>();
     public DbSet<Staff> Staff => Set<Staff>();
+    public DbSet<DiaInspection> DiaInspections => Set<DiaInspection>();
+    public DbSet<DiaInspectionHistory> DiaInspectionHistory => Set<DiaInspectionHistory>();
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        if (ChangeTracker.Entries<DiaInspectionHistory>()
+            .Any(x => x.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException("DIA inspection audit records are immutable.");
+        }
+
+        return base.SaveChangesAsync(cancellationToken);
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

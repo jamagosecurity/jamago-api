@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Jama.Application;
+using Jama.Application.Common.Interfaces;
 using Jama.Application.Options;
 using Jama.Infrastructure;
 using Jama.Infrastructure.Data;
@@ -11,8 +12,16 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("logs/jamago-.log", rollingInterval: RollingInterval.Day));
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -34,8 +43,16 @@ builder.Services.AddOpenApi(options =>
 {
     options.AddDocumentTransformer<BearerSecuritySchemeTransformer>();
 });
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, "Jama.Web.xml");
+    options.IncludeXmlComments(xmlPath);
+});
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -75,6 +92,8 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseSerilogRequestLogging();
+app.UseMiddleware<ExceptionMiddleware>();
 
 try
 {
@@ -91,6 +110,8 @@ catch (Exception ex)
 }
 
 app.MapOpenApi();
+app.UseSwagger();
+app.UseSwaggerUI();
 app.MapScalarApiReference(options =>
 {
     options.WithTitle("Jama Go API");

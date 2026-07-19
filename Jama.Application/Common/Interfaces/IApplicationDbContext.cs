@@ -8,5 +8,7 @@ public interface IApplicationDbContext
     DbSet<AdminUser> AdminUsers { get; }
     DbSet<ContactSubmission> ContactSubmissions { get; }
     DbSet<Staff> Staff { get; }
+    DbSet<DiaInspection> DiaInspections { get; }
+    DbSet<DiaInspectionHistory> DiaInspectionHistory { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

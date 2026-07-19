@@ -1,6 +1,7 @@
 using System.Reflection;
 using FluentValidation;
 using Jama.Application.Common.Behaviors;
+using Jama.Application.Dia;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,7 +15,10 @@ public static class DependencyInjection
 
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
         services.AddValidatorsFromAssembly(assembly);
+        services.AddAutoMapper(_ => { }, assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IDiaInspectionCalculator, DiaInspectionCalculator>();
 
         return services;
     }
