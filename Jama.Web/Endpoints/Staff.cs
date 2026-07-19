@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Application.Staffs;
@@ -6,6 +8,7 @@ using Jama.Application.Staffs.Commands.DeleteStaff;
 using Jama.Application.Staffs.Commands.UpdateStaff;
 using Jama.Application.Staffs.Queries.GetActiveStaff;
 using Jama.Application.Staffs.Queries.GetAllStaff;
+using Jama.Application.Staffs.Queries.GetMyStaffProfile;
 using Jama.Application.Staffs.Queries.GetStaffById;
 using Jama.Web.Infrastructure;
 using MediatR;
@@ -20,6 +23,7 @@ public class Staff : EndpointGroupBase
         app.MapGroup(this)
             .MapGet(GetActiveStaff)
             .MapGet(GetAllStaff, "all", Roles.Admin)
+            .MapGet(GetMyStaffProfile, "me", Roles.Staff)
             .MapGet(GetStaff, "{id}", Roles.Admin)
             .MapPost(CreateStaff, roles: Roles.Admin)
             .MapPut(UpdateStaff, "{id}", Roles.Admin)
@@ -32,17 +36,38 @@ public class Staff : EndpointGroupBase
         return TypedResults.Ok(result);
     }
 
-    public async Task<Ok<TypedResult<IReadOnlyList<StaffDto>>>> GetAllStaff(ISender sender)
+    public async Task<Ok<TypedResult<IReadOnlyList<AdminStaffDto>>>> GetAllStaff(ISender sender)
     {
         var result = await sender.Send(new GetAllStaffQuery());
         return TypedResults.Ok(result);
     }
 
-    public async Task<Results<Ok<TypedResult<StaffDto>>, NotFound<TypedResult<StaffDto>>>> GetStaff(
+    public async Task<Results<Ok<TypedResult<AdminStaffDto>>, NotFound<TypedResult<AdminStaffDto>>>> GetStaff(
         ISender sender,
         Guid id)
     {
         var result = await sender.Send(new GetStaffByIdQuery { Id = id });
+        if (!result.Succeeded)
+        {
+            return TypedResults.NotFound(result);
+        }
+
+        return TypedResults.Ok(result);
+    }
+
+    public async Task<Results<Ok<TypedResult<AdminStaffDto>>, UnauthorizedHttpResult, NotFound<TypedResult<AdminStaffDto>>>> GetMyStaffProfile(
+        ISender sender,
+        ClaimsPrincipal user)
+    {
+        var userIdValue = user.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var result = await sender.Send(new GetMyStaffProfileQuery { UserId = userId });
         if (!result.Succeeded)
         {
             return TypedResults.NotFound(result);
@@ -71,12 +96,8 @@ public class Staff : EndpointGroupBase
         Guid id,
         UpdateStaffCommand command)
     {
-        if (id != command.Id)
-        {
-            return TypedResults.BadRequest(TypedResult<string>.BadRequest());
-        }
-
-        var result = await sender.Send(command);
+        // Route id is the source of truth — body id is optional for the Angular client.
+        var result = await sender.Send(command with { Id = id });
         if (!result.Succeeded || result.Data is null)
         {
             var failure = TypedResult<string>.Failure(

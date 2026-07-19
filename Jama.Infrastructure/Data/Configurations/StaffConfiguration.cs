@@ -24,5 +24,13 @@ public class StaffConfiguration : IEntityTypeConfiguration<Staff>
             .HasMaxLength(120);
 
         builder.HasIndex(x => x.DisplayOrder);
+
+        builder.HasIndex(x => x.AdminUserId)
+            .IsUnique();
+
+        builder.HasOne(x => x.Account)
+            .WithOne(x => x.StaffProfile)
+            .HasForeignKey<Staff>(x => x.AdminUserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

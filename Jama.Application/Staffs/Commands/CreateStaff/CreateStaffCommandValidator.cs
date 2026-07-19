@@ -14,32 +14,28 @@ public class CreateStaffCommandValidator : AbstractValidator<CreateStaffCommand>
 
         RuleFor(v => v.FullName)
             .NotEmpty().WithMessage("Full Name is required.")
-            .MaximumLength(150).WithMessage("Full Name must not exceed 150 characters.")
-            .MustAsync(BeUniqueStaffMember).WithMessage("Staff member with this name and role already exists!");
+            .MaximumLength(150).WithMessage("Full Name must not exceed 150 characters.");
 
-        RuleFor(v => v.Role)
-            .NotEmpty().WithMessage("Role is required.")
-            .MaximumLength(120).WithMessage("Role must not exceed 120 characters.");
+        RuleFor(v => v.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Enter a valid email address.")
+            .MaximumLength(256).WithMessage("Email must not exceed 256 characters.")
+            .MustAsync(BeUniqueEmail).WithMessage("An account with this email already exists.");
 
-        RuleFor(v => v.Responsibility)
-            .NotEmpty().WithMessage("Responsibility is required.")
-            .MaximumLength(1000).WithMessage("Responsibility must not exceed 1000 characters.");
+        RuleFor(v => v.Password)
+            .NotEmpty().WithMessage("Password is required.")
+            .MinimumLength(8).WithMessage("Password must be at least 8 characters.")
+            .Matches("[A-Z]").WithMessage("Password must include an uppercase letter.")
+            .Matches("[a-z]").WithMessage("Password must include a lowercase letter.")
+            .Matches("[0-9]").WithMessage("Password must include a number.");
 
         RuleFor(v => v.Department)
-            .MaximumLength(120).WithMessage("Department must not exceed 120 characters.");
-
-        RuleFor(v => v.DisplayOrder)
-            .GreaterThanOrEqualTo(0).WithMessage("Display Order must be zero or greater.");
+            .IsInEnum().WithMessage("Select a valid department.");
     }
 
-    private async Task<bool> BeUniqueStaffMember(
-        CreateStaffCommand model,
-        string? fullName,
-        CancellationToken token)
+    private Task<bool> BeUniqueEmail(string? email, CancellationToken token)
     {
-        return !await _context.Staff
-            .AnyAsync(
-                s => s.FullName == fullName && s.Role == model.Role,
-                cancellationToken: token);
+        var normalized = email?.Trim().ToLowerInvariant();
+        return _context.AdminUsers.AllAsync(u => u.Email != normalized, token);
     }
 }

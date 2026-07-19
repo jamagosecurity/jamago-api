@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Jama.Application;
 using Jama.Application.Options;
 using Jama.Infrastructure;
@@ -56,6 +57,8 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddCors(options =>
 {

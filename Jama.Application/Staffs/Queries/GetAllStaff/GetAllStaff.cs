@@ -5,9 +5,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Staffs.Queries.GetAllStaff;
 
-public record GetAllStaffQuery : IRequest<TypedResult<IReadOnlyList<StaffDto>>>;
+public record GetAllStaffQuery : IRequest<TypedResult<IReadOnlyList<AdminStaffDto>>>;
 
-public class GetAllStaffQueryHandler : IRequestHandler<GetAllStaffQuery, TypedResult<IReadOnlyList<StaffDto>>>
+public class GetAllStaffQueryHandler : IRequestHandler<GetAllStaffQuery, TypedResult<IReadOnlyList<AdminStaffDto>>>
 {
     private readonly IApplicationDbContext _context;
 
@@ -16,17 +16,18 @@ public class GetAllStaffQueryHandler : IRequestHandler<GetAllStaffQuery, TypedRe
         _context = context;
     }
 
-    public async Task<TypedResult<IReadOnlyList<StaffDto>>> Handle(
+    public async Task<TypedResult<IReadOnlyList<AdminStaffDto>>> Handle(
         GetAllStaffQuery request,
         CancellationToken cancellationToken)
     {
         var items = await _context.Staff
             .AsNoTracking()
+            .Include(s => s.Account)
             .OrderBy(s => s.DisplayOrder)
             .ThenBy(s => s.FullName)
             .ToListAsync(cancellationToken);
 
-        IReadOnlyList<StaffDto> result = items.Select(StaffMappings.ToDto).ToList();
-        return TypedResult<IReadOnlyList<StaffDto>>.Success(result);
+        IReadOnlyList<AdminStaffDto> result = items.Select(StaffMappings.ToAdminDto).ToList();
+        return TypedResult<IReadOnlyList<AdminStaffDto>>.Success(result);
     }
 }

@@ -5,12 +5,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Staffs.Queries.GetStaffById;
 
-public record GetStaffByIdQuery : IRequest<TypedResult<StaffDto>>
+public record GetStaffByIdQuery : IRequest<TypedResult<AdminStaffDto>>
 {
     public Guid Id { get; init; }
 }
 
-public class GetStaffByIdQueryHandler : IRequestHandler<GetStaffByIdQuery, TypedResult<StaffDto>>
+public class GetStaffByIdQueryHandler : IRequestHandler<GetStaffByIdQuery, TypedResult<AdminStaffDto>>
 {
     private readonly IApplicationDbContext _context;
 
@@ -19,17 +19,18 @@ public class GetStaffByIdQueryHandler : IRequestHandler<GetStaffByIdQuery, Typed
         _context = context;
     }
 
-    public async Task<TypedResult<StaffDto>> Handle(GetStaffByIdQuery request, CancellationToken cancellationToken)
+    public async Task<TypedResult<AdminStaffDto>> Handle(GetStaffByIdQuery request, CancellationToken cancellationToken)
     {
         var entity = await _context.Staff
             .AsNoTracking()
+            .Include(s => s.Account)
             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken);
 
         if (entity is null)
         {
-            return TypedResult<StaffDto>.Failure("Staff member not found.");
+            return TypedResult<AdminStaffDto>.Failure("Staff member not found.");
         }
 
-        return TypedResult<StaffDto>.Success(StaffMappings.ToDto(entity));
+        return TypedResult<AdminStaffDto>.Success(StaffMappings.ToAdminDto(entity));
     }
 }

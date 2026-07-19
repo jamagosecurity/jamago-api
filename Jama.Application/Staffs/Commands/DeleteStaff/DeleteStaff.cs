@@ -22,6 +22,7 @@ public class DeleteStaffCommandHandler : IRequestHandler<DeleteStaffCommand, Typ
     public async Task<TypedResult<string>> Handle(DeleteStaffCommand request, CancellationToken cancellationToken)
     {
         var entity = await _context.Staff
+            .Include(s => s.Account)
             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken);
 
         if (entity is null)
@@ -31,6 +32,10 @@ public class DeleteStaffCommandHandler : IRequestHandler<DeleteStaffCommand, Typ
 
         var id = entity.Id.ToString();
         _context.Staff.Remove(entity);
+        if (entity.Account is not null)
+        {
+            _context.AdminUsers.Remove(entity.Account);
+        }
         await _context.SaveChangesAsync(cancellationToken);
 
         return TypedResult<string>.Success(id);
