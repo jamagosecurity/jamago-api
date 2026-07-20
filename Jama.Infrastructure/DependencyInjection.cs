@@ -20,6 +20,7 @@ public static class DependencyInjection
             options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
         services.AddScoped<IDiaInspectionRepository, DiaInspectionRepository>();
+        services.AddScoped<ITechnicianInspectionRepository, TechnicianInspectionRepository>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<ApplicationDbContextInitialiser>();
 

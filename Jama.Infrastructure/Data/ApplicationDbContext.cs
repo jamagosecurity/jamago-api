@@ -13,6 +13,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<DiaInspection> DiaInspections => Set<DiaInspection>();
     public DbSet<DiaInspectionHistory> DiaInspectionHistory => Set<DiaInspectionHistory>();
+    public DbSet<TechnicianInspection> TechnicianInspections => Set<TechnicianInspection>();
+    public DbSet<TechnicianInspectionHistory> TechnicianInspectionHistory => Set<TechnicianInspectionHistory>();
+    public DbSet<InspectionInvoice> InspectionInvoices => Set<InspectionInvoice>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -20,6 +23,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             .Any(x => x.State is EntityState.Modified or EntityState.Deleted))
         {
             throw new InvalidOperationException("DIA inspection audit records are immutable.");
+        }
+
+        if (ChangeTracker.Entries<TechnicianInspectionHistory>()
+            .Any(x => x.State is EntityState.Modified or EntityState.Deleted))
+        {
+            throw new InvalidOperationException("Technician inspection audit records are immutable.");
         }
 
         return base.SaveChangesAsync(cancellationToken);

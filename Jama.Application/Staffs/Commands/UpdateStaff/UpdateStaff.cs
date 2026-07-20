@@ -51,7 +51,7 @@ public class UpdateStaffCommandHandler : IRequestHandler<UpdateStaffCommand, Typ
                 Id = Guid.CreateVersion7(),
                 Email = email,
                 FullName = fullName,
-                Role = Roles.Staff,
+                Role = request.Department.ToAuthRole(),
                 IsActive = request.IsActive,
             };
             account.PasswordHash = _passwordHasher.Hash(account, request.Password!);
@@ -70,6 +70,8 @@ public class UpdateStaffCommandHandler : IRequestHandler<UpdateStaffCommand, Typ
             {
                 entity.Account.PasswordHash = _passwordHasher.Hash(entity.Account, request.Password);
             }
+
+            entity.Account.Role = request.Department.ToAuthRole();
         }
 
         entity.FullName = fullName;

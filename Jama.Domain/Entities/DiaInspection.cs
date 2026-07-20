@@ -8,6 +8,7 @@ public class DiaInspection : BaseEntity
     public string ClientName { get; set; } = string.Empty;
     public string ClientLocation { get; set; } = string.Empty;
     public DateTime? ActivatedDate { get; set; }
+    public DateTime? InspectionStartedDate { get; set; }
     public bool IsActive { get; set; }
     public bool IsArchived { get; set; }
     public Guid CreatedById { get; set; }

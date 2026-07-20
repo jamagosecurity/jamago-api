@@ -1,5 +1,7 @@
 namespace Jama.Application.Staffs;
 
+using Jama.Application.Common;
+
 public enum StaffDepartment
 {
     Technician,
@@ -19,4 +21,9 @@ public static class StaffDepartmentExtensions
             StaffDepartment.Panels => "Panels",
             _ => throw new ArgumentOutOfRangeException(nameof(department), department, null),
         };
+
+    public static string ToAuthRole(this StaffDepartment? department) =>
+        department == StaffDepartment.Technician
+            ? Roles.Technician
+            : Roles.Staff;
 }

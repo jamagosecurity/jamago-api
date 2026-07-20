@@ -38,7 +38,7 @@ public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, Typ
             Id = Guid.CreateVersion7(),
             Email = email,
             FullName = fullName,
-            Role = Roles.Staff,
+            Role = request.Department.ToAuthRole(),
             IsActive = request.IsActive,
         };
         account.PasswordHash = _passwordHasher.Hash(account, request.Password!);
