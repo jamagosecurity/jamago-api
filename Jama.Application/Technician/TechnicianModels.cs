@@ -142,7 +142,11 @@ public sealed record AnprConfigurationDto(
     string? SoftwareVersion,
     string? Remarks);
 
-public sealed record KpoiDetailDto(string? Details);
+public sealed record KpoiDetailDto(
+    string? IvdIvss,
+    string? KpoiCamera,
+    string? Lens,
+    string? HardDisc);
 
 public sealed record SaveTechnicianInspectionDraftRequest(
     Guid InspectionId,

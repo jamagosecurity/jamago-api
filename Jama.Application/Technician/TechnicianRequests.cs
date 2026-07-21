@@ -129,7 +129,9 @@ internal static class TechnicianSupport
         entity.Anpr is null ? null : new AnprConfigurationDto(
             entity.Anpr.AnprInstalled, entity.Anpr.CameraDetails,
             entity.Anpr.Configuration, entity.Anpr.SoftwareVersion, entity.Anpr.Remarks),
-        entity.Kpoi is null ? null : new KpoiDetailDto(entity.Kpoi.Details));
+        entity.Kpoi is null ? null : new KpoiDetailDto(
+            entity.Kpoi.IvdIvss, entity.Kpoi.KpoiCamera,
+            entity.Kpoi.Lens, entity.Kpoi.HardDisc));
 
     public static void ApplyDraft(
         TechnicianInspection entity,
@@ -212,7 +214,10 @@ internal static class TechnicianSupport
 
     private static void ApplyKpoi(KpoiDetail target, KpoiDetailDto? source)
     {
-        target.Details = source?.Details?.Trim();
+        target.IvdIvss = source?.IvdIvss?.Trim();
+        target.KpoiCamera = source?.KpoiCamera?.Trim();
+        target.Lens = source?.Lens?.Trim();
+        target.HardDisc = source?.HardDisc?.Trim();
     }
 
     public static string GenerateInvoiceNumber(DiaInspection dia, int quarter, DateTime generatedAt) =>

@@ -101,7 +101,10 @@ public sealed class KpoiDetailConfiguration : IEntityTypeConfiguration<KpoiDetai
     public void Configure(EntityTypeBuilder<KpoiDetail> builder)
     {
         builder.ToTable("KpoiDetails");
-        builder.Property(x => x.Details).HasMaxLength(2000);
+        builder.Property(x => x.IvdIvss).HasMaxLength(500);
+        builder.Property(x => x.KpoiCamera).HasMaxLength(500);
+        builder.Property(x => x.Lens).HasMaxLength(500);
+        builder.Property(x => x.HardDisc).HasMaxLength(500);
     }
 }
 
