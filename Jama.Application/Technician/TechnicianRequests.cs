@@ -26,6 +26,7 @@ public sealed record SaveTechnicianInspectionDraftCommand : IRequest<ApiResult<T
     public VmsDetailDto? Vms { get; init; }
     public UpsGeneralDetailDto? UpsGeneral { get; init; }
     public AnprConfigurationDto? Anpr { get; init; }
+    public KpoiDetailDto? Kpoi { get; init; }
 }
 
 public sealed record SubmitTechnicianInspectionCommand(Guid InspectionId)
@@ -127,7 +128,8 @@ internal static class TechnicianSupport
             entity.UpsGeneral.GeneratorDetails, entity.UpsGeneral.GeneralRemarks),
         entity.Anpr is null ? null : new AnprConfigurationDto(
             entity.Anpr.AnprInstalled, entity.Anpr.CameraDetails,
-            entity.Anpr.Configuration, entity.Anpr.SoftwareVersion, entity.Anpr.Remarks));
+            entity.Anpr.Configuration, entity.Anpr.SoftwareVersion, entity.Anpr.Remarks),
+        entity.Kpoi is null ? null : new KpoiDetailDto(entity.Kpoi.Details));
 
     public static void ApplyDraft(
         TechnicianInspection entity,
@@ -161,6 +163,9 @@ internal static class TechnicianSupport
 
         entity.Anpr ??= new AnprConfiguration { Id = Guid.CreateVersion7(), TechnicianInspectionId = entity.Id };
         ApplyAnpr(entity.Anpr, request.Anpr);
+
+        entity.Kpoi ??= new KpoiDetail { Id = Guid.CreateVersion7(), TechnicianInspectionId = entity.Id };
+        ApplyKpoi(entity.Kpoi, request.Kpoi);
 
         entity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
     }
@@ -203,6 +208,11 @@ internal static class TechnicianSupport
         target.Configuration = source?.Configuration?.Trim();
         target.SoftwareVersion = source?.SoftwareVersion?.Trim();
         target.Remarks = source?.Remarks?.Trim();
+    }
+
+    private static void ApplyKpoi(KpoiDetail target, KpoiDetailDto? source)
+    {
+        target.Details = source?.Details?.Trim();
     }
 
     public static string GenerateInvoiceNumber(DiaInspection dia, int quarter, DateTime generatedAt) =>
@@ -555,6 +565,7 @@ public sealed class GetTechnicianFinalSummaryHandler(
             .Include(x => x.Vms)
             .Include(x => x.UpsGeneral)
             .Include(x => x.Anpr)
+            .Include(x => x.Kpoi)
             .Where(x => x.DiaInspectionId == dia.Id)
             .OrderBy(x => x.Quarter)
             .ToListAsync(cancellationToken);

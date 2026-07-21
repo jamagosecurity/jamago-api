@@ -99,7 +99,8 @@ public sealed record TechnicianInspectionDto(
     NetworkDetailDto? Network,
     VmsDetailDto? Vms,
     UpsGeneralDetailDto? UpsGeneral,
-    AnprConfigurationDto? Anpr);
+    AnprConfigurationDto? Anpr,
+    KpoiDetailDto? Kpoi);
 
 public sealed record CameraDetailDto(
     Guid? Id,
@@ -141,13 +142,16 @@ public sealed record AnprConfigurationDto(
     string? SoftwareVersion,
     string? Remarks);
 
+public sealed record KpoiDetailDto(string? Details);
+
 public sealed record SaveTechnicianInspectionDraftRequest(
     Guid InspectionId,
     IReadOnlyList<CameraDetailDto> Cameras,
     NetworkDetailDto? Network,
     VmsDetailDto? Vms,
     UpsGeneralDetailDto? UpsGeneral,
-    AnprConfigurationDto? Anpr);
+    AnprConfigurationDto? Anpr,
+    KpoiDetailDto? Kpoi);
 
 public sealed record TechnicianInspectionHistoryDto(
     Guid Id,

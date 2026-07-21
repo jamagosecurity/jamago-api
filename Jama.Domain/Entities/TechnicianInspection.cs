@@ -14,6 +14,7 @@ public class TechnicianInspection : BaseEntity
     public VmsDetail? Vms { get; set; }
     public UpsGeneralDetail? UpsGeneral { get; set; }
     public AnprConfiguration? Anpr { get; set; }
+    public KpoiDetail? Kpoi { get; set; }
     public ICollection<CameraDetail> Cameras { get; set; } = [];
     public ICollection<InspectionInvoice> Invoices { get; set; } = [];
     public ICollection<TechnicianInspectionHistory> History { get; set; } = [];
@@ -82,6 +83,13 @@ public class AnprConfiguration : BaseEntity
     public string? Configuration { get; set; }
     public string? SoftwareVersion { get; set; }
     public string? Remarks { get; set; }
+}
+
+public class KpoiDetail : BaseEntity
+{
+    public Guid TechnicianInspectionId { get; set; }
+    public TechnicianInspection TechnicianInspection { get; set; } = null!;
+    public string? Details { get; set; }
 }
 
 public class InspectionInvoice : BaseEntity

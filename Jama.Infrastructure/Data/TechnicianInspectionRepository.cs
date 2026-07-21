@@ -29,6 +29,7 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
             .Include(x => x.Vms)
             .Include(x => x.UpsGeneral)
             .Include(x => x.Anpr)
+            .Include(x => x.Kpoi)
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken);
 
     public Task<TechnicianInspection?> FindQuarterInspectionAsync(
@@ -39,6 +40,7 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
             .Include(x => x.Vms)
             .Include(x => x.UpsGeneral)
             .Include(x => x.Anpr)
+            .Include(x => x.Kpoi)
             .FirstOrDefaultAsync(
                 x => x.DiaInspectionId == diaInspectionId && x.Quarter == quarter && !x.IsDeleted,
                 cancellationToken);

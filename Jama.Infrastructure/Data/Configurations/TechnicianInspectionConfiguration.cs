@@ -24,6 +24,8 @@ public sealed class TechnicianInspectionConfiguration : IEntityTypeConfiguration
             .HasForeignKey<UpsGeneralDetail>(x => x.TechnicianInspectionId);
         builder.HasOne(x => x.Anpr).WithOne(x => x.TechnicianInspection)
             .HasForeignKey<AnprConfiguration>(x => x.TechnicianInspectionId);
+        builder.HasOne(x => x.Kpoi).WithOne(x => x.TechnicianInspection)
+            .HasForeignKey<KpoiDetail>(x => x.TechnicianInspectionId);
     }
 }
 
@@ -91,6 +93,15 @@ public sealed class AnprConfigurationConfiguration : IEntityTypeConfiguration<An
         builder.Property(x => x.Configuration).HasMaxLength(500);
         builder.Property(x => x.SoftwareVersion).HasMaxLength(100);
         builder.Property(x => x.Remarks).HasMaxLength(500);
+    }
+}
+
+public sealed class KpoiDetailConfiguration : IEntityTypeConfiguration<KpoiDetail>
+{
+    public void Configure(EntityTypeBuilder<KpoiDetail> builder)
+    {
+        builder.ToTable("KpoiDetails");
+        builder.Property(x => x.Details).HasMaxLength(2000);
     }
 }
 
