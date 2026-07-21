@@ -310,7 +310,9 @@ public sealed class GetTechnicianDiaHandler(
     }
 }
 
-public sealed class GetTechnicianInspectionHandler(ITechnicianInspectionRepository repository)
+public sealed class GetTechnicianInspectionHandler(
+    ITechnicianInspectionRepository repository,
+    ICurrentUser actor)
     : IRequestHandler<GetTechnicianInspectionQuery, ApiResult<TechnicianInspectionDto>>
 {
     public async Task<ApiResult<TechnicianInspectionDto>> Handle(
@@ -318,7 +320,7 @@ public sealed class GetTechnicianInspectionHandler(ITechnicianInspectionReposito
         CancellationToken cancellationToken)
     {
         var entity = await repository.FindInspectionAsync(request.Id, cancellationToken);
-        if (entity is null)
+        if (entity is null || entity.TechnicianId != actor.UserId)
             return ApiResult<TechnicianInspectionDto>.Failure("Inspection not found.");
 
         return ApiResult<TechnicianInspectionDto>.Success(TechnicianSupport.ToDto(entity));
