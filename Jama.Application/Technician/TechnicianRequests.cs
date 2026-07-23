@@ -163,31 +163,23 @@ internal static class TechnicianSupport
         IReadOnlyList<CameraDetailDto> cameras,
         TimeProvider timeProvider)
     {
-        var incomingIds = cameras.Where(x => x.Id is not null).Select(x => x.Id!.Value).ToHashSet();
-        foreach (var stale in entity.Cameras.Where(x => !incomingIds.Contains(x.Id)).ToList())
-        {
-            entity.Cameras.Remove(stale);
-        }
-
+        // The draft save loads the inspection without its existing child rows and replaces them
+        // wholesale (the old rows are removed set-based inside the transaction), so here we just
+        // build the fresh camera rows from the request.
+        entity.Cameras.Clear();
         foreach (var camera in cameras)
         {
-            var target = camera.Id is { } id ? entity.Cameras.FirstOrDefault(x => x.Id == id) : null;
-            if (target is null)
+            entity.Cameras.Add(new CameraDetail
             {
-                target = new CameraDetail
-                {
-                    Id = Guid.CreateVersion7(),
-                    TechnicianInspectionId = entity.Id,
-                    CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
-                };
-                entity.Cameras.Add(target);
-            }
-
-            target.Brand = camera.Brand.Trim();
-            target.Model = camera.Model.Trim();
-            target.Quantity = camera.Quantity;
-            target.Location = camera.Location?.Trim();
-            target.Remarks = camera.Remarks?.Trim();
+                Id = Guid.CreateVersion7(),
+                TechnicianInspectionId = entity.Id,
+                Brand = camera.Brand.Trim(),
+                Model = camera.Model.Trim(),
+                Quantity = camera.Quantity,
+                Location = camera.Location?.Trim(),
+                Remarks = camera.Remarks?.Trim(),
+                CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
+            });
         }
     }
 
@@ -414,7 +406,6 @@ public sealed class StartTechnicianInspectionHandler(
 
 public sealed class SaveTechnicianInspectionDraftHandler(
     ITechnicianInspectionRepository repository,
-    IUnitOfWork unitOfWork,
     ICurrentUser actor,
     TimeProvider timeProvider)
     : IRequestHandler<SaveTechnicianInspectionDraftCommand, ApiResult<TechnicianInspectionDto>>
@@ -423,7 +414,10 @@ public sealed class SaveTechnicianInspectionDraftHandler(
         SaveTechnicianInspectionDraftCommand request,
         CancellationToken cancellationToken)
     {
-        var entity = await repository.FindInspectionAsync(request.InspectionId, cancellationToken);
+        // Load the inspection WITHOUT its child rows: the draft save replaces all of them, and
+        // tracking the old rows is what caused stale-row concurrency failures when a record's
+        // child data had been left inconsistent by earlier saves.
+        var entity = await repository.FindInspectionForDraftAsync(request.InspectionId, cancellationToken);
         if (entity is null)
             return ApiResult<TechnicianInspectionDto>.Failure("Inspection not found.");
 
@@ -435,60 +429,10 @@ public sealed class SaveTechnicianInspectionDraftHandler(
         repository.AddHistory(TechnicianSupport.Audit(
             entity, TechnicianInspectionAction.SaveDraft, actor, before, TechnicianSupport.Snapshot(entity)));
 
-        // An overlapping save-draft call for the same inspection (e.g. a mobile network retry
-        // racing the original request) can delete/update a row this save also touches. Rather than
-        // fail the user's save, reload the conflicting rows from the DB and try once more —
-        // this request's payload is the latest state, so re-applying it on top of fresh data
-        // converges cleanly instead of forcing a manual retry.
-        for (var attempt = 1; ; attempt++)
-        {
-            try
-            {
-                await unitOfWork.SaveChangesAsync(cancellationToken);
-                break;
-            }
-            catch (DbUpdateConcurrencyException ex) when (attempt == 1)
-            {
-                foreach (var entry in ex.Entries)
-                {
-                    await entry.ReloadAsync(cancellationToken);
-                    if (entry.State != EntityState.Detached)
-                        continue;
-
-                    // The row this entry pointed to is gone (deleted by the racing request).
-                    // Clear the parent's reference so ApplyDraft below creates a fresh tracked
-                    // instance instead of re-mutating a detached, no-longer-tracked object.
-                    switch (entry.Entity)
-                    {
-                        case NetworkDetail when ReferenceEquals(entity.Network, entry.Entity):
-                            entity.Network = null;
-                            break;
-                        case VmsDetail when ReferenceEquals(entity.Vms, entry.Entity):
-                            entity.Vms = null;
-                            break;
-                        case UpsGeneralDetail when ReferenceEquals(entity.UpsGeneral, entry.Entity):
-                            entity.UpsGeneral = null;
-                            break;
-                        case AnprConfiguration when ReferenceEquals(entity.Anpr, entry.Entity):
-                            entity.Anpr = null;
-                            break;
-                        case KpoiDetail when ReferenceEquals(entity.Kpoi, entry.Entity):
-                            entity.Kpoi = null;
-                            break;
-                        case CameraDetail camera:
-                            entity.Cameras.Remove(camera);
-                            break;
-                    }
-                }
-
-                TechnicianSupport.ApplyDraft(entity, request, timeProvider);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return ApiResult<TechnicianInspectionDto>.Failure(
-                    "This draft was just saved from another session. Please reload and try again.");
-            }
-        }
+        // Atomically drop any existing child rows (including duplicates/orphans left by earlier
+        // saves) and persist the freshly built ones. Being set-based, this cannot hit the
+        // "row not found" concurrency error the change-tracker delete path was prone to.
+        await repository.ReplaceInspectionDetailsAsync(entity.Id, cancellationToken);
 
         return ApiResult<TechnicianInspectionDto>.Success(TechnicianSupport.ToDto(entity));
     }

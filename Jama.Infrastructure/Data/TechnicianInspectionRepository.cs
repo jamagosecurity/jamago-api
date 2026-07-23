@@ -45,6 +45,10 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
                 x => x.DiaInspectionId == diaInspectionId && x.Quarter == quarter && !x.IsDeleted,
                 cancellationToken);
 
+    public Task<TechnicianInspection?> FindInspectionForDraftAsync(Guid id, CancellationToken cancellationToken) =>
+        context.TechnicianInspections
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken);
+
     public Task<InspectionInvoice?> FindInvoiceForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
         context.InspectionInvoices.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
 
@@ -54,4 +58,27 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
         context.TechnicianInspectionHistory.Add(history);
 
     public void AddInvoice(InspectionInvoice invoice) => context.InspectionInvoices.Add(invoice);
+
+    public async Task ReplaceInspectionDetailsAsync(Guid inspectionId, CancellationToken cancellationToken)
+    {
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+
+        // Wipe existing child rows set-based (also clears any duplicates/orphans), then let
+        // SaveChanges insert the freshly built rows the context is already tracking.
+        await context.Set<CameraDetail>()
+            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+        await context.Set<NetworkDetail>()
+            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+        await context.Set<VmsDetail>()
+            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+        await context.Set<UpsGeneralDetail>()
+            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+        await context.Set<AnprConfiguration>()
+            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+        await context.Set<KpoiDetail>()
+            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
 }
