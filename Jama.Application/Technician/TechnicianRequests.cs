@@ -138,21 +138,7 @@ internal static class TechnicianSupport
         SaveTechnicianInspectionDraftCommand request,
         TimeProvider timeProvider)
     {
-        entity.Cameras.Clear();
-        foreach (var camera in request.Cameras)
-        {
-            entity.Cameras.Add(new CameraDetail
-            {
-                Id = Guid.CreateVersion7(),
-                TechnicianInspectionId = entity.Id,
-                Brand = camera.Brand.Trim(),
-                Model = camera.Model.Trim(),
-                Quantity = camera.Quantity,
-                Location = camera.Location?.Trim(),
-                Remarks = camera.Remarks?.Trim(),
-                CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
-            });
-        }
+        ApplyCameras(entity, request.Cameras, timeProvider);
 
         entity.Network ??= new NetworkDetail { Id = Guid.CreateVersion7(), TechnicianInspectionId = entity.Id };
         ApplyNetwork(entity.Network, request.Network);
@@ -170,6 +156,39 @@ internal static class TechnicianSupport
         ApplyKpoi(entity.Kpoi, request.Kpoi);
 
         entity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
+    }
+
+    private static void ApplyCameras(
+        TechnicianInspection entity,
+        IReadOnlyList<CameraDetailDto> cameras,
+        TimeProvider timeProvider)
+    {
+        var incomingIds = cameras.Where(x => x.Id is not null).Select(x => x.Id!.Value).ToHashSet();
+        foreach (var stale in entity.Cameras.Where(x => !incomingIds.Contains(x.Id)).ToList())
+        {
+            entity.Cameras.Remove(stale);
+        }
+
+        foreach (var camera in cameras)
+        {
+            var target = camera.Id is { } id ? entity.Cameras.FirstOrDefault(x => x.Id == id) : null;
+            if (target is null)
+            {
+                target = new CameraDetail
+                {
+                    Id = Guid.CreateVersion7(),
+                    TechnicianInspectionId = entity.Id,
+                    CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
+                };
+                entity.Cameras.Add(target);
+            }
+
+            target.Brand = camera.Brand.Trim();
+            target.Model = camera.Model.Trim();
+            target.Quantity = camera.Quantity;
+            target.Location = camera.Location?.Trim();
+            target.Remarks = camera.Remarks?.Trim();
+        }
     }
 
     private static void ApplyNetwork(NetworkDetail target, NetworkDetailDto? source)
@@ -415,7 +434,16 @@ public sealed class SaveTechnicianInspectionDraftHandler(
         TechnicianSupport.ApplyDraft(entity, request, timeProvider);
         repository.AddHistory(TechnicianSupport.Audit(
             entity, TechnicianInspectionAction.SaveDraft, actor, before, TechnicianSupport.Snapshot(entity)));
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApiResult<TechnicianInspectionDto>.Failure(
+                "This draft was just saved from another session. Please reload and try again.");
+        }
 
         return ApiResult<TechnicianInspectionDto>.Success(TechnicianSupport.ToDto(entity));
     }

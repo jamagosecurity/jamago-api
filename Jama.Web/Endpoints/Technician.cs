@@ -99,5 +99,6 @@ public sealed class Technician : EndpointGroupBase
 
     private static bool IsConflict(IEnumerable<string> errors) =>
         errors.Any(x => x.Contains("read only", StringComparison.OrdinalIgnoreCase)
-            || x.Contains("already submitted", StringComparison.OrdinalIgnoreCase));
+            || x.Contains("already submitted", StringComparison.OrdinalIgnoreCase)
+            || x.Contains("another session", StringComparison.OrdinalIgnoreCase));
 }
