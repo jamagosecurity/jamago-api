@@ -21,7 +21,7 @@ public class Staff : EndpointGroupBase
     public override void Map(WebApplication app)
     {
         app.MapGroup(this)
-            .MapGet(GetActiveStaff)
+            .MapGet(GetActiveStaff, roles: Roles.Admin)
             .MapGet(GetAllStaff, "all", Roles.Admin)
             .MapGet(GetMyStaffProfile, "me", Roles.Staff)
             .MapGet(GetStaff, "{id}", Roles.Admin)
