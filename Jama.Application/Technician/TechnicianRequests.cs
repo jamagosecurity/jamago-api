@@ -432,7 +432,7 @@ public sealed class SaveTechnicianInspectionDraftHandler(
         // Atomically drop any existing child rows (including duplicates/orphans left by earlier
         // saves) and persist the freshly built ones. Being set-based, this cannot hit the
         // "row not found" concurrency error the change-tracker delete path was prone to.
-        await repository.ReplaceInspectionDetailsAsync(entity.Id, cancellationToken);
+        await repository.ReplaceInspectionDetailsAsync(entity, cancellationToken);
 
         return ApiResult<TechnicianInspectionDto>.Success(TechnicianSupport.ToDto(entity));
     }

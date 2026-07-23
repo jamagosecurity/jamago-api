@@ -47,6 +47,7 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
 
     public Task<TechnicianInspection?> FindInspectionForDraftAsync(Guid id, CancellationToken cancellationToken) =>
         context.TechnicianInspections
+            .AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, cancellationToken);
 
     public Task<InspectionInvoice?> FindInvoiceForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
@@ -59,24 +60,43 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
 
     public void AddInvoice(InspectionInvoice invoice) => context.InspectionInvoices.Add(invoice);
 
-    public async Task ReplaceInspectionDetailsAsync(Guid inspectionId, CancellationToken cancellationToken)
+    public async Task ReplaceInspectionDetailsAsync(TechnicianInspection inspection, CancellationToken cancellationToken)
     {
+        var id = inspection.Id;
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
 
-        // Wipe existing child rows set-based (also clears any duplicates/orphans), then let
-        // SaveChanges insert the freshly built rows the context is already tracking.
+        // Everything touching pre-existing rows is set-based so it cannot trip the change-tracker's
+        // "expected 1 row, affected 0" optimistic-concurrency check (which mis-fires on the .NET 10
+        // preview EF/Npgsql stack when a tracked UPDATE follows ExecuteDelete in one transaction).
+        // Clear old child rows (also removes any duplicates/orphans)...
         await context.Set<CameraDetail>()
-            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+            .Where(x => x.TechnicianInspectionId == id).ExecuteDeleteAsync(cancellationToken);
         await context.Set<NetworkDetail>()
-            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+            .Where(x => x.TechnicianInspectionId == id).ExecuteDeleteAsync(cancellationToken);
         await context.Set<VmsDetail>()
-            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+            .Where(x => x.TechnicianInspectionId == id).ExecuteDeleteAsync(cancellationToken);
         await context.Set<UpsGeneralDetail>()
-            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+            .Where(x => x.TechnicianInspectionId == id).ExecuteDeleteAsync(cancellationToken);
         await context.Set<AnprConfiguration>()
-            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+            .Where(x => x.TechnicianInspectionId == id).ExecuteDeleteAsync(cancellationToken);
         await context.Set<KpoiDetail>()
-            .Where(x => x.TechnicianInspectionId == inspectionId).ExecuteDeleteAsync(cancellationToken);
+            .Where(x => x.TechnicianInspectionId == id).ExecuteDeleteAsync(cancellationToken);
+
+        // ...bump the parent timestamp set-based (the parent itself is loaded no-tracking, so it is
+        // never part of SaveChanges)...
+        await context.TechnicianInspections
+            .Where(x => x.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedAt, inspection.UpdatedAt), cancellationToken);
+
+        // ...and insert the freshly built child rows explicitly. SaveChanges now issues INSERTs only
+        // (these child rows plus the audit-history row added by the handler), which cannot raise the
+        // affect-0 concurrency error.
+        if (inspection.Cameras.Count > 0) context.Set<CameraDetail>().AddRange(inspection.Cameras);
+        if (inspection.Network is not null) context.Set<NetworkDetail>().Add(inspection.Network);
+        if (inspection.Vms is not null) context.Set<VmsDetail>().Add(inspection.Vms);
+        if (inspection.UpsGeneral is not null) context.Set<UpsGeneralDetail>().Add(inspection.UpsGeneral);
+        if (inspection.Anpr is not null) context.Set<AnprConfiguration>().Add(inspection.Anpr);
+        if (inspection.Kpoi is not null) context.Set<KpoiDetail>().Add(inspection.Kpoi);
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);

@@ -19,9 +19,11 @@ public interface ITechnicianInspectionRepository
     void AddInvoice(InspectionInvoice invoice);
 
     /// <summary>
-    /// Atomically removes every existing child-detail row for the inspection (cameras, network,
-    /// VMS, UPS, ANPR, K'Poi) and persists the freshly built graph currently tracked on the
-    /// context. Set-based deletes make this safe against duplicate or orphaned child rows.
+    /// Atomically replaces every child-detail row for the inspection (cameras, network, VMS, UPS,
+    /// ANPR, K'Poi) with the freshly built graph carried on <paramref name="inspection"/>, and bumps
+    /// the parent's timestamp. All operations on pre-existing rows are set-based, so this is safe
+    /// against duplicate/orphaned child rows and cannot raise a tracked-update concurrency error.
+    /// The audit-history row added separately on the context is persisted in the same transaction.
     /// </summary>
-    Task ReplaceInspectionDetailsAsync(Guid inspectionId, CancellationToken cancellationToken);
+    Task ReplaceInspectionDetailsAsync(TechnicianInspection inspection, CancellationToken cancellationToken);
 }
