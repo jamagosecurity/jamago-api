@@ -23,6 +23,23 @@ public sealed class DiaInspectionRepository(ApplicationDbContext context) : IDia
 
     public void Add(DiaInspection inspection) => context.DiaInspections.Add(inspection);
     public void AddHistory(DiaInspectionHistory history) => context.DiaInspectionHistory.Add(history);
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetSubmittedQuarterCountsAsync(
+        IReadOnlyCollection<Guid> diaInspectionIds, CancellationToken cancellationToken)
+    {
+        if (diaInspectionIds.Count == 0)
+            return new Dictionary<Guid, int>();
+
+        var counts = await context.TechnicianInspections.AsNoTracking()
+            .Where(x => diaInspectionIds.Contains(x.DiaInspectionId)
+                && x.Status == TechnicianInspectionStatus.Submitted
+                && !x.IsDeleted)
+            .GroupBy(x => x.DiaInspectionId)
+            .Select(g => new { DiaInspectionId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => x.DiaInspectionId, x => x.Count);
+    }
 }
 
 public sealed class UnitOfWork(ApplicationDbContext context) : IUnitOfWork

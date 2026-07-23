@@ -129,10 +129,11 @@ internal static class DiaRequestSupport
         DiaInspection entity,
         IDiaInspectionCalculator calculator,
         IMapper mapper,
+        int submittedQuarters,
         string? createdBy = null,
         string? updatedBy = null)
     {
-        var calculation = calculator.Calculate(entity.IsActive, entity.ActivatedDate);
+        var calculation = calculator.Calculate(entity.IsActive, entity.ActivatedDate, submittedQuarters);
         return mapper.Map<DiaInspectionDto>(entity) with
         {
             Status = calculation.Status,
@@ -202,8 +203,9 @@ public sealed class CreateDiaInspectionHandler(
         {
             return ApiResult<DiaInspectionDto>.Failure("A DIA inspection with this DIA number already exists.");
         }
+        // A freshly created DIA has no submitted quarters yet.
         return ApiResult<DiaInspectionDto>.Success(
-            DiaRequestSupport.ToDto(entity, calculator, mapper, actor.DisplayName));
+            DiaRequestSupport.ToDto(entity, calculator, mapper, 0, actor.DisplayName));
     }
 }
 
@@ -242,8 +244,10 @@ public sealed class UpdateDiaInspectionHandler(
         {
             return ApiResult<DiaInspectionDto>.Failure("A DIA inspection with this DIA number already exists.");
         }
+        var submitted = (await repository.GetSubmittedQuarterCountsAsync([entity.Id], cancellationToken))
+            .GetValueOrDefault(entity.Id);
         return ApiResult<DiaInspectionDto>.Success(
-            DiaRequestSupport.ToDto(entity, calculator, mapper, null, actor.DisplayName));
+            DiaRequestSupport.ToDto(entity, calculator, mapper, submitted, null, actor.DisplayName));
     }
 }
 
@@ -289,8 +293,10 @@ public sealed class ChangeDiaInspectionStateHandler(
         repository.AddHistory(DiaRequestSupport.Audit(
             entity, action, actor, before, DiaRequestSupport.Snapshot(entity)));
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        var submitted = (await repository.GetSubmittedQuarterCountsAsync([entity.Id], cancellationToken))
+            .GetValueOrDefault(entity.Id);
         return ApiResult<DiaInspectionDto>.Success(
-            DiaRequestSupport.ToDto(entity, calculator, mapper, null, actor.DisplayName));
+            DiaRequestSupport.ToDto(entity, calculator, mapper, submitted, null, actor.DisplayName));
     }
 }
 
@@ -310,8 +316,10 @@ public sealed class GetDiaInspectionHandler(
             .ToDictionaryAsync(x => x.Id, x => x.FullName + " <" + x.Email + ">", cancellationToken);
         names.TryGetValue(entity.CreatedById, out var createdBy);
         var updatedBy = entity.UpdatedById is { } id && names.TryGetValue(id, out var name) ? name : null;
+        var submitted = (await repository.GetSubmittedQuarterCountsAsync([entity.Id], cancellationToken))
+            .GetValueOrDefault(entity.Id);
         return ApiResult<DiaInspectionDto>.Success(
-            DiaRequestSupport.ToDto(entity, calculator, mapper, createdBy, updatedBy));
+            DiaRequestSupport.ToDto(entity, calculator, mapper, submitted, createdBy, updatedBy));
     }
 }
 
@@ -319,7 +327,6 @@ public sealed class GetDiaInspectionsHandler(
     IDiaInspectionRepository repository,
     IApplicationDbContext context,
     IDiaInspectionCalculator calculator,
-    TimeProvider timeProvider,
     IMapper mapper) : IRequestHandler<GetDiaInspectionsQuery, ApiResult<PaginatedResult<DiaInspectionDto>>>
 {
     public async Task<ApiResult<PaginatedResult<DiaInspectionDto>>> Handle(GetDiaInspectionsQuery request, CancellationToken cancellationToken)
@@ -336,112 +343,67 @@ public sealed class GetDiaInspectionsHandler(
                 || x.ClientLocation.ToLower().Contains(search));
         }
 
-        var now = timeProvider.GetUtcNow().UtcDateTime;
-        if (request.Status is { } status)
-            query = ApplyStatusFilter(query, status, now);
+        // DIA records are inherently low-volume (one per client site), so the submission-based
+        // status is computed in memory rather than translated into the SQL filter/sort. This keeps
+        // the list, dashboard and technician portal all reporting the same quarter.
+        var all = await query.ToListAsync(cancellationToken);
+        var counts = await repository.GetSubmittedQuarterCountsAsync(
+            all.Select(x => x.Id).ToList(), cancellationToken);
 
-        var total = await query.CountAsync(cancellationToken);
-        var selected = await ApplySort(query, request.SortBy, request.SortDirection, now)
+        var withStatus = all
+            .Select(x => (Dia: x, Calc: calculator.Calculate(x.IsActive, x.ActivatedDate, counts.GetValueOrDefault(x.Id))))
+            .ToList();
+
+        if (request.Status is { } status)
+            withStatus = withStatus.Where(t => t.Calc.Status == status).ToList();
+
+        var total = withStatus.Count;
+        var pageItems = ApplySort(withStatus, request.SortBy, request.SortDirection)
             .Skip((page - 1) * size)
             .Take(size)
-            .ToListAsync(cancellationToken);
-        var userIds = selected.Select(x => x.CreatedById)
-            .Concat(selected.Where(x => x.UpdatedById.HasValue).Select(x => x.UpdatedById!.Value))
+            .ToList();
+
+        var userIds = pageItems.Select(t => t.Dia.CreatedById)
+            .Concat(pageItems.Where(t => t.Dia.UpdatedById.HasValue).Select(t => t.Dia.UpdatedById!.Value))
             .Distinct().ToList();
         var names = await context.AdminUsers.AsNoTracking().Where(x => userIds.Contains(x.Id))
             .ToDictionaryAsync(x => x.Id, x => x.FullName + " <" + x.Email + ">", cancellationToken);
-        var dtos = selected.Select(entity =>
+        var dtos = pageItems.Select(t =>
         {
-            names.TryGetValue(entity.CreatedById, out var createdBy);
-            var updatedBy = entity.UpdatedById is { } id && names.TryGetValue(id, out var name) ? name : null;
-            return DiaRequestSupport.ToDto(entity, calculator, mapper, createdBy, updatedBy);
+            names.TryGetValue(t.Dia.CreatedById, out var createdBy);
+            var updatedBy = t.Dia.UpdatedById is { } id && names.TryGetValue(id, out var name) ? name : null;
+            return DiaRequestSupport.ToDto(
+                t.Dia, calculator, mapper, counts.GetValueOrDefault(t.Dia.Id), createdBy, updatedBy);
         }).ToList();
         return ApiResult<PaginatedResult<DiaInspectionDto>>.Success(
             new(dtos, total, page, size, (int)Math.Ceiling(total / (double)size)));
     }
 
-    private static IQueryable<DiaInspection> ApplyStatusFilter(
-        IQueryable<DiaInspection> query,
-        DiaStatus status,
-        DateTime now) =>
-        status switch
-        {
-            DiaStatus.Inactive => query.Where(x => !x.IsActive || x.ActivatedDate == null || x.ActivatedDate > now),
-            DiaStatus.Quarter1 => query.Where(x => x.IsActive && x.ActivatedDate != null
-                && x.ActivatedDate <= now && now < x.ActivatedDate.Value.AddMonths(3)),
-            DiaStatus.Quarter2 => query.Where(x => x.IsActive && x.ActivatedDate != null
-                && x.ActivatedDate.Value.AddMonths(3) <= now && now < x.ActivatedDate.Value.AddMonths(6)),
-            DiaStatus.Quarter3 => query.Where(x => x.IsActive && x.ActivatedDate != null
-                && x.ActivatedDate.Value.AddMonths(6) <= now && now < x.ActivatedDate.Value.AddMonths(9)),
-            DiaStatus.Quarter4 => query.Where(x => x.IsActive && x.ActivatedDate != null
-                && x.ActivatedDate.Value.AddMonths(9) <= now && now < x.ActivatedDate.Value.AddMonths(12)),
-            DiaStatus.Completed => query.Where(x => x.IsActive && x.ActivatedDate != null
-                && x.ActivatedDate.Value.AddMonths(12) <= now),
-            _ => query,
-        };
-
-    private static IQueryable<DiaInspection> ApplySort(
-        IQueryable<DiaInspection> source,
+    private static IEnumerable<(DiaInspection Dia, DiaCalculation Calc)> ApplySort(
+        IReadOnlyList<(DiaInspection Dia, DiaCalculation Calc)> source,
         string? sortBy,
-        string? direction,
-        DateTime now)
+        string? direction)
     {
         var descending = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase);
         var field = (sortBy ?? "createdDate").ToLowerInvariant();
 
-        IOrderedQueryable<DiaInspection> ordered = field switch
+        Func<(DiaInspection Dia, DiaCalculation Calc), IComparable?> key = field switch
         {
-            "dianumber" => descending ? source.OrderByDescending(x => x.DiaNumber) : source.OrderBy(x => x.DiaNumber),
-            "clientnumber" => descending ? source.OrderByDescending(x => x.ClientNumber) : source.OrderBy(x => x.ClientNumber),
-            "clientname" => descending ? source.OrderByDescending(x => x.ClientName) : source.OrderBy(x => x.ClientName),
-            "clientlocation" => descending ? source.OrderByDescending(x => x.ClientLocation) : source.OrderBy(x => x.ClientLocation),
-            "activateddate" => descending ? source.OrderByDescending(x => x.ActivatedDate) : source.OrderBy(x => x.ActivatedDate),
-            "currentquarter" => descending
-                ? source.OrderByDescending(x => x.IsActive && x.ActivatedDate != null
-                    && x.ActivatedDate <= now && now < x.ActivatedDate.Value.AddMonths(12)
-                    ? x.ActivatedDate.Value.AddMonths(9) <= now ? 4
-                        : x.ActivatedDate.Value.AddMonths(6) <= now ? 3
-                        : x.ActivatedDate.Value.AddMonths(3) <= now ? 2 : 1
-                    : 0)
-                : source.OrderBy(x => x.IsActive && x.ActivatedDate != null
-                    && x.ActivatedDate <= now && now < x.ActivatedDate.Value.AddMonths(12)
-                    ? x.ActivatedDate.Value.AddMonths(9) <= now ? 4
-                        : x.ActivatedDate.Value.AddMonths(6) <= now ? 3
-                        : x.ActivatedDate.Value.AddMonths(3) <= now ? 2 : 1
-                    : 0),
-            "nextinspectiondate" => descending
-                ? source.OrderByDescending(x => x.IsActive && x.ActivatedDate != null
-                    && x.ActivatedDate <= now && now < x.ActivatedDate.Value.AddMonths(12)
-                    ? now < x.ActivatedDate.Value.AddMonths(3) ? x.ActivatedDate.Value.AddMonths(3)
-                        : now < x.ActivatedDate.Value.AddMonths(6) ? x.ActivatedDate.Value.AddMonths(6)
-                        : now < x.ActivatedDate.Value.AddMonths(9) ? x.ActivatedDate.Value.AddMonths(9)
-                        : x.ActivatedDate.Value.AddMonths(12)
-                    : (DateTime?)null)
-                : source.OrderBy(x => x.IsActive && x.ActivatedDate != null
-                    && x.ActivatedDate <= now && now < x.ActivatedDate.Value.AddMonths(12)
-                    ? now < x.ActivatedDate.Value.AddMonths(3) ? x.ActivatedDate.Value.AddMonths(3)
-                        : now < x.ActivatedDate.Value.AddMonths(6) ? x.ActivatedDate.Value.AddMonths(6)
-                        : now < x.ActivatedDate.Value.AddMonths(9) ? x.ActivatedDate.Value.AddMonths(9)
-                        : x.ActivatedDate.Value.AddMonths(12)
-                    : (DateTime?)null),
-            "updateddate" => descending ? source.OrderByDescending(x => x.UpdatedAt) : source.OrderBy(x => x.UpdatedAt),
-            "status" => descending
-                ? source.OrderByDescending(x => x.IsActive && x.ActivatedDate != null
-                    ? x.ActivatedDate.Value.AddMonths(12) <= now ? 5
-                        : x.ActivatedDate.Value.AddMonths(9) <= now ? 4
-                        : x.ActivatedDate.Value.AddMonths(6) <= now ? 3
-                        : x.ActivatedDate.Value.AddMonths(3) <= now ? 2 : 1
-                    : 0)
-                : source.OrderBy(x => x.IsActive && x.ActivatedDate != null
-                    ? x.ActivatedDate.Value.AddMonths(12) <= now ? 5
-                        : x.ActivatedDate.Value.AddMonths(9) <= now ? 4
-                        : x.ActivatedDate.Value.AddMonths(6) <= now ? 3
-                        : x.ActivatedDate.Value.AddMonths(3) <= now ? 2 : 1
-                    : 0),
-            _ => descending ? source.OrderByDescending(x => x.CreatedAt) : source.OrderBy(x => x.CreatedAt),
+            "dianumber" => t => t.Dia.DiaNumber,
+            "clientnumber" => t => t.Dia.ClientNumber,
+            "clientname" => t => t.Dia.ClientName,
+            "clientlocation" => t => t.Dia.ClientLocation,
+            "activateddate" => t => (IComparable?)t.Dia.ActivatedDate,
+            "currentquarter" => t => t.Calc.CurrentQuarter ?? 0,
+            "nextinspectiondate" => t => (IComparable?)t.Calc.NextInspectionDate,
+            "updateddate" => t => (IComparable?)t.Dia.UpdatedAt,
+            "status" => t => (int)t.Calc.Status,
+            _ => t => (IComparable?)t.Dia.CreatedAt,
         };
 
-        return ordered.ThenBy(x => x.Id);
+        return descending
+            ? source.OrderByDescending(key).ThenBy(t => t.Dia.Id)
+            : source.OrderBy(key).ThenBy(t => t.Dia.Id);
     }
 }
 
@@ -452,8 +414,12 @@ public sealed class GetDiaDashboardHandler(
     public async Task<ApiResult<DiaDashboardDto>> Handle(GetDiaDashboardQuery request, CancellationToken cancellationToken)
     {
         var rows = await repository.Inspections.AsNoTracking().Where(x => !x.IsArchived)
-            .Select(x => new { x.IsActive, x.ActivatedDate }).ToListAsync(cancellationToken);
-        var statuses = rows.Select(x => calculator.Calculate(x.IsActive, x.ActivatedDate).Status).ToList();
+            .Select(x => new { x.Id, x.IsActive, x.ActivatedDate }).ToListAsync(cancellationToken);
+        var counts = await repository.GetSubmittedQuarterCountsAsync(
+            rows.Select(x => x.Id).ToList(), cancellationToken);
+        var statuses = rows
+            .Select(x => calculator.Calculate(x.IsActive, x.ActivatedDate, counts.GetValueOrDefault(x.Id)).Status)
+            .ToList();
         var active = statuses.Count(x =>
             x is DiaStatus.Quarter1 or DiaStatus.Quarter2 or DiaStatus.Quarter3 or DiaStatus.Quarter4);
         return ApiResult<DiaDashboardDto>.Success(new(

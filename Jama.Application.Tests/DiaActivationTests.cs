@@ -68,6 +68,9 @@ public sealed class DiaActivationTests
             Task.FromResult(false);
         public void Add(DiaInspection inspection) => throw new NotSupportedException();
         public void AddHistory(DiaInspectionHistory history) => Audits.Add(history);
+        public Task<IReadOnlyDictionary<Guid, int>> GetSubmittedQuarterCountsAsync(
+            IReadOnlyCollection<Guid> diaInspectionIds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<Guid, int>>(new Dictionary<Guid, int>());
     }
 
     private sealed class FakeUnitOfWork : IUnitOfWork

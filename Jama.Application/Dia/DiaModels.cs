@@ -66,12 +66,17 @@ public sealed record DiaCalculation(
 
 public interface IDiaInspectionCalculator
 {
-    DiaCalculation Calculate(bool isActive, DateTime? activatedDate);
+    /// <summary>
+    /// Computes the admin-facing status of a DIA. The active quarter tracks how many quarterly
+    /// technician inspections have actually been <paramref name="submittedQuarters"/> (same rule as
+    /// the technician portal) rather than elapsed calendar time, so both views stay in sync.
+    /// </summary>
+    DiaCalculation Calculate(bool isActive, DateTime? activatedDate, int submittedQuarters);
 }
 
 public sealed class DiaInspectionCalculator(TimeProvider timeProvider) : IDiaInspectionCalculator
 {
-    public DiaCalculation Calculate(bool isActive, DateTime? activatedDate)
+    public DiaCalculation Calculate(bool isActive, DateTime? activatedDate, int submittedQuarters)
     {
         if (!isActive || activatedDate is null)
             return new(DiaStatus.Inactive, null, null, null, null, 0, 0);
@@ -81,14 +86,14 @@ public sealed class DiaInspectionCalculator(TimeProvider timeProvider) : IDiaIns
         if (now < activated)
             return new(DiaStatus.Inactive, null, null, null, null, 0, 0);
 
-        var completion = activated.AddMonths(12);
-        if (now >= completion)
+        var submitted = Math.Clamp(submittedQuarters, 0, 4);
+        if (submitted >= 4)
+        {
+            var completion = activated.AddMonths(12);
             return new(DiaStatus.Completed, null, activated, completion, null, 0, 100);
+        }
 
-        var quarter = now < activated.AddMonths(3) ? 1
-            : now < activated.AddMonths(6) ? 2
-            : now < activated.AddMonths(9) ? 3
-            : 4;
+        var quarter = submitted + 1;
         var start = activated.AddMonths((quarter - 1) * 3);
         var end = activated.AddMonths(quarter * 3);
         var remaining = Math.Max(0, (int)Math.Ceiling((end - now).TotalDays));
