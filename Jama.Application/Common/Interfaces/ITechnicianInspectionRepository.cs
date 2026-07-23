@@ -12,6 +12,7 @@ public interface ITechnicianInspectionRepository
     Task<TechnicianInspection?> FindInspectionAsync(Guid id, CancellationToken cancellationToken);
     Task<TechnicianInspection?> FindQuarterInspectionAsync(
         Guid diaInspectionId, int quarter, CancellationToken cancellationToken);
+    Task<InspectionInvoice?> FindInvoiceForUpdateAsync(Guid id, CancellationToken cancellationToken);
     void Add(TechnicianInspection inspection);
     void AddHistory(TechnicianInspectionHistory history);
     void AddInvoice(InspectionInvoice invoice);

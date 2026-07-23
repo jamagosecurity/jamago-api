@@ -243,9 +243,14 @@ public sealed class GetTechnicianDiaListHandler(
             .Where(x => diaIds.Contains(x.DiaInspectionId))
             .ToListAsync(cancellationToken);
 
+        var submittedByDia = inspections
+            .Where(x => x.Status == TechnicianInspectionStatus.Submitted)
+            .GroupBy(x => x.DiaInspectionId)
+            .ToDictionary(g => g.Key, g => g.Count());
+
         var items = dias.Select(dia =>
         {
-            var cycle = calculator.Calculate(dia.InspectionStartedDate);
+            var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedByDia.GetValueOrDefault(dia.Id));
             var quarterInspection = cycle.CurrentQuarter is { } q
                 ? inspections.FirstOrDefault(x => x.DiaInspectionId == dia.Id && x.Quarter == q)
                 : null;
@@ -280,7 +285,9 @@ public sealed class GetTechnicianDiaHandler(
         if (dia is null)
             return ApiResult<TechnicianDiaDetailDto>.Failure("Activated DIA inspection not found.");
 
-        var cycle = calculator.Calculate(dia.InspectionStartedDate);
+        var submittedQuarters = await repository.Inspections
+            .CountAsync(x => x.DiaInspectionId == dia.Id && x.Status == TechnicianInspectionStatus.Submitted, cancellationToken);
+        var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedQuarters);
         TechnicianInspection? quarterInspection = null;
         if (cycle.CurrentQuarter is { } quarter)
         {
@@ -350,7 +357,9 @@ public sealed class StartTechnicianInspectionHandler(
             dia.UpdatedAt = now;
         }
 
-        var cycle = calculator.Calculate(dia.InspectionStartedDate);
+        var submittedQuarters = await repository.Inspections
+            .CountAsync(x => x.DiaInspectionId == dia.Id && x.Status == TechnicianInspectionStatus.Submitted, cancellationToken);
+        var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedQuarters);
         if (cycle.CurrentQuarter is not { } quarter)
             return ApiResult<TechnicianInspectionDto>.Failure("Inspection cycle is not active.");
 
@@ -562,10 +571,6 @@ public sealed class GetTechnicianFinalSummaryHandler(
         if (dia is null)
             return ApiResult<TechnicianFinalSummaryDto>.Failure("Activated DIA inspection not found.");
 
-        var cycle = calculator.Calculate(dia.InspectionStartedDate);
-        if (cycle.Status != TechnicianInspectionCycleStatus.Completed)
-            return ApiResult<TechnicianFinalSummaryDto>.Failure("Final summary is available after the inspection cycle completes.");
-
         var inspections = await repository.Inspections.AsNoTracking()
             .Include(x => x.Cameras)
             .Include(x => x.Network)
@@ -576,6 +581,11 @@ public sealed class GetTechnicianFinalSummaryHandler(
             .Where(x => x.DiaInspectionId == dia.Id)
             .OrderBy(x => x.Quarter)
             .ToListAsync(cancellationToken);
+
+        var submittedQuarters = inspections.Count(x => x.Status == TechnicianInspectionStatus.Submitted);
+        var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedQuarters);
+        if (cycle.Status != TechnicianInspectionCycleStatus.Completed)
+            return ApiResult<TechnicianFinalSummaryDto>.Failure("Final summary is available after the inspection cycle completes.");
 
         var invoices = await repository.Invoices
             .Where(x => x.DiaInspectionId == dia.Id)

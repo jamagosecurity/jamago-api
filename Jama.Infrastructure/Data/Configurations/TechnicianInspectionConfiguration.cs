@@ -114,8 +114,10 @@ public sealed class InspectionInvoiceConfiguration : IEntityTypeConfiguration<In
     {
         builder.ToTable("InspectionInvoices");
         builder.Property(x => x.InvoiceNumber).HasMaxLength(50).IsRequired();
+        builder.Property(x => x.ShareToken).HasMaxLength(64);
         builder.HasIndex(x => x.InvoiceNumber).IsUnique();
         builder.HasIndex(x => new { x.DiaInspectionId, x.Quarter });
+        builder.HasIndex(x => x.ShareToken).IsUnique();
     }
 }
 

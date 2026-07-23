@@ -45,6 +45,9 @@ public sealed class TechnicianInspectionRepository(ApplicationDbContext context)
                 x => x.DiaInspectionId == diaInspectionId && x.Quarter == quarter && !x.IsDeleted,
                 cancellationToken);
 
+    public Task<InspectionInvoice?> FindInvoiceForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
+        context.InspectionInvoices.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
     public void Add(TechnicianInspection inspection) => context.TechnicianInspections.Add(inspection);
 
     public void AddHistory(TechnicianInspectionHistory history) =>

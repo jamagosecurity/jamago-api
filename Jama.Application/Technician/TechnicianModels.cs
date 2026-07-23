@@ -22,29 +22,36 @@ public sealed record TechnicianCycleCalculation(
 
 public interface ITechnicianInspectionCalculator
 {
-    TechnicianCycleCalculation Calculate(DateTime? inspectionStartedDate);
+    /// <summary>
+    /// Calculates the technician's current position in the 4-quarter cycle.
+    /// The active quarter is driven by <paramref name="submittedQuarters"/> (how many quarters
+    /// have actually been submitted so far), not by elapsed calendar time — a quarter that is
+    /// never submitted stays open/overdue instead of being silently skipped once its date window
+    /// passes, and a quarter finished early unlocks the next one immediately.
+    /// </summary>
+    TechnicianCycleCalculation Calculate(DateTime? inspectionStartedDate, int submittedQuarters);
 }
 
 public sealed class TechnicianInspectionCalculator(TimeProvider timeProvider) : ITechnicianInspectionCalculator
 {
-    public TechnicianCycleCalculation Calculate(DateTime? inspectionStartedDate)
+    public TechnicianCycleCalculation Calculate(DateTime? inspectionStartedDate, int submittedQuarters)
     {
         if (inspectionStartedDate is null)
             return new(TechnicianInspectionCycleStatus.NotStarted, null, null, null, 0, 0);
 
-        var now = timeProvider.GetUtcNow().UtcDateTime;
         var started = DateTime.SpecifyKind(inspectionStartedDate.Value, DateTimeKind.Utc);
-        var completion = started.AddMonths(12);
+        var submitted = Math.Clamp(submittedQuarters, 0, 4);
 
-        if (now >= completion)
+        if (submitted >= 4)
+        {
+            var completion = started.AddMonths(12);
             return new(TechnicianInspectionCycleStatus.Completed, null, started, completion, 0, 100);
+        }
 
-        var quarter = now < started.AddMonths(3) ? 1
-            : now < started.AddMonths(6) ? 2
-            : now < started.AddMonths(9) ? 3
-            : 4;
+        var quarter = submitted + 1;
         var start = started.AddMonths((quarter - 1) * 3);
         var end = started.AddMonths(quarter * 3);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         var remaining = Math.Max(0, (int)Math.Ceiling((end - now).TotalDays));
 
         return new((TechnicianInspectionCycleStatus)quarter, quarter, start, end, remaining, quarter * 25m);
