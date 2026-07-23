@@ -435,14 +435,59 @@ public sealed class SaveTechnicianInspectionDraftHandler(
         repository.AddHistory(TechnicianSupport.Audit(
             entity, TechnicianInspectionAction.SaveDraft, actor, before, TechnicianSupport.Snapshot(entity)));
 
-        try
+        // An overlapping save-draft call for the same inspection (e.g. a mobile network retry
+        // racing the original request) can delete/update a row this save also touches. Rather than
+        // fail the user's save, reload the conflicting rows from the DB and try once more —
+        // this request's payload is the latest state, so re-applying it on top of fresh data
+        // converges cleanly instead of forcing a manual retry.
+        for (var attempt = 1; ; attempt++)
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return ApiResult<TechnicianInspectionDto>.Failure(
-                "This draft was just saved from another session. Please reload and try again.");
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                break;
+            }
+            catch (DbUpdateConcurrencyException ex) when (attempt == 1)
+            {
+                foreach (var entry in ex.Entries)
+                {
+                    await entry.ReloadAsync(cancellationToken);
+                    if (entry.State != EntityState.Detached)
+                        continue;
+
+                    // The row this entry pointed to is gone (deleted by the racing request).
+                    // Clear the parent's reference so ApplyDraft below creates a fresh tracked
+                    // instance instead of re-mutating a detached, no-longer-tracked object.
+                    switch (entry.Entity)
+                    {
+                        case NetworkDetail when ReferenceEquals(entity.Network, entry.Entity):
+                            entity.Network = null;
+                            break;
+                        case VmsDetail when ReferenceEquals(entity.Vms, entry.Entity):
+                            entity.Vms = null;
+                            break;
+                        case UpsGeneralDetail when ReferenceEquals(entity.UpsGeneral, entry.Entity):
+                            entity.UpsGeneral = null;
+                            break;
+                        case AnprConfiguration when ReferenceEquals(entity.Anpr, entry.Entity):
+                            entity.Anpr = null;
+                            break;
+                        case KpoiDetail when ReferenceEquals(entity.Kpoi, entry.Entity):
+                            entity.Kpoi = null;
+                            break;
+                        case CameraDetail camera:
+                            entity.Cameras.Remove(camera);
+                            break;
+                    }
+                }
+
+                TechnicianSupport.ApplyDraft(entity, request, timeProvider);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return ApiResult<TechnicianInspectionDto>.Failure(
+                    "This draft was just saved from another session. Please reload and try again.");
+            }
         }
 
         return ApiResult<TechnicianInspectionDto>.Success(TechnicianSupport.ToDto(entity));
