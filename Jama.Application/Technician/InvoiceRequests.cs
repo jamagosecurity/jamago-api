@@ -29,8 +29,9 @@ internal static class InvoicePdfSupport
         var dia = await context.DiaInspections.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == invoice.DiaInspectionId, cancellationToken);
 
-        var inspection = await repository.Inspections.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.Id == invoice.TechnicianInspectionId, cancellationToken);
+        // Load the full inspection graph (all detail sections) so the invoice reflects everything
+        // the technician captured for the quarter, not just the header.
+        var inspection = await repository.FindInspectionAsync(invoice.TechnicianInspectionId, cancellationToken);
 
         string? technicianName = null;
         if (inspection is not null)
@@ -41,6 +42,43 @@ internal static class InvoicePdfSupport
                 .FirstOrDefaultAsync(cancellationToken);
         }
 
+        var cameras = inspection?.Cameras
+            .OrderBy(x => x.CreatedAt)
+            .Select(x => new InvoicePdfCamera(x.Brand, x.Model, x.Quantity, x.Location ?? "", x.Remarks ?? ""))
+            .ToList() ?? [];
+
+        var sections = new List<InvoicePdfSection>();
+        void Add(InvoicePdfSection? section)
+        {
+            if (section is not null) sections.Add(section);
+        }
+
+        if (inspection?.Network is { } nw)
+            Add(Section("Network",
+                ("Switch brand", nw.SwitchBrand), ("Switch model", nw.SwitchModel),
+                ("Router brand", nw.RouterBrand), ("Router model", nw.RouterModel),
+                ("Firewall", nw.Firewall), ("Rack details", nw.RackDetails), ("Remarks", nw.NetworkRemarks)));
+
+        if (inspection?.Vms is { } vms)
+            Add(Section("VMS",
+                ("Name", vms.VmsName), ("Version", vms.Version), ("License", vms.LicenseDetails),
+                ("Server", vms.ServerDetails), ("Health status", vms.HealthStatus), ("Remarks", vms.Remarks)));
+
+        if (inspection?.UpsGeneral is { } ups)
+            Add(Section("UPS / General",
+                ("UPS brand", ups.UpsBrand), ("UPS capacity", ups.UpsCapacity), ("Battery status", ups.BatteryStatus),
+                ("Generator available", ups.GeneratorAvailable ? "Yes" : "No"),
+                ("Generator details", ups.GeneratorDetails), ("Remarks", ups.GeneralRemarks)));
+
+        if (inspection?.Anpr is { } anpr)
+            Add(Section("ANPR",
+                ("Installed", anpr.AnprInstalled ? "Yes" : "No"), ("Camera details", anpr.CameraDetails),
+                ("Configuration", anpr.Configuration), ("Software version", anpr.SoftwareVersion), ("Remarks", anpr.Remarks)));
+
+        if (inspection?.Kpoi is { } kpoi)
+            Add(Section("K'Poi",
+                ("IVD / IVSS", kpoi.IvdIvss), ("Camera", kpoi.KpoiCamera), ("Lens", kpoi.Lens), ("Hard disc", kpoi.HardDisc)));
+
         var model = new InvoicePdfModel(
             invoice.InvoiceNumber,
             dia?.DiaNumber ?? "-",
@@ -49,9 +87,20 @@ internal static class InvoicePdfSupport
             dia?.ClientLocation ?? "-",
             invoice.Quarter,
             invoice.GeneratedAt,
-            technicianName ?? "-");
+            technicianName ?? "-",
+            cameras,
+            sections);
 
         return new InvoicePdfResult(pdfGenerator.Generate(model), $"{invoice.InvoiceNumber}.pdf");
+    }
+
+    private static InvoicePdfSection? Section(string title, params (string Label, string? Value)[] fields)
+    {
+        var present = fields
+            .Where(f => !string.IsNullOrWhiteSpace(f.Value))
+            .Select(f => new InvoicePdfField(f.Label, f.Value!.Trim()))
+            .ToList();
+        return present.Count == 0 ? null : new InvoicePdfSection(title, present);
     }
 
     public static string GenerateShareToken()

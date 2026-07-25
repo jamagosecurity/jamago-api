@@ -57,32 +57,69 @@ public sealed class InvoicePdfGenerator : IInvoicePdfGenerator
                         });
                     });
 
-                    column.Item().Table(table =>
+                    column.Item().PaddingTop(4).Text($"Inspection details — Quarter {model.Quarter}")
+                        .Bold().FontSize(13).FontColor(Colors.Grey.Darken3);
+
+                    if (model.Cameras.Count > 0)
                     {
-                        table.ColumnsDefinition(columns =>
+                        column.Item().PaddingTop(2).Text("Cameras").SemiBold().FontColor(Colors.Grey.Darken2);
+                        column.Item().Table(table =>
                         {
-                            columns.RelativeColumn(3);
-                            columns.RelativeColumn(1);
-                        });
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn(2);
+                                columns.RelativeColumn(2);
+                                columns.RelativeColumn(1);
+                                columns.RelativeColumn(2);
+                                columns.RelativeColumn(3);
+                            });
 
-                        table.Header(header =>
+                            table.Header(header =>
+                            {
+                                foreach (var title in new[] { "Brand", "Model", "Qty", "Location", "Remarks" })
+                                    header.Cell().Element(HeaderCell).Text(title);
+                            });
+
+                            foreach (var cam in model.Cameras)
+                            {
+                                table.Cell().Element(BodyCell).Text(cam.Brand);
+                                table.Cell().Element(BodyCell).Text(cam.Model);
+                                table.Cell().Element(BodyCell).Text(cam.Quantity.ToString());
+                                table.Cell().Element(BodyCell).Text(cam.Location);
+                                table.Cell().Element(BodyCell).Text(cam.Remarks);
+                            }
+                        });
+                    }
+
+                    foreach (var section in model.Sections)
+                    {
+                        column.Item().PaddingTop(6).Text(section.Title).SemiBold().FontColor(Colors.Grey.Darken2);
+                        column.Item().Table(table =>
                         {
-                            header.Cell().Element(HeaderCell).Text("Description");
-                            header.Cell().Element(HeaderCell).AlignRight().Text("Quarter");
-
-                            static IContainer HeaderCell(IContainer c) => c
-                                .Background(Colors.Grey.Lighten3)
-                                .Padding(8)
-                                .DefaultTextStyle(x => x.Bold());
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn(1);
+                                columns.RelativeColumn(2);
+                            });
+                            foreach (var field in section.Fields)
+                            {
+                                table.Cell().Element(LabelCell).Text(field.Label);
+                                table.Cell().Element(BodyCell).Text(field.Value);
+                            }
                         });
+                    }
 
-                        table.Cell().Element(BodyCell).Text($"Quarterly security inspection — {model.DiaNumber}");
-                        table.Cell().Element(BodyCell).AlignRight().Text($"Q{model.Quarter}");
+                    if (model.Cameras.Count == 0 && model.Sections.Count == 0)
+                        column.Item().PaddingTop(2).Text("No inspection details were recorded for this quarter.")
+                            .Italic().FontColor(Colors.Grey.Darken1);
 
-                        static IContainer BodyCell(IContainer c) => c
-                            .BorderBottom(1).BorderColor(Colors.Grey.Lighten2)
-                            .Padding(8);
-                    });
+                    static IContainer HeaderCell(IContainer c) => c
+                        .Background(Colors.Grey.Lighten3).Padding(6).DefaultTextStyle(x => x.SemiBold());
+                    static IContainer BodyCell(IContainer c) => c
+                        .BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6);
+                    static IContainer LabelCell(IContainer c) => c
+                        .BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6)
+                        .DefaultTextStyle(x => x.FontColor(Colors.Grey.Darken1));
                 });
 
                 page.Footer().AlignCenter().Text(

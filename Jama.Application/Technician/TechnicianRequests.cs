@@ -92,9 +92,15 @@ internal static class TechnicianSupport
     };
 
     public static TechnicianDiaAction ResolveAction(
+        TechnicianInspectionCycleStatus cycleStatus,
         int? currentQuarter,
         TechnicianInspection? quarterInspection)
     {
+        // A finished cycle has no active quarter; surface a View action (the UI links it to the
+        // final summary) instead of a Start action that would fail with "cycle is not active".
+        if (cycleStatus == TechnicianInspectionCycleStatus.Completed)
+            return TechnicianDiaAction.View;
+
         if (currentQuarter is null or <= 0)
             return TechnicianDiaAction.StartInspection;
 
@@ -275,7 +281,7 @@ public sealed class GetTechnicianDiaListHandler(
                 dia.ActivatedDate,
                 cycle.Status,
                 cycle.CurrentQuarter,
-                TechnicianSupport.ResolveAction(cycle.CurrentQuarter, quarterInspection),
+                TechnicianSupport.ResolveAction(cycle.Status, cycle.CurrentQuarter, quarterInspection),
                 quarterInspection?.Id);
         }).ToList();
 
@@ -306,7 +312,7 @@ public sealed class GetTechnicianDiaHandler(
                 dia.Id, quarter, cancellationToken);
         }
 
-        var action = TechnicianSupport.ResolveAction(cycle.CurrentQuarter, quarterInspection);
+        var action = TechnicianSupport.ResolveAction(cycle.Status, cycle.CurrentQuarter, quarterInspection);
 
         return ApiResult<TechnicianDiaDetailDto>.Success(new(
             dia.Id,
