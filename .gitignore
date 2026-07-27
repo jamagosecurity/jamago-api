@@ -13,6 +13,7 @@ scripts/package-lock.json
 scripts/*.mjs
 publish/
 .tools/
+logs/
 
 PRODUCTION-CREDENTIALS.local.txt
 deploy/PRODUCTION-CREDENTIALS.local.txt
