@@ -24,6 +24,7 @@ public class GetStaffByIdQueryHandler : IRequestHandler<GetStaffByIdQuery, Typed
         var entity = await _context.Staff
             .AsNoTracking()
             .Include(s => s.Account)
+            .ThenInclude(a => a!.Permissions)
             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken);
 
         if (entity is null)

@@ -2,10 +2,10 @@ using System.Text.Json;
 using FluentValidation;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
-using Jama.Domain.Entities;
+using Jama.Domain.Entities;using Jama.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using TechnicianInspectionStatus = Jama.Domain.Entities.TechnicianInspectionStatus;
+using TechnicianInspectionStatus = Jama.Domain.Enums.TechnicianInspectionStatus;
 
 namespace Jama.Application.Technician;
 
@@ -267,7 +267,8 @@ public sealed class GetTechnicianDiaListHandler(
 
         var items = dias.Select(dia =>
         {
-            var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedByDia.GetValueOrDefault(dia.Id));
+            var submitted = Math.Clamp(submittedByDia.GetValueOrDefault(dia.Id), 0, 4);
+            var cycle = calculator.Calculate(dia.InspectionStartedDate, submitted);
             var quarterInspection = cycle.CurrentQuarter is { } q
                 ? inspections.FirstOrDefault(x => x.DiaInspectionId == dia.Id && x.Quarter == q)
                 : null;
@@ -282,7 +283,12 @@ public sealed class GetTechnicianDiaListHandler(
                 cycle.Status,
                 cycle.CurrentQuarter,
                 TechnicianSupport.ResolveAction(cycle.Status, cycle.CurrentQuarter, quarterInspection),
-                quarterInspection?.Id);
+                quarterInspection?.Id,
+                submitted,
+                cycle.QuarterStartDate,
+                cycle.QuarterEndDate,
+                cycle.RemainingDays,
+                cycle.ProgressPercent);
         }).ToList();
 
         return ApiResult<IReadOnlyList<TechnicianDiaListItemDto>>.Success(items);

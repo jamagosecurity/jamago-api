@@ -26,5 +26,14 @@ internal static class StaffMappings
             entity.Department,
             entity.DisplayOrder,
             entity.IsActive,
-            entity.CreatedAt);
+            // No account at all means nothing to sign in with.
+            entity.Account?.IsActive ?? false,
+            entity.CreatedAt,
+            // Admins hold everything implicitly, so report the full set for them
+            // rather than the (empty) stored grants.
+            entity.Account is null
+                ? []
+                : entity.Account.Role == Common.Roles.Admin
+                    ? Common.Permissions.ForRole(Common.Roles.Admin)
+                    : entity.Account.Permissions.Select(p => p.Permission).OrderBy(p => p).ToList());
 }

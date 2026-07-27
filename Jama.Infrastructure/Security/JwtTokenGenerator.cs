@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Jama.Application.Auth;
+using Jama.Application.Common;
 using Jama.Application.Options;
 using Jama.Domain.Entities;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,15 @@ public class JwtTokenGenerator(IOptions<JwtSettings> options) : ITokenGenerator
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
 
+        // Admins implicitly hold everything; other accounts carry exactly what an
+        // admin granted them. Callers must have re-authenticated for permission
+        // changes to take effect, which is why tokens are short-lived.
+        var granted = Permissions.Expand(
+            Permissions.ForRole(user.Role)
+                .Concat(user.Permissions.Select(p => p.Permission)));
+
+        claims.AddRange(granted.Select(p => new Claim(PermissionClaims.Type, p)));
+
         var token = new JwtSecurityToken(
             issuer: settings.Issuer,
             audience: settings.Audience,
@@ -40,6 +50,6 @@ public class JwtTokenGenerator(IOptions<JwtSettings> options) : ITokenGenerator
         return new LoginResponse(
             accessToken,
             expiresAtUtc,
-            new UserSummaryDto(user.Id, user.Email, user.FullName, user.Role));
+            new UserSummaryDto(user.Id, user.Email, user.FullName, user.Role, granted));
     }
 }

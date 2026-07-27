@@ -3,7 +3,7 @@ using AutoMapper;
 using FluentValidation;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
-using Jama.Domain.Entities;
+using Jama.Domain.Entities;using Jama.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 

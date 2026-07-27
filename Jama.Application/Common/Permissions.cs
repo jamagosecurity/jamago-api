@@ -1,0 +1,82 @@
+namespace Jama.Application.Common;
+
+/// <summary>
+/// Fine-grained access an admin can grant to an individual staff account.
+///
+/// Roles stay coarse (Admin / Staff / Technician) and answer "which portal do you
+/// land in". Permissions answer "what may you do once you are there", so two staff
+/// in different departments can share the Staff portal with different capabilities.
+///
+/// Admins implicitly hold every permission — see <see cref="ForRole"/> — so an
+/// administrator can never lock themselves out by editing permission lists.
+/// </summary>
+public static class Permissions
+{
+    public const string DiaView = "dia.view";
+    public const string DiaUpload = "dia.upload";
+    public const string DiaInspect = "dia.inspect";
+    public const string InvoiceView = "invoice.view";
+    public const string ContactView = "contact.view";
+    public const string PanelsManage = "panels.manage";
+
+    /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
+    public static readonly IReadOnlyList<PermissionDefinition> All =
+    [
+        new(DiaView, "View DIA inspections", "See DIA records and their inspection status."),
+        // Named "Upload DIA records" originally, which read as importing a file
+        // rather than creating records — the key stays dia.upload so existing
+        // grants are untouched.
+        new(DiaUpload, "Create DIA records", "Create and edit DIA inspection records. Includes viewing them."),
+        new(DiaInspect, "Perform inspections", "Carry out quarterly inspections and submit results."),
+        new(InvoiceView, "View invoices", "Open and download generated inspection invoices."),
+        new(ContactView, "View enquiries", "Read contact submissions from the public site."),
+        new(PanelsManage, "Manage panels", "Work with control panel records and configuration."),
+    ];
+
+    private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();
+
+    public static bool IsValid(string permission) => Known.Contains(permission);
+
+    /// <summary>
+    /// Expands implied grants into the effective set.
+    ///
+    /// Editing or inspecting a DIA record is impossible without reading it, so
+    /// both imply <see cref="DiaView"/>. Without this an admin can tick only
+    /// "Upload DIA records" and produce an account that reaches the DIA screens
+    /// and then 403s on every list and detail request.
+    /// </summary>
+    public static IReadOnlyList<string> Expand(IEnumerable<string> granted)
+    {
+        var effective = new HashSet<string>(granted);
+
+        if (effective.Contains(DiaUpload) || effective.Contains(DiaInspect))
+        {
+            effective.Add(DiaView);
+        }
+
+        return effective.ToList();
+    }
+
+    /// <summary>
+    /// Baseline permissions implied by a role. Admins hold everything; other roles
+    /// hold only what has been granted explicitly, so this returns empty for them.
+    /// </summary>
+    public static IReadOnlyList<string> ForRole(string role) =>
+        role == Roles.Admin ? All.Select(p => p.Key).ToList() : [];
+
+    /// <summary>
+    /// Sensible starting permissions when an admin creates an account, based on the
+    /// department they picked. The admin can tick or untick anything afterwards.
+    /// </summary>
+    public static IReadOnlyList<string> DefaultsForDepartment(string? department) =>
+        department switch
+        {
+            "Technician" => [DiaView, DiaInspect, InvoiceView],
+            "MOI DIA Upload" => [DiaView, DiaUpload],
+            "MOI DIA Inspection" => [DiaView, DiaInspect],
+            "Panels" => [PanelsManage],
+            _ => [],
+        };
+}
+
+public sealed record PermissionDefinition(string Key, string Name, string Description);

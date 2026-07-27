@@ -1,10 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Jama.Application.Common;
+using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Application.Staffs;
 using Jama.Application.Staffs.Commands.CreateStaff;
 using Jama.Application.Staffs.Commands.DeleteStaff;
+using Jama.Application.Staffs.Commands.SetStaffPermissions;
+using Jama.Application.Staffs.Commands.UpdateMyStaffProfile;
 using Jama.Application.Staffs.Commands.UpdateStaff;
 using Jama.Application.Staffs.Queries.GetActiveStaff;
 using Jama.Application.Staffs.Queries.GetAllStaff;
@@ -24,8 +27,11 @@ public class Staff : EndpointGroupBase
             .MapGet(GetActiveStaff, roles: Roles.Admin)
             .MapGet(GetAllStaff, "all", Roles.Admin)
             .MapGet(GetMyStaffProfile, "me", Roles.Staff)
+            .MapGet(GetPermissionCatalogue, "permissions", Roles.Admin)
             .MapGet(GetStaff, "{id}", Roles.Admin)
+            .MapPut(SetStaffPermissions, "{id}/permissions", Roles.Admin)
             .MapPost(CreateStaff, roles: Roles.Admin)
+            .MapPut(UpdateMyStaffProfile, "me", Roles.Staff)
             .MapPut(UpdateStaff, "{id}", Roles.Admin)
             .MapDelete(DeleteStaff, "{id}", Roles.Admin);
     }
@@ -74,6 +80,47 @@ public class Staff : EndpointGroupBase
         }
 
         return TypedResults.Ok(result);
+    }
+
+    /// <summary>Every permission an admin can grant, with display copy for the UI.</summary>
+    public Ok<TypedResult<IReadOnlyList<PermissionDefinition>>> GetPermissionCatalogue() =>
+        TypedResults.Ok(TypedResult<IReadOnlyList<PermissionDefinition>>.Success(Permissions.All));
+
+    /// <summary>Replaces a staff member's granted permissions. Admin only.</summary>
+    public async Task<Results<Ok<TypedResult<string>>, BadRequest<TypedResult<string>>, NotFound<TypedResult<string>>>> SetStaffPermissions(
+        ISender sender,
+        Guid id,
+        SetStaffPermissionsCommand command)
+    {
+        var result = await sender.Send(command with { Id = id });
+        if (result.Succeeded)
+        {
+            return TypedResults.Ok(result);
+        }
+
+        return result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            ? TypedResults.NotFound(result)
+            : TypedResults.BadRequest(result);
+    }
+
+    /// <summary>
+    /// Updates the signed-in staff member's own profile. Scoped to safe fields only —
+    /// role, department, email and active state stay under admin control.
+    /// </summary>
+    public async Task<Results<Ok<TypedResult<string>>, BadRequest<TypedResult<string>>, NotFound<TypedResult<string>>>> UpdateMyStaffProfile(
+        ISender sender,
+        ICurrentUser currentUser,
+        UpdateMyStaffProfileCommand command)
+    {
+        var result = await sender.Send(command with { UserId = currentUser.UserId });
+        if (result.Succeeded)
+        {
+            return TypedResults.Ok(result);
+        }
+
+        return result.Errors.Any(e => e.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            ? TypedResults.NotFound(result)
+            : TypedResults.BadRequest(result);
     }
 
     public async Task<Results<Created<TypedResult<string>>, BadRequest<TypedResult<string>>>> CreateStaff(

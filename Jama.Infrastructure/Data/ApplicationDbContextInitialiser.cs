@@ -121,6 +121,52 @@ public class ApplicationDbContextInitialiser
     {
         await SeedAdminUserAsync();
         await SeedStaffAsync();
+        await BackfillPermissionsAsync();
+    }
+
+    /// <summary>
+    /// Gives pre-existing staff accounts the permissions implied by their department.
+    /// Without this, everyone created before permissions existed would have an empty
+    /// grant list and silently lose access. Only ever adds rows, and only for
+    /// accounts that have none, so it is safe to run on every startup.
+    /// </summary>
+    private async Task BackfillPermissionsAsync()
+    {
+        var accounts = await _context.AdminUsers
+            .Include(u => u.Permissions)
+            .Include(u => u.StaffProfile)
+            .Where(u => u.Role != Roles.Admin && u.Permissions.Count == 0)
+            .ToListAsync();
+
+        if (accounts.Count == 0)
+        {
+            return;
+        }
+
+        var granted = 0;
+        foreach (var account in accounts)
+        {
+            var defaults = Permissions.DefaultsForDepartment(account.StaffProfile?.Department);
+            foreach (var permission in defaults)
+            {
+                _context.UserPermissions.Add(new UserPermission
+                {
+                    Id = Guid.CreateVersion7(),
+                    AdminUserId = account.Id,
+                    Permission = permission,
+                });
+                granted++;
+            }
+        }
+
+        if (granted > 0)
+        {
+            await _context.SaveChangesAsync();
+            _logger.LogInformation(
+                "Backfilled {Count} permission grants across {Accounts} existing accounts",
+                granted,
+                accounts.Count);
+        }
     }
 
     private async Task SeedAdminUserAsync()

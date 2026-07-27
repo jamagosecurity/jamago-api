@@ -23,6 +23,7 @@ public class GetAllStaffQueryHandler : IRequestHandler<GetAllStaffQuery, TypedRe
         var items = await _context.Staff
             .AsNoTracking()
             .Include(s => s.Account)
+            .ThenInclude(a => a!.Permissions)
             .OrderBy(s => s.DisplayOrder)
             .ThenBy(s => s.FullName)
             .ToListAsync(cancellationToken);

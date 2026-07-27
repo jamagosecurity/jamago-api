@@ -31,6 +31,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, TypedResult<Log
     {
         var email = request.Email!.Trim().ToLowerInvariant();
         var user = await _context.AdminUsers
+            .Include(u => u.Permissions)
             .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         if (user is null || !user.IsActive || !_passwordHasher.Verify(user, request.Password!))

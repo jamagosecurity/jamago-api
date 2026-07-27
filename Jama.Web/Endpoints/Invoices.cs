@@ -11,8 +11,10 @@ public sealed class Invoices : EndpointGroupBase
     public override void Map(WebApplication app)
     {
         app.MapGroup(this)
-            .MapGet(GetList, roles: Roles.Admin)
-            .MapGet(Download, "{id:guid}/download", Roles.Admin)
+            .MapGet(GetList, permission: Permissions.InvoiceView)
+            .MapGet(Download, "{id:guid}/download", permission: Permissions.InvoiceView)
+            // Sharing mints a public link, so it stays admin-only rather than
+            // being delegated through a permission.
             .MapPost(Share, "{id:guid}/share", Roles.Admin)
             .MapGet(DownloadShared, "shared/{token}");
     }

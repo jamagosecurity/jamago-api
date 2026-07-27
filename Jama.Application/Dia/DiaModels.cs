@@ -1,5 +1,5 @@
 using AutoMapper;
-using Jama.Domain.Entities;
+using Jama.Domain.Entities;using Jama.Domain.Enums;
 
 namespace Jama.Application.Dia;
 

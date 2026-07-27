@@ -18,33 +18,53 @@ public static class EndpointRouteBuilderExtensions
         Delegate handler,
         string pattern = "",
         string? roles = null,
-        bool requireAuthorization = false)
+        bool requireAuthorization = false,
+        string? permission = null)
     {
         var route = builder.MapGet(pattern, handler);
+        route.Protect(roles, requireAuthorization, permission);
+        return builder;
+    }
+
+    /// <summary>
+    /// Applies role, permission or plain authentication requirements to a route.
+    /// A permission requirement is satisfied by the policy of the same name, which
+    /// admins always meet because their token carries every permission claim.
+    /// </summary>
+    private static void Protect(
+        this RouteHandlerBuilder route,
+        string? roles,
+        bool requireAuthorization,
+        string? permission)
+    {
+        if (!string.IsNullOrWhiteSpace(permission))
+        {
+            route.RequireAuthorization(permission);
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(roles))
         {
             route.RequireAuthorization(policy => policy.RequireRole(roles));
+            return;
         }
-        else if (requireAuthorization)
+
+        if (requireAuthorization)
         {
             route.RequireAuthorization();
         }
-
-        return builder;
     }
 
     public static RouteGroupBuilder MapPost(
         this RouteGroupBuilder builder,
         Delegate handler,
         string pattern = "",
-        string? roles = null)
+        string? roles = null,
+        bool requireAuthorization = false,
+        string? permission = null)
     {
         var route = builder.MapPost(pattern, handler);
-        if (!string.IsNullOrWhiteSpace(roles))
-        {
-            route.RequireAuthorization(policy => policy.RequireRole(roles));
-        }
-
+        route.Protect(roles, requireAuthorization, permission);
         return builder;
     }
 
@@ -52,14 +72,12 @@ public static class EndpointRouteBuilderExtensions
         this RouteGroupBuilder builder,
         Delegate handler,
         string pattern = "",
-        string? roles = null)
+        string? roles = null,
+        bool requireAuthorization = false,
+        string? permission = null)
     {
         var route = builder.MapPut(pattern, handler);
-        if (!string.IsNullOrWhiteSpace(roles))
-        {
-            route.RequireAuthorization(policy => policy.RequireRole(roles));
-        }
-
+        route.Protect(roles, requireAuthorization, permission);
         return builder;
     }
 
@@ -67,14 +85,12 @@ public static class EndpointRouteBuilderExtensions
         this RouteGroupBuilder builder,
         Delegate handler,
         string pattern = "",
-        string? roles = null)
+        string? roles = null,
+        bool requireAuthorization = false,
+        string? permission = null)
     {
         var route = builder.MapDelete(pattern, handler);
-        if (!string.IsNullOrWhiteSpace(roles))
-        {
-            route.RequireAuthorization(policy => policy.RequireRole(roles));
-        }
-
+        route.Protect(roles, requireAuthorization, permission);
         return builder;
     }
 }

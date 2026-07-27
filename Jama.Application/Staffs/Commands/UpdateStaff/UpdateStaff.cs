@@ -16,7 +16,15 @@ public record UpdateStaffCommand : IRequest<TypedResult<string>>
     public string? Email { get; init; }
     public string? Password { get; init; }
     public StaffDepartment? Department { get; init; }
+    /// <summary>Show this person in the public "Our Team" section.</summary>
     public bool IsActive { get; init; }
+    /// <summary>
+    /// Whether the login account is enabled. Kept separate from <see cref="IsActive"/>:
+    /// internal staff (inspectors, coordinators) need to sign in without being
+    /// published to the marketing site, and hiding someone from the website should
+    /// never silently lock them out.
+    /// </summary>
+    public bool CanSignIn { get; init; } = true;
 }
 
 public class UpdateStaffCommandHandler : IRequestHandler<UpdateStaffCommand, TypedResult<string>>
@@ -52,7 +60,7 @@ public class UpdateStaffCommandHandler : IRequestHandler<UpdateStaffCommand, Typ
                 Email = email,
                 FullName = fullName,
                 Role = request.Department.ToAuthRole(),
-                IsActive = request.IsActive,
+                IsActive = request.CanSignIn,
             };
             account.PasswordHash = _passwordHasher.Hash(account, request.Password!);
             entity.AdminUserId = account.Id;
@@ -63,7 +71,7 @@ public class UpdateStaffCommandHandler : IRequestHandler<UpdateStaffCommand, Typ
         {
             entity.Account.Email = email;
             entity.Account.FullName = fullName;
-            entity.Account.IsActive = request.IsActive;
+            entity.Account.IsActive = request.CanSignIn;
             entity.Account.UpdatedAt = DateTime.UtcNow;
 
             if (!string.IsNullOrWhiteSpace(request.Password))

@@ -12,13 +12,17 @@ public sealed class Dia : EndpointGroupBase
 {
     public override void Map(WebApplication app)
     {
+        // Reads need dia.view, writes need dia.upload — admins satisfy both
+        // implicitly. Lifecycle actions (archive/activate/deactivate) stay
+        // Admin-only: activating a DIA starts the technician's quarterly clock,
+        // which is more than "create and edit records" is meant to allow.
         app.MapGroup(this)
-            .MapGet(GetList, roles: Roles.Admin)
-            .MapGet(GetDashboard, "dashboard", Roles.Admin)
-            .MapGet(GetInspectionHistory, "inspection-history", Roles.Admin)
-            .MapGet(GetById, "{id:guid}", Roles.Admin)
-            .MapPost(Create, roles: Roles.Admin)
-            .MapPut(Update, "{id:guid}", Roles.Admin)
+            .MapGet(GetList, permission: Permissions.DiaView)
+            .MapGet(GetDashboard, "dashboard", permission: Permissions.DiaView)
+            .MapGet(GetInspectionHistory, "inspection-history", permission: Permissions.DiaView)
+            .MapGet(GetById, "{id:guid}", permission: Permissions.DiaView)
+            .MapPost(Create, permission: Permissions.DiaUpload)
+            .MapPut(Update, "{id:guid}", permission: Permissions.DiaUpload)
             .MapDelete(Archive, "{id:guid}", Roles.Admin)
             .MapPost(Activate, "{id:guid}/activate", Roles.Admin)
             .MapPost(Deactivate, "{id:guid}/deactivate", Roles.Admin);

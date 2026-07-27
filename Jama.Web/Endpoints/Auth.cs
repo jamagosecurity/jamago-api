@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Jama.Application.Auth;
+using Jama.Application.Auth.Commands.ChangePassword;
 using Jama.Application.Auth.Commands.Login;
 using Jama.Application.Auth.Queries.GetCurrentUser;
+using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Web.Infrastructure;
 using MediatR;
@@ -16,7 +18,8 @@ public class Auth : EndpointGroupBase
     {
         app.MapGroup(this)
             .MapPost(Login, "login")
-            .MapGet(Me, "me", requireAuthorization: true);
+            .MapGet(Me, "me", requireAuthorization: true)
+            .MapPost(ChangePassword, "change-password", requireAuthorization: true);
     }
 
     public async Task<Results<Ok<TypedResult<LoginResponse>>, JsonHttpResult<TypedResult<LoginResponse>>>> Login(
@@ -49,9 +52,13 @@ public class Auth : EndpointGroupBase
         }
     }
 
-    public async Task<Results<Ok<TypedResult<UserSummaryDto>>, UnauthorizedHttpResult>> Me(
+    public async Task<Results<
+        Ok<TypedResult<UserSummaryDto>>,
+        UnauthorizedHttpResult,
+        JsonHttpResult<TypedResult<UserSummaryDto>>>> Me(
         ISender sender,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        ILoggerFactory loggerFactory)
     {
         var userIdValue = user.FindFirstValue(JwtRegisteredClaimNames.Sub)
             ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -61,12 +68,44 @@ public class Auth : EndpointGroupBase
             return TypedResults.Unauthorized();
         }
 
-        var result = await sender.Send(new GetCurrentUserQuery { UserId = userId });
-        if (!result.Succeeded)
+        try
         {
-            return TypedResults.Unauthorized();
-        }
+            var result = await sender.Send(new GetCurrentUserQuery { UserId = userId });
+            if (!result.Succeeded)
+            {
+                return TypedResults.Unauthorized();
+            }
 
-        return TypedResults.Ok(result);
+            return TypedResults.Ok(result);
+        }
+        // Mirrors Login: a database outage is not an auth failure, and letting it
+        // escape as an unhandled 500 makes it indistinguishable from a bug.
+        catch (Exception ex) when (
+            ex is InvalidOperationException
+            or TimeoutException
+            or Npgsql.NpgsqlException)
+        {
+            loggerFactory.CreateLogger("Jama.Web.Endpoints.Auth")
+                .LogError(ex, "Session validation failed due to database/connectivity error");
+
+            return TypedResults.Json(
+                TypedResult<UserSummaryDto>.Failure(
+                    "Database unavailable. Check Postgres connection and try again."),
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    /// <summary>Changes the signed-in user's own password. Available to every role.</summary>
+    public async Task<Results<Ok<TypedResult<string>>, BadRequest<TypedResult<string>>>> ChangePassword(
+        ISender sender,
+        ICurrentUser currentUser,
+        ChangePasswordCommand command)
+    {
+        // The identity always comes from the token, never the request body.
+        var result = await sender.Send(command with { UserId = currentUser.UserId });
+
+        return result.Succeeded
+            ? TypedResults.Ok(result)
+            : TypedResults.BadRequest(result);
     }
 }

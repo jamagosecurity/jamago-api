@@ -9,6 +9,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     : DbContext(options), IApplicationDbContext
 {
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
     public DbSet<ContactSubmission> ContactSubmissions => Set<ContactSubmission>();
     public DbSet<Staff> Staff => Set<Staff>();
     public DbSet<DiaInspection> DiaInspections => Set<DiaInspection>();

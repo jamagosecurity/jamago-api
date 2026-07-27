@@ -8,4 +8,5 @@ public class AdminUser : BaseEntity
     public string Role { get; set; } = "Admin";
     public bool IsActive { get; set; } = true;
     public Staff? StaffProfile { get; set; }
+    public ICollection<UserPermission> Permissions { get; set; } = [];
 }

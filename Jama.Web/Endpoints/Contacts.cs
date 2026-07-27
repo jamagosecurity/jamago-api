@@ -14,7 +14,9 @@ public class Contacts : EndpointGroupBase
     public override void Map(WebApplication app)
     {
         app.MapGroup(this)
-            .MapGet(GetContacts, roles: Roles.Admin)
+            // Admins hold every permission implicitly, so this stays open to them
+            // and additionally to staff an admin has granted contact.view.
+            .MapGet(GetContacts, permission: Permissions.ContactView)
             .MapPost(CreateContact);
     }
 

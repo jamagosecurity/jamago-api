@@ -11,4 +11,10 @@ public record UserSummaryDto(
     Guid Id,
     string Email,
     string FullName,
-    string Role);
+    string Role,
+    /// <summary>
+    /// Effective permission keys, already including the implicit set an Admin holds.
+    /// Mirrors the permission claims in the token so the client can drive navigation
+    /// without decoding the JWT. Never the sole gate — endpoints enforce separately.
+    /// </summary>
+    IReadOnlyList<string> Permissions);

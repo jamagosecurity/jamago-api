@@ -6,6 +6,7 @@ namespace Jama.Application.Common.Interfaces;
 public interface IApplicationDbContext
 {
     DbSet<AdminUser> AdminUsers { get; }
+    DbSet<UserPermission> UserPermissions { get; }
     DbSet<ContactSubmission> ContactSubmissions { get; }
     DbSet<Staff> Staff { get; }
     DbSet<DiaInspection> DiaInspections { get; }

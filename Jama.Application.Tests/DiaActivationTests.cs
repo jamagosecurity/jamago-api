@@ -1,7 +1,7 @@
 using AutoMapper;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Dia;
-using Jama.Domain.Entities;
+using Jama.Domain.Entities;using Jama.Domain.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Jama.Application.Tests;

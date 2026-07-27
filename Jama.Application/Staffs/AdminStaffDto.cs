@@ -9,5 +9,9 @@ public record AdminStaffDto(
     string Responsibility,
     string? Department,
     int DisplayOrder,
+    /// <summary>Visible in the public "Our Team" section.</summary>
     bool IsActive,
-    DateTime CreatedAt);
+    /// <summary>Login account enabled. Independent of <paramref name="IsActive"/>.</summary>
+    bool CanSignIn,
+    DateTime CreatedAt,
+    IReadOnlyList<string> Permissions);

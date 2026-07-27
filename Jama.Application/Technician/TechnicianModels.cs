@@ -1,4 +1,4 @@
-using Jama.Domain.Entities;
+using Jama.Domain.Entities;using Jama.Domain.Enums;
 
 namespace Jama.Application.Technician;
 
@@ -75,7 +75,16 @@ public sealed record TechnicianDiaListItemDto(
     TechnicianInspectionCycleStatus InspectionStatus,
     int? CurrentQuarter,
     TechnicianDiaAction Action,
-    Guid? CurrentInspectionId);
+    Guid? CurrentInspectionId,
+    // Cycle progress. The list handler already computes the full calculation to
+    // resolve status; these carry the rest of it so the dashboard can show
+    // quarters done/left, the quarter window and time remaining without a
+    // per-row detail call.
+    int SubmittedQuarters,
+    DateTime? QuarterStartDate,
+    DateTime? QuarterEndDate,
+    int RemainingDays,
+    decimal ProgressPercent);
 
 public sealed record TechnicianDiaDetailDto(
     Guid Id,

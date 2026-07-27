@@ -27,6 +27,7 @@ public class GetMyStaffProfileQueryHandler
         var entity = await _context.Staff
             .AsNoTracking()
             .Include(s => s.Account)
+            .ThenInclude(a => a!.Permissions)
             .FirstOrDefaultAsync(s => s.AdminUserId == request.UserId, cancellationToken);
 
         if (entity is null)

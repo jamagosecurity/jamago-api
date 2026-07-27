@@ -15,7 +15,16 @@ public record CreateStaffCommand : IRequest<TypedResult<string>>
     public string? Email { get; init; }
     public string? Password { get; init; }
     public StaffDepartment? Department { get; init; }
+    /// <summary>Show this person in the public "Our Team" section.</summary>
     public bool IsActive { get; init; } = true;
+    /// <summary>
+    /// Whether the login account is enabled — independent of public visibility.
+    /// See <see cref="UpdateStaff.UpdateStaffCommand.CanSignIn"/>.
+    /// </summary>
+    public bool CanSignIn { get; init; } = true;
+
+    /// <summary>Explicit grants. When omitted, department defaults are applied.</summary>
+    public IReadOnlyList<string>? Permissions { get; init; }
 }
 
 public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, TypedResult<string>>
@@ -39,7 +48,7 @@ public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, Typ
             Email = email,
             FullName = fullName,
             Role = request.Department.ToAuthRole(),
-            IsActive = request.IsActive,
+            IsActive = request.CanSignIn,
         };
         account.PasswordHash = _passwordHasher.Hash(account, request.Password!);
 
@@ -61,6 +70,23 @@ public class CreateStaffCommandHandler : IRequestHandler<CreateStaffCommand, Typ
 
         _context.AdminUsers.Add(account);
         _context.Staff.Add(entity);
+
+        // Seed sensible starting access for the chosen department. The admin can
+        // adjust the exact grants afterwards from the staff editor.
+        var defaults = request.Permissions is { Count: > 0 }
+            ? request.Permissions.Where(Permissions.IsValid).Distinct()
+            : Permissions.DefaultsForDepartment(entity.Department);
+
+        foreach (var permission in defaults)
+        {
+            _context.UserPermissions.Add(new UserPermission
+            {
+                Id = Guid.CreateVersion7(),
+                AdminUserId = account.Id,
+                Permission = permission,
+            });
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
 
         return TypedResult<string>.Success(entity.Id.ToString());
