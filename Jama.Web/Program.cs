@@ -123,10 +123,10 @@ app.MapScalarApiReference(options =>
     });
 });
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
+// No HTTPS redirection: in production nginx terminates TLS and forwards plain
+// HTTP to Kestrel (see UseForwardedHeaders above), and in development a 307 to
+// the HTTPS origin breaks the Angular dev proxy — it turns same-origin /api
+// calls into cross-site requests against the self-signed dev certificate.
 
 app.UseCors("JamGoCors");
 app.UseMiddleware<ValidationExceptionMiddleware>();
