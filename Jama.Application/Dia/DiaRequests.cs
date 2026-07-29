@@ -33,10 +33,16 @@ public enum DiaMutation { Activate, Deactivate, Archive, Restore }
 
 public sealed record GetDiaInspectionQuery(Guid Id) : IRequest<ApiResult<DiaInspectionDto>>;
 
+/// <summary>
+/// Bound with [AsParameters], which treats a non-nullable value type as a
+/// REQUIRED query parameter and returns 500 when it is absent — the property
+/// initialiser is never consulted. Every optional parameter here must therefore
+/// be nullable, with its default applied in the handler.
+/// </summary>
 public sealed record GetDiaInspectionsQuery : IRequest<ApiResult<PaginatedResult<DiaInspectionDto>>>
 {
-    public int PageNumber { get; init; } = 1;
-    public int PageSize { get; init; } = 20;
+    public int? PageNumber { get; init; }
+    public int? PageSize { get; init; }
     public string? Search { get; init; }
     public DiaStatus? Status { get; init; }
     /// <summary>
@@ -44,17 +50,18 @@ public sealed record GetDiaInspectionsQuery : IRequest<ApiResult<PaginatedResult
     /// ones — archiving is a soft delete, so this is the route back to a record
     /// that was archived by mistake.
     /// </summary>
-    public bool Archived { get; init; }
-    public string? SortBy { get; init; } = "createdDate";
-    public string? SortDirection { get; init; } = "desc";
+    public bool? Archived { get; init; }
+    public string? SortBy { get; init; }
+    public string? SortDirection { get; init; }
 }
 
 public sealed record GetDiaDashboardQuery : IRequest<ApiResult<DiaDashboardDto>>;
 
+/// <summary>Nullable for the [AsParameters] reason on GetDiaInspectionsQuery.</summary>
 public sealed record GetDiaHistoryQuery : IRequest<ApiResult<PaginatedResult<DiaInspectionHistoryDto>>>
 {
-    public int PageNumber { get; init; } = 1;
-    public int PageSize { get; init; } = 20;
+    public int? PageNumber { get; init; }
+    public int? PageSize { get; init; }
     public Guid? DiaId { get; init; }
     public DiaInspectionAction? Action { get; init; }
     public DateTime? FromDate { get; init; }
@@ -358,9 +365,10 @@ public sealed class GetDiaInspectionsHandler(
 {
     public async Task<ApiResult<PaginatedResult<DiaInspectionDto>>> Handle(GetDiaInspectionsQuery request, CancellationToken cancellationToken)
     {
-        var page = Math.Max(1, request.PageNumber);
-        var size = Math.Clamp(request.PageSize, 1, 100);
-        var query = repository.Inspections.AsNoTracking().Where(x => x.IsArchived == request.Archived);
+        var page = Math.Max(1, request.PageNumber ?? 1);
+        var size = Math.Clamp(request.PageSize ?? 20, 1, 100);
+        var archived = request.Archived ?? false;
+        var query = repository.Inspections.AsNoTracking().Where(x => x.IsArchived == archived);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim().ToLower();
@@ -466,8 +474,8 @@ public sealed class GetDiaHistoryHandler(IDiaInspectionRepository repository)
 {
     public async Task<ApiResult<PaginatedResult<DiaInspectionHistoryDto>>> Handle(GetDiaHistoryQuery request, CancellationToken cancellationToken)
     {
-        var page = Math.Max(1, request.PageNumber);
-        var size = Math.Clamp(request.PageSize, 1, 100);
+        var page = Math.Max(1, request.PageNumber ?? 1);
+        var size = Math.Clamp(request.PageSize ?? 20, 1, 100);
         var query = repository.History.AsNoTracking();
         if (request.DiaId is { } diaId) query = query.Where(x => x.DiaInspectionId == diaId);
         if (request.Action is { } action) query = query.Where(x => x.Action == action);

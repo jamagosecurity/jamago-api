@@ -34,8 +34,10 @@ public sealed record SubmitTechnicianInspectionCommand(Guid InspectionId)
 
 public sealed record GetTechnicianHistoryQuery : IRequest<ApiResult<PaginatedResult<TechnicianInspectionHistoryDto>>>
 {
-    public int PageNumber { get; init; } = 1;
-    public int PageSize { get; init; } = 20;
+    // Nullable because [AsParameters] treats non-nullable value types as
+    // required query parameters — see GetDiaInspectionsQuery.
+    public int? PageNumber { get; init; }
+    public int? PageSize { get; init; }
     public Guid? DiaId { get; init; }
 }
 
@@ -536,8 +538,8 @@ public sealed class GetTechnicianHistoryHandler(ITechnicianInspectionRepository 
         GetTechnicianHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        var page = Math.Max(1, request.PageNumber);
-        var size = Math.Clamp(request.PageSize, 1, 100);
+        var page = Math.Max(1, request.PageNumber ?? 1);
+        var size = Math.Clamp(request.PageSize ?? 20, 1, 100);
         var query = repository.History;
         if (request.DiaId is { } diaId)
             query = query.Where(x => x.DiaInspectionId == diaId);
