@@ -25,7 +25,8 @@ public sealed class Dia : EndpointGroupBase
             .MapPut(Update, "{id:guid}", permission: Permissions.DiaUpload)
             .MapDelete(Archive, "{id:guid}", Roles.Admin)
             .MapPost(Activate, "{id:guid}/activate", Roles.Admin)
-            .MapPost(Deactivate, "{id:guid}/deactivate", Roles.Admin);
+            .MapPost(Deactivate, "{id:guid}/deactivate", Roles.Admin)
+            .MapPost(Restore, "{id:guid}/restore", Roles.Admin);
     }
 
     public async Task<IResult> GetList(
@@ -74,6 +75,10 @@ public sealed class Dia : EndpointGroupBase
 
     public Task<IResult> Deactivate(ISender sender, Guid id, CancellationToken cancellationToken) =>
         ChangeState(sender, id, DiaMutation.Deactivate, cancellationToken);
+
+    /// <summary>Brings an archived DIA back into the register, inactive.</summary>
+    public Task<IResult> Restore(ISender sender, Guid id, CancellationToken cancellationToken) =>
+        ChangeState(sender, id, DiaMutation.Restore, cancellationToken);
 
     public async Task<IResult> GetDashboard(ISender sender, CancellationToken cancellationToken) =>
         Results.Ok(await sender.Send(new GetDiaDashboardQuery(), cancellationToken));

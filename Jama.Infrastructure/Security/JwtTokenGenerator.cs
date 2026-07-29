@@ -28,12 +28,11 @@ public class JwtTokenGenerator(IOptions<JwtSettings> options) : ITokenGenerator
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
 
-        // Admins implicitly hold everything; other accounts carry exactly what an
-        // admin granted them. Callers must have re-authenticated for permission
-        // changes to take effect, which is why tokens are short-lived.
-        var granted = Permissions.Expand(
-            Permissions.ForRole(user.Role)
-                .Concat(user.Permissions.Select(p => p.Permission)));
+        // Callers must have re-authenticated for permission changes to take
+        // effect, which is why tokens are short-lived.
+        var granted = Permissions.EffectiveFor(
+            user.Role,
+            user.Permissions.Select(p => p.Permission));
 
         claims.AddRange(granted.Select(p => new Claim(PermissionClaims.Type, p)));
 

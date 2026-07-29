@@ -1,4 +1,5 @@
 using AppRoles = Jama.Application.Common.Roles;
+using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Application.Technician;
 using Jama.Web.Infrastructure;
@@ -11,16 +12,21 @@ public sealed class Technician : EndpointGroupBase
 {
     public override void Map(WebApplication app)
     {
+        // Role AND permission. The Technician role is the portal boundary — it is
+        // what Department assigns and what decides where a user lands. The
+        // permission is the capability, so an admin can suspend someone's ability
+        // to inspect, or let them see invoices only, without moving them out of
+        // the technician portal entirely.
         app.MapGroup(this)
-            .MapGet(GetDiaList, "dia", AppRoles.Technician)
-            .MapGet(GetInspectionById, "inspection/{id:guid}", AppRoles.Technician)
-            .MapGet(GetDiaById, "dia/{id:guid}", AppRoles.Technician)
-            .MapGet(GetDiaSummary, "dia/{id:guid}/summary", AppRoles.Technician)
-            .MapPost(StartInspection, "start", AppRoles.Technician)
-            .MapPost(SaveDraft, "save-draft", AppRoles.Technician)
-            .MapPost(SubmitInspection, "submit", AppRoles.Technician)
-            .MapGet(GetHistory, "history", AppRoles.Technician)
-            .MapGet(GetInvoices, "invoices", AppRoles.Technician)
+            .MapGet(GetDiaList, "dia", AppRoles.Technician, permission: Permissions.DiaView)
+            .MapGet(GetInspectionById, "inspection/{id:guid}", AppRoles.Technician, permission: Permissions.DiaView)
+            .MapGet(GetDiaById, "dia/{id:guid}", AppRoles.Technician, permission: Permissions.DiaView)
+            .MapGet(GetDiaSummary, "dia/{id:guid}/summary", AppRoles.Technician, permission: Permissions.DiaView)
+            .MapPost(StartInspection, "start", AppRoles.Technician, permission: Permissions.DiaInspect)
+            .MapPost(SaveDraft, "save-draft", AppRoles.Technician, permission: Permissions.DiaInspect)
+            .MapPost(SubmitInspection, "submit", AppRoles.Technician, permission: Permissions.DiaInspect)
+            .MapGet(GetHistory, "history", AppRoles.Technician, permission: Permissions.DiaView)
+            .MapGet(GetInvoices, "invoices", AppRoles.Technician, permission: Permissions.InvoiceView)
             .MapPost(ReopenInspection, "{inspectionId:guid}/reopen", AppRoles.Admin);
     }
 

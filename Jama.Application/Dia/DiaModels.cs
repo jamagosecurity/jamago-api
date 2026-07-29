@@ -23,6 +23,8 @@ public sealed record DiaInspectionDto
     public DateTime CreatedDate { get; init; }
     public DateTime? ActivatedDate { get; init; }
     public bool IsActive { get; init; }
+    /// <summary>Soft-deleted. Only ever true when listing with Archived=true.</summary>
+    public bool IsArchived { get; init; }
     public DiaStatus Status { get; init; }
     public int? CurrentQuarter { get; init; }
     public DateTime? QuarterStartDate { get; init; }

@@ -8,4 +8,5 @@ public enum DiaInspectionAction
     Activate,
     Deactivate,
     Archive,
+    Restore,
 }

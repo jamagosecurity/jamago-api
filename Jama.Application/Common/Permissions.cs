@@ -65,6 +65,33 @@ public static class Permissions
         role == Roles.Admin ? All.Select(p => p.Key).ToList() : [];
 
     /// <summary>
+    /// Capabilities a role cannot function without. Used only when an account has
+    /// no explicit grants at all — a Technician with an empty permission list is
+    /// an account nobody has configured yet, not one deliberately stripped of the
+    /// ability to inspect, and locking them out of their own portal would be a
+    /// worse failure than granting the baseline.
+    /// </summary>
+    private static IReadOnlyList<string> BaselineForRole(string role) =>
+        role == Roles.Technician ? [DiaView, DiaInspect, InvoiceView] : [];
+
+    /// <summary>
+    /// The effective permission set for an account: the single place that answers
+    /// "what may this user do". Resolution order is admin-implied, then explicit
+    /// grants, then the role baseline.
+    ///
+    /// Explicit grants win over the baseline, so unticking "Perform inspections"
+    /// on a technician genuinely removes it rather than being quietly restored.
+    /// </summary>
+    public static IReadOnlyList<string> EffectiveFor(string role, IEnumerable<string> explicitGrants)
+    {
+        if (role == Roles.Admin)
+            return All.Select(p => p.Key).ToList();
+
+        var granted = explicitGrants.Where(IsValid).Distinct().ToList();
+        return Expand(granted.Count > 0 ? granted : BaselineForRole(role));
+    }
+
+    /// <summary>
     /// Sensible starting permissions when an admin creates an account, based on the
     /// department they picked. The admin can tick or untick anything afterwards.
     /// </summary>

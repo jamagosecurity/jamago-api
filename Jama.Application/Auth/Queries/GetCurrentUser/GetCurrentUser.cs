@@ -36,9 +36,9 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, T
         // Recomputed from the database rather than read off the token, so a
         // permission an admin revokes mid-session disappears on the next
         // navigation instead of lingering until the token expires.
-        var granted = Common.Permissions.Expand(
-            Common.Permissions.ForRole(user.Role)
-                .Concat(user.Permissions.Select(p => p.Permission)));
+        var granted = Common.Permissions.EffectiveFor(
+            user.Role,
+            user.Permissions.Select(p => p.Permission));
 
         return TypedResult<UserSummaryDto>.Success(
             new UserSummaryDto(user.Id, user.Email, user.FullName, user.Role, granted));

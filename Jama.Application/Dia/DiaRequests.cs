@@ -29,7 +29,7 @@ public sealed record UpdateDiaInspectionCommand : IRequest<ApiResult<DiaInspecti
 public sealed record ChangeDiaInspectionStateCommand(Guid Id, DiaMutation Mutation)
     : IRequest<ApiResult<DiaInspectionDto>>;
 
-public enum DiaMutation { Activate, Deactivate, Archive }
+public enum DiaMutation { Activate, Deactivate, Archive, Restore }
 
 public sealed record GetDiaInspectionQuery(Guid Id) : IRequest<ApiResult<DiaInspectionDto>>;
 
@@ -39,6 +39,12 @@ public sealed record GetDiaInspectionsQuery : IRequest<ApiResult<PaginatedResult
     public int PageSize { get; init; } = 20;
     public string? Search { get; init; }
     public DiaStatus? Status { get; init; }
+    /// <summary>
+    /// Archived records are excluded by default. Set true to list only archived
+    /// ones — archiving is a soft delete, so this is the route back to a record
+    /// that was archived by mistake.
+    /// </summary>
+    public bool Archived { get; init; }
     public string? SortBy { get; init; } = "createdDate";
     public string? SortDirection { get; init; } = "desc";
 }
@@ -262,8 +268,21 @@ public sealed class ChangeDiaInspectionStateHandler(
     public async Task<ApiResult<DiaInspectionDto>> Handle(ChangeDiaInspectionStateCommand request, CancellationToken cancellationToken)
     {
         var entity = await repository.FindAsync(request.Id, cancellationToken);
-        if (entity is null || entity.IsArchived)
+        if (entity is null)
             return ApiResult<DiaInspectionDto>.Failure("DIA inspection not found.");
+
+        // Restore is the one mutation that operates ON an archived record;
+        // every other one treats archived as gone.
+        if (request.Mutation == DiaMutation.Restore)
+        {
+            if (!entity.IsArchived)
+                return ApiResult<DiaInspectionDto>.Failure("DIA inspection is not archived.");
+        }
+        else if (entity.IsArchived)
+        {
+            return ApiResult<DiaInspectionDto>.Failure("DIA inspection not found.");
+        }
+
         if (request.Mutation == DiaMutation.Activate && entity.IsActive)
             return ApiResult<DiaInspectionDto>.Failure("DIA inspection is already active.");
 
@@ -272,6 +291,7 @@ public sealed class ChangeDiaInspectionStateHandler(
         {
             DiaMutation.Activate => DiaInspectionAction.Activate,
             DiaMutation.Deactivate => DiaInspectionAction.Deactivate,
+            DiaMutation.Restore => DiaInspectionAction.Restore,
             _ => DiaInspectionAction.Archive,
         };
         if (request.Mutation == DiaMutation.Activate)
@@ -281,6 +301,13 @@ public sealed class ChangeDiaInspectionStateHandler(
         }
         else if (request.Mutation == DiaMutation.Deactivate)
         {
+            entity.IsActive = false;
+        }
+        else if (request.Mutation == DiaMutation.Restore)
+        {
+            // Comes back inactive: the admin re-activates deliberately, so a
+            // restore never silently restarts a technician's quarterly clock.
+            entity.IsArchived = false;
             entity.IsActive = false;
         }
         else
@@ -333,7 +360,7 @@ public sealed class GetDiaInspectionsHandler(
     {
         var page = Math.Max(1, request.PageNumber);
         var size = Math.Clamp(request.PageSize, 1, 100);
-        var query = repository.Inspections.AsNoTracking().Where(x => !x.IsArchived);
+        var query = repository.Inspections.AsNoTracking().Where(x => x.IsArchived == request.Archived);
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim().ToLower();
