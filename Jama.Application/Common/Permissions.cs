@@ -92,6 +92,20 @@ public static class Permissions
     }
 
     /// <summary>
+    /// Department defaults keyed by the enum name the client sends, so the staff
+    /// editor can apply them the moment an admin picks a department instead of
+    /// them only ever being seeded server-side at creation time.
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> DefaultsByDepartment { get; } =
+        new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["Technician"] = DefaultsForDepartment("Technician"),
+            ["MoiDiaUpload"] = DefaultsForDepartment("MOI DIA Upload"),
+            ["MoiDiaInspection"] = DefaultsForDepartment("MOI DIA Inspection"),
+            ["Panels"] = DefaultsForDepartment("Panels"),
+        };
+
+    /// <summary>
     /// Sensible starting permissions when an admin creates an account, based on the
     /// department they picked. The admin can tick or untick anything afterwards.
     /// </summary>
@@ -107,3 +121,11 @@ public static class Permissions
 }
 
 public sealed record PermissionDefinition(string Key, string Name, string Description);
+
+/// <summary>
+/// Everything the staff editor needs to render access settings: the grantable
+/// permissions and what each department starts with.
+/// </summary>
+public sealed record PermissionCatalogueDto(
+    IReadOnlyList<PermissionDefinition> Permissions,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> DepartmentDefaults);

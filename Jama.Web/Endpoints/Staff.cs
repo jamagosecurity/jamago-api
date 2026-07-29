@@ -83,8 +83,9 @@ public class Staff : EndpointGroupBase
     }
 
     /// <summary>Every permission an admin can grant, with display copy for the UI.</summary>
-    public Ok<TypedResult<IReadOnlyList<PermissionDefinition>>> GetPermissionCatalogue() =>
-        TypedResults.Ok(TypedResult<IReadOnlyList<PermissionDefinition>>.Success(Permissions.All));
+    public Ok<TypedResult<PermissionCatalogueDto>> GetPermissionCatalogue() =>
+        TypedResults.Ok(TypedResult<PermissionCatalogueDto>.Success(
+            new PermissionCatalogueDto(Permissions.All, Permissions.DefaultsByDepartment)));
 
     /// <summary>Replaces a staff member's granted permissions. Admin only.</summary>
     public async Task<Results<Ok<TypedResult<string>>, BadRequest<TypedResult<string>>, NotFound<TypedResult<string>>>> SetStaffPermissions(
