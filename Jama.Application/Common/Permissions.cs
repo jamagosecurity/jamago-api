@@ -22,15 +22,17 @@ public static class Permissions
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
-        new(DiaView, "View DIA inspections", "See DIA records and their inspection status."),
-        // Named "Upload DIA records" originally, which read as importing a file
-        // rather than creating records — the key stays dia.upload so existing
-        // grants are untouched.
-        new(DiaUpload, "Create DIA records", "Create and edit DIA inspection records. Includes viewing them."),
-        new(DiaInspect, "Perform inspections", "Carry out quarterly inspections and submit results."),
-        new(InvoiceView, "View invoices", "Open and download generated inspection invoices."),
-        new(ContactView, "View enquiries", "Read contact submissions from the public site."),
-        new(PanelsManage, "Manage panels", "Work with control panel records and configuration."),
+        // Plain language, and each description says what the person can and
+        // cannot do. The three DIA permissions previously read as near-synonyms
+        // ("View DIA inspections" / "Create DIA records" / "Perform
+        // inspections"), which made them impossible to tell apart at a glance.
+        // Keys are unchanged, so existing grants are untouched.
+        new(DiaView, "Look at DIA records", "Can open the DIA list and see each site's status. Cannot change anything."),
+        new(DiaUpload, "Add and edit DIA records", "Can create new DIA records and change existing ones. Looking at them is included."),
+        new(DiaInspect, "Do the quarterly site inspections", "For technicians: fill in and submit the inspection form for a site each quarter."),
+        new(InvoiceView, "Open invoices", "Can view and download the invoices produced after an inspection."),
+        new(ContactView, "Read website enquiries", "Can read messages people send through the contact form on jamago.qa."),
+        new(PanelsManage, "Manage control panels", "Can add and edit control panel records."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();
