@@ -1,6 +1,7 @@
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Application.Dia;
+using Jama.Application.Technician;
 using Jama.Web.Infrastructure;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +22,7 @@ public sealed class Dia : EndpointGroupBase
             .MapGet(GetDashboard, "dashboard", permission: Permissions.DiaView)
             .MapGet(GetInspectionHistory, "inspection-history", permission: Permissions.DiaView)
             .MapGet(GetById, "{id:guid}", permission: Permissions.DiaView)
+            .MapGet(GetSubmittedInspections, "{id:guid}/inspections", permission: Permissions.DiaView)
             .MapPost(Create, permission: Permissions.DiaUpload)
             .MapPut(Update, "{id:guid}", permission: Permissions.DiaUpload)
             .MapDelete(Archive, "{id:guid}", Roles.Admin)
@@ -38,6 +40,21 @@ public sealed class Dia : EndpointGroupBase
     public async Task<IResult> GetById(ISender sender, Guid id, CancellationToken cancellationToken)
     {
         var result = await sender.Send(new GetDiaInspectionQuery(id), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.NotFound(result);
+    }
+
+    /// <summary>
+    /// What each quarter's inspection actually captured — cameras, network, VMS,
+    /// UPS, ANPR and K'Poi. Reuses the technician summary query, which is scoped
+    /// by DIA rather than by user, so admins see the same record the technician
+    /// submitted rather than a separate reimplementation of it.
+    /// </summary>
+    public async Task<IResult> GetSubmittedInspections(
+        ISender sender,
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetTechnicianFinalSummaryQuery(id), cancellationToken);
         return result.Succeeded ? Results.Ok(result) : Results.NotFound(result);
     }
 
