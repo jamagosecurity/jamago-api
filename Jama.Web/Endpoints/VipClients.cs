@@ -1,6 +1,14 @@
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
-using Jama.Application.VipClients;
+using Jama.Application.VipClients.Commands.CreateVipClient;
+using Jama.Application.VipClients.Commands.DeleteVipClient;
+using Jama.Application.VipClients.Commands.DeleteVipDocument;
+using Jama.Application.VipClients.Commands.UpdateVipClient;
+using Jama.Application.VipClients.Commands.UploadVipDocument;
+using Jama.Application.VipClients.Queries.DownloadVipDocument;
+using Jama.Application.VipClients.Queries.GetMyVipProject;
+using Jama.Application.VipClients.Queries.GetVipClient;
+using Jama.Application.VipClients.Queries.GetVipClients;
 using Jama.Web.Infrastructure;
 using MediatR;
 using AppRoles = Jama.Application.Common.Roles;

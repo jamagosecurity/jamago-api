@@ -1,4 +1,3 @@
-using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Application.Options;
@@ -7,7 +6,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace Jama.Application.VipClients;
+namespace Jama.Application.VipClients.Commands.UploadVipDocument;
 
 public sealed record UploadVipDocumentCommand : IRequest<ApiResult<VipClientDocumentDto>>
 {
@@ -18,18 +17,7 @@ public sealed record UploadVipDocumentCommand : IRequest<ApiResult<VipClientDocu
     public Stream Content { get; init; } = Stream.Null;
 }
 
-public sealed record DeleteVipDocumentCommand(Guid DocumentId) : IRequest<ApiResult<Guid>>;
-
-/// <summary>
-/// Resolved content for a download. Access is decided in the handler, not the
-/// endpoint, so both the admin and the client route enforce the same rule.
-/// </summary>
-public sealed record VipDocumentContent(Stream Content, string FileName, string ContentType);
-
-public sealed record DownloadVipDocumentQuery(Guid DocumentId)
-    : IRequest<ApiResult<VipDocumentContent>>;
-
-public sealed class UploadVipDocumentHandler(
+public sealed class UploadVipDocumentCommandHandler(
     IApplicationDbContext context,
     IFileStorage storage,
     ICurrentUser currentUser,
@@ -65,14 +53,13 @@ public sealed class UploadVipDocumentHandler(
             return ApiResult<VipClientDocumentDto>.Failure($"Files must be {settings.MaxFileSizeMb} MB or smaller.");
 
         // Key is built entirely from server-side ids — the uploaded name never
-        // reaches the filesystem, so it cannot be used to escape the root or
+        // reaches the filesystem, so it cannot escape the storage root or
         // collide with another client's file.
         //
         // Joined with '/' rather than Path.Combine on purpose. Keys are persisted
         // and this database is shared between Windows development and the Linux
-        // VPS: a key written as "vip\a\b\c.pdf" on Windows is a single flat
-        // filename on Linux, so the file would be unreachable from production.
-        // The storage implementation translates to the local separator.
+        // VPS: "vip\a\b\c.pdf" is a single flat filename on Linux, so the file
+        // would be unreachable from production.
         var documentId = Guid.CreateVersion7();
         var storageKey = string.Join('/',
             "vip",
@@ -105,64 +92,5 @@ public sealed class UploadVipDocumentHandler(
             document.SizeBytes,
             document.CreatedAt,
             currentUser.DisplayName));
-    }
-}
-
-public sealed class DownloadVipDocumentHandler(
-    IApplicationDbContext context,
-    IFileStorage storage,
-    ICurrentUser currentUser)
-    : IRequestHandler<DownloadVipDocumentQuery, ApiResult<VipDocumentContent>>
-{
-    public async Task<ApiResult<VipDocumentContent>> Handle(
-        DownloadVipDocumentQuery request,
-        CancellationToken cancellationToken)
-    {
-        var document = await context.VipClientDocuments
-            .AsNoTracking()
-            .Include(d => d.Folder)
-                .ThenInclude(f => f.VipClient)
-            .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
-
-        if (document is null)
-            return ApiResult<VipDocumentContent>.Failure("Document not found.");
-
-        // A client may only read their own project. Staff with vip.manage reach
-        // this through a permission-gated route, so the role check here is what
-        // stops one client guessing another's document id.
-        if (currentUser.Role == Roles.Client
-            && document.Folder.VipClient.AdminUserId != currentUser.UserId)
-        {
-            return ApiResult<VipDocumentContent>.Failure("Document not found.");
-        }
-
-        var content = await storage.OpenReadAsync(document.StorageKey, cancellationToken);
-        if (content is null)
-            return ApiResult<VipDocumentContent>.Failure("The stored file is missing.");
-
-        return ApiResult<VipDocumentContent>.Success(
-            new VipDocumentContent(content, document.FileName, document.ContentType));
-    }
-}
-
-public sealed class DeleteVipDocumentHandler(IApplicationDbContext context, IFileStorage storage)
-    : IRequestHandler<DeleteVipDocumentCommand, ApiResult<Guid>>
-{
-    public async Task<ApiResult<Guid>> Handle(
-        DeleteVipDocumentCommand request,
-        CancellationToken cancellationToken)
-    {
-        var document = await context.VipClientDocuments
-            .FirstOrDefaultAsync(d => d.Id == request.DocumentId, cancellationToken);
-
-        if (document is null)
-            return ApiResult<Guid>.Failure("Document not found.");
-
-        var key = document.StorageKey;
-        context.VipClientDocuments.Remove(document);
-        await context.SaveChangesAsync(cancellationToken);
-
-        await storage.DeleteAsync(key, cancellationToken);
-        return ApiResult<Guid>.Success(document.Id);
     }
 }
