@@ -43,15 +43,40 @@ public sealed record UpdateVipClientCommand : IRequest<ApiResult<Guid>>
 
 public sealed record DeleteVipClientCommand(Guid Id) : IRequest<ApiResult<Guid>>;
 
+/// <summary>
+/// Shared rules so create and update cannot drift apart, and so a VIP client's
+/// password is held to the same standard as a staff account's — these logins are
+/// handed to people outside the company.
+/// </summary>
+internal static class VipClientRules
+{
+    public static IRuleBuilderOptions<T, string?> Password<T>(IRuleBuilder<T, string?> rule) =>
+        rule.MinimumLength(8).WithMessage("Password must be at least 8 characters.")
+            .Matches("[A-Z]").WithMessage("Password must include an uppercase letter.")
+            .Matches("[a-z]").WithMessage("Password must include a lowercase letter.")
+            .Matches("[0-9]").WithMessage("Password must include a number.");
+}
+
 public sealed class CreateVipClientValidator : AbstractValidator<CreateVipClientCommand>
 {
     public CreateVipClientValidator()
     {
-        RuleFor(x => x.ClientName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.ProjectName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(200);
-        RuleFor(x => x.Password).NotEmpty().MinimumLength(8);
-        RuleFor(x => x.FolderName).MaximumLength(400);
+        RuleFor(x => x.ClientName)
+            .NotEmpty().WithMessage("Client name is required.")
+            .MaximumLength(200).WithMessage("Client name must be 200 characters or fewer.");
+        RuleFor(x => x.ProjectName)
+            .NotEmpty().WithMessage("Project name is required.")
+            .MaximumLength(200).WithMessage("Project name must be 200 characters or fewer.");
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Enter a valid email address.")
+            .MaximumLength(200).WithMessage("Email must be 200 characters or fewer.");
+        RuleFor(x => x.FolderName)
+            .MaximumLength(400).WithMessage("Folder name must be 400 characters or fewer.");
+
+        RuleFor(x => x.Password).NotEmpty().WithMessage("Password is required.");
+        VipClientRules.Password(RuleFor(x => x.Password))
+            .When(x => !string.IsNullOrEmpty(x.Password));
     }
 }
 
@@ -59,12 +84,24 @@ public sealed class UpdateVipClientValidator : AbstractValidator<UpdateVipClient
 {
     public UpdateVipClientValidator()
     {
-        RuleFor(x => x.Id).NotEmpty();
-        RuleFor(x => x.ClientName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.ProjectName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(200);
-        RuleFor(x => x.Password).MinimumLength(8).When(x => !string.IsNullOrWhiteSpace(x.Password));
-        RuleFor(x => x.FolderName).MaximumLength(400);
+        RuleFor(x => x.Id).NotEmpty().WithMessage("A client id is required.");
+        RuleFor(x => x.ClientName)
+            .NotEmpty().WithMessage("Client name is required.")
+            .MaximumLength(200).WithMessage("Client name must be 200 characters or fewer.");
+        RuleFor(x => x.ProjectName)
+            .NotEmpty().WithMessage("Project name is required.")
+            .MaximumLength(200).WithMessage("Project name must be 200 characters or fewer.");
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email is required.")
+            .EmailAddress().WithMessage("Enter a valid email address.")
+            .MaximumLength(200).WithMessage("Email must be 200 characters or fewer.");
+        RuleFor(x => x.FolderName)
+            .MaximumLength(400).WithMessage("Folder name must be 400 characters or fewer.");
+
+        // Blank means "keep the current password", so the strength rules only
+        // apply when one was actually supplied.
+        VipClientRules.Password(RuleFor(x => x.Password))
+            .When(x => !string.IsNullOrWhiteSpace(x.Password));
     }
 }
 

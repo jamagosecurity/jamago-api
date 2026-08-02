@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http.Features;
 using System.Text;
 using System.Text.Json.Serialization;
 using Jama.Application;
@@ -76,6 +77,23 @@ builder.Services
 builder.Services.AddAuthorizationBuilder().AddPermissionPolicies();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+// Reject oversized uploads at the transport layer. Without this the default
+// 128 MB multipart limit applies, so a 100 MB file would be buffered in full
+// before the handler's own size check rejected it. The small headroom covers
+// multipart framing around the file itself.
+var maxUploadMb = builder.Configuration.GetValue<int?>($"{FileStorageSettings.SectionName}:MaxFileSizeMb") ?? 25;
+var maxUploadBytes = (maxUploadMb + 2) * 1024L * 1024L;
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxUploadBytes;
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxUploadBytes;
+});
 
 builder.Services.AddCors(options =>
 {
