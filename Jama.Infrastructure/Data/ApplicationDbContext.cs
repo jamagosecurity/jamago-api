@@ -17,6 +17,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TechnicianInspection> TechnicianInspections => Set<TechnicianInspection>();
     public DbSet<TechnicianInspectionHistory> TechnicianInspectionHistory => Set<TechnicianInspectionHistory>();
     public DbSet<InspectionInvoice> InspectionInvoices => Set<InspectionInvoice>();
+    public DbSet<VipClient> VipClients => Set<VipClient>();
+    public DbSet<VipClientFolder> VipClientFolders => Set<VipClientFolder>();
+    public DbSet<VipClientDocument> VipClientDocuments => Set<VipClientDocument>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

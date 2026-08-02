@@ -14,5 +14,8 @@ public interface IApplicationDbContext
     DbSet<TechnicianInspection> TechnicianInspections { get; }
     DbSet<TechnicianInspectionHistory> TechnicianInspectionHistory { get; }
     DbSet<InspectionInvoice> InspectionInvoices { get; }
+    DbSet<VipClient> VipClients { get; }
+    DbSet<VipClientFolder> VipClientFolders { get; }
+    DbSet<VipClientDocument> VipClientDocuments { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -80,10 +80,19 @@ public static class EndpointRouteBuilderExtensions
         string pattern = "",
         string? roles = null,
         bool requireAuthorization = false,
-        string? permission = null)
+        string? permission = null,
+        bool allowFileUpload = false)
     {
         var route = builder.MapPost(pattern, handler);
         route.Protect(roles, requireAuthorization, permission);
+
+        // Minimal APIs attach antiforgery metadata to any endpoint taking an
+        // IFormFile, which then demands a token this API never issues. CSRF does
+        // not apply here: every request is authorised by a Bearer token that a
+        // browser will not attach automatically to a cross-site form post.
+        if (allowFileUpload)
+            route.DisableAntiforgery();
+
         return builder;
     }
 

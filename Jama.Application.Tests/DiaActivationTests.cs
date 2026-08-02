@@ -1,4 +1,5 @@
 using AutoMapper;
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Dia;
 using Jama.Domain.Entities;using Jama.Domain.Enums;
@@ -87,6 +88,7 @@ public sealed class DiaActivationTests
     {
         public Guid UserId { get; } = Guid.NewGuid();
         public string DisplayName => "Admin <admin@example.test>";
+        public string Role => Roles.Admin;
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

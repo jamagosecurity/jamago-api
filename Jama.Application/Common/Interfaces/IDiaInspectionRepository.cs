@@ -30,4 +30,8 @@ public interface ICurrentUser
 {
     Guid UserId { get; }
     string? DisplayName { get; }
+
+    /// <summary>Role claim from the token. Used where a handler must distinguish
+    /// a client reading their own data from staff reading anyone's.</summary>
+    string? Role { get; }
 }

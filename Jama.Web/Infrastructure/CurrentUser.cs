@@ -37,4 +37,6 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
             };
         }
     }
+
+    public string? Role => User.FindFirstValue(ClaimTypes.Role);
 }

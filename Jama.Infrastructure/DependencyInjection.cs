@@ -4,6 +4,7 @@ using Jama.Application.Options;
 using Jama.Infrastructure.Data;
 using Jama.Infrastructure.Documents;
 using Jama.Infrastructure.Security;
+using Jama.Infrastructure.Storage;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,7 @@ public static class DependencyInjection
 
         services.Configure<JwtSettings>(config.GetSection(JwtSettings.SectionName));
         services.Configure<AdminSeedSettings>(config.GetSection(AdminSeedSettings.SectionName));
+        services.Configure<FileStorageSettings>(config.GetSection(FileStorageSettings.SectionName));
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
@@ -32,6 +34,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
         services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
+        services.AddSingleton<IFileStorage, LocalFileStorage>();
 
         return services;
     }

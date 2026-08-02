@@ -3,7 +3,10 @@
     "DefaultConnection": "Host=127.0.0.1;Port=5432;Database=jamago_db;Username=jamago_admin;Password=YOUR_PASSWORD_HERE;SSL Mode=Disable"
   },
   "Cors": {
-    "Origins": [ "https://jamago.qa", "https://www.jamago.qa" ]
+    "Origins": [
+      "https://jamago.qa",
+      "https://www.jamago.qa"
+    ]
   },
   "Jwt": {
     "Issuer": "https://jamago.qa",
@@ -22,5 +25,9 @@
       "Microsoft.AspNetCore": "Warning"
     }
   },
-  "AllowedHosts": "jamago.qa;www.jamago.qa;localhost;127.0.0.1"
+  "AllowedHosts": "jamago.qa;www.jamago.qa;localhost;127.0.0.1",
+  "FileStorage": {
+    "Root": "/var/www/jamago-api/storage",
+    "MaxFileSizeMb": 25
+  }
 }
