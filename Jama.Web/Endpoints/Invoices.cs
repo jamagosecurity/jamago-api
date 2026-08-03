@@ -1,5 +1,6 @@
 using Jama.Application.Common;
 using Jama.Application.Technician;
+using Jama.Application.Technician.Queries.GetTechnicianInvoices;
 using Jama.Web.Infrastructure;
 using MediatR;
 

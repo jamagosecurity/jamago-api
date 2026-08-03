@@ -1,7 +1,15 @@
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Application.Dia;
+using Jama.Application.Dia.Commands.ChangeDiaInspectionState;
+using Jama.Application.Dia.Commands.CreateDiaInspection;
+using Jama.Application.Dia.Commands.UpdateDiaInspection;
+using Jama.Application.Dia.Queries.GetDiaDashboard;
+using Jama.Application.Dia.Queries.GetDiaHistory;
+using Jama.Application.Dia.Queries.GetDiaInspection;
+using Jama.Application.Dia.Queries.GetDiaInspections;
 using Jama.Application.Technician;
+using Jama.Application.Technician.Queries.GetTechnicianFinalSummary;
 using Jama.Web.Infrastructure;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;

@@ -1,5 +1,12 @@
 ﻿using FluentValidation;
 using Jama.Application.Dia;
+using Jama.Application.Dia.Commands.ChangeDiaInspectionState;
+using Jama.Application.Dia.Commands.CreateDiaInspection;
+using Jama.Application.Dia.Commands.UpdateDiaInspection;
+using Jama.Application.Dia.Queries.GetDiaDashboard;
+using Jama.Application.Dia.Queries.GetDiaHistory;
+using Jama.Application.Dia.Queries.GetDiaInspection;
+using Jama.Application.Dia.Queries.GetDiaInspections;
 
 namespace Jama.Application.Tests;
 
@@ -82,7 +89,7 @@ public sealed class DiaInspectionValidatorTests
     [Fact]
     public async Task Create_rejects_whitespace_and_accepts_trimmed_payload()
     {
-        var validator = new CreateDiaInspectionValidator();
+        var validator = new CreateDiaInspectionCommandValidator();
         var invalid = await validator.ValidateAsync(new CreateDiaInspectionCommand
         {
             DiaNumber = " ", ClientNumber = "C", ClientName = "Client", ClientLocation = "Doha",
@@ -99,7 +106,7 @@ public sealed class DiaInspectionValidatorTests
     [Fact]
     public async Task Update_requires_route_identifier_and_length_limits()
     {
-        var validator = new UpdateDiaInspectionValidator();
+        var validator = new UpdateDiaInspectionCommandValidator();
         var result = await validator.ValidateAsync(new UpdateDiaInspectionCommand
         {
             Id = Guid.Empty,

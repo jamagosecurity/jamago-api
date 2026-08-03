@@ -2,6 +2,13 @@ using AutoMapper;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Dia;
+using Jama.Application.Dia.Commands.ChangeDiaInspectionState;
+using Jama.Application.Dia.Commands.CreateDiaInspection;
+using Jama.Application.Dia.Commands.UpdateDiaInspection;
+using Jama.Application.Dia.Queries.GetDiaDashboard;
+using Jama.Application.Dia.Queries.GetDiaHistory;
+using Jama.Application.Dia.Queries.GetDiaInspection;
+using Jama.Application.Dia.Queries.GetDiaInspections;
 using Jama.Domain.Entities;using Jama.Domain.Enums;
 using Microsoft.Extensions.Logging.Abstractions;
 

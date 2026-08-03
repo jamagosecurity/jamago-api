@@ -1,10 +1,8 @@
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
-using Jama.Application.Options;
 using Jama.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace Jama.Application.VipClients.Commands.UploadVipDocument;
 
@@ -20,16 +18,16 @@ public sealed record UploadVipDocumentCommand : IRequest<ApiResult<VipClientDocu
 public sealed class UploadVipDocumentCommandHandler(
     IApplicationDbContext context,
     IFileStorage storage,
-    ICurrentUser currentUser,
-    IOptions<FileStorageSettings> options)
+    ICurrentUser currentUser)
     : IRequestHandler<UploadVipDocumentCommand, ApiResult<VipClientDocumentDto>>
 {
     public async Task<ApiResult<VipClientDocumentDto>> Handle(
         UploadVipDocumentCommand request,
         CancellationToken cancellationToken)
     {
-        var settings = options.Value;
-
+        // File name, extension and size are checked by
+        // UploadVipDocumentCommandValidator before this runs. What is left here
+        // is the part that needs the database: the folder must exist.
         var folder = await context.VipClientFolders
             .Include(f => f.VipClient)
             .FirstOrDefaultAsync(f => f.Id == request.FolderId, cancellationToken);
@@ -37,20 +35,8 @@ public sealed class UploadVipDocumentCommandHandler(
         if (folder is null)
             return ApiResult<VipClientDocumentDto>.Failure("Folder not found.");
 
-        var fileName = Path.GetFileName(request.FileName ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(fileName))
-            return ApiResult<VipClientDocumentDto>.Failure("A file name is required.");
-
+        var fileName = Path.GetFileName(request.FileName).Trim();
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        if (!settings.AllowedExtensions.Contains(extension))
-        {
-            return ApiResult<VipClientDocumentDto>.Failure(
-                $"{extension} files are not allowed. Accepted types: {string.Join(", ", settings.AllowedExtensions)}.");
-        }
-
-        var maxBytes = settings.MaxFileSizeMb * 1024L * 1024L;
-        if (request.SizeBytes > maxBytes)
-            return ApiResult<VipClientDocumentDto>.Failure($"Files must be {settings.MaxFileSizeMb} MB or smaller.");
 
         // Key is built entirely from server-side ids — the uploaded name never
         // reaches the filesystem, so it cannot escape the storage root or

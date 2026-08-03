@@ -2,6 +2,16 @@ using AppRoles = Jama.Application.Common.Roles;
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Application.Technician;
+using Jama.Application.Technician.Commands.ReopenTechnicianInspection;
+using Jama.Application.Technician.Commands.SaveTechnicianInspectionDraft;
+using Jama.Application.Technician.Commands.StartTechnicianInspection;
+using Jama.Application.Technician.Commands.SubmitTechnicianInspection;
+using Jama.Application.Technician.Queries.GetTechnicianDia;
+using Jama.Application.Technician.Queries.GetTechnicianDiaList;
+using Jama.Application.Technician.Queries.GetTechnicianFinalSummary;
+using Jama.Application.Technician.Queries.GetTechnicianHistory;
+using Jama.Application.Technician.Queries.GetTechnicianInspection;
+using Jama.Application.Technician.Queries.GetTechnicianInvoices;
 using Jama.Web.Infrastructure;
 using MediatR;
 
