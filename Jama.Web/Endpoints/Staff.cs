@@ -24,7 +24,11 @@ public class Staff : EndpointGroupBase
     public override void Map(WebApplication app)
     {
         app.MapGroup(this)
-            .MapGet(GetActiveStaff, roles: Roles.Admin)
+            // Anonymous: this is the "Our Team" roster on the marketing site, so
+            // the public homepage calls it before anyone has signed in. StaffDto
+            // carries only the details already meant for that page — the email
+            // and account state live on AdminStaffDto, behind "all" below.
+            .MapGet(GetActiveStaff)
             .MapGet(GetAllStaff, "all", Roles.Admin)
             .MapGet(GetMyStaffProfile, "me", Roles.Staff)
             .MapGet(GetPermissionCatalogue, "permissions", Roles.Admin)
