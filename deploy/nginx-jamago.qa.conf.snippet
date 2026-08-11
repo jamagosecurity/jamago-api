@@ -37,8 +37,29 @@ server {
         proxy_set_header   Connection        "";
     }
 
-    # Angular SPA routes
+    # Build artefacts carry a content hash in the filename, so a new build is a
+    # new URL — they can be cached indefinitely.
+    location ~* \.(?:js|css)$ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    # Self-hosted fonts, served from a fixed path with stable content.
+    location /fonts/ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+    }
+
+    # Images are not content-hashed, so keep the window short enough to replace them.
+    location ~* \.(?:png|jpe?g|gif|svg|webp|avif|ico)$ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=2592000" always;
+    }
+
+    # Angular SPA routes and prerendered HTML. HTML must revalidate every time or
+    # a deploy goes unnoticed while clients hold a stale shell.
     location / {
         try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache" always;
     }
 }
