@@ -32,6 +32,8 @@ public sealed record DiaInspectionDto
     public DateTime? NextInspectionDate { get; init; }
     public int RemainingDays { get; init; }
     public decimal ProgressPercent { get; init; }
+    /// <summary>Quarter windows closed with nothing submitted against them.</summary>
+    public int OverdueQuarters { get; init; }
     public string? CreatedBy { get; init; }
     public string? UpdatedBy { get; init; }
     public DateTime? UpdatedDate { get; init; }
@@ -64,14 +66,27 @@ public sealed record DiaCalculation(
     DateTime? QuarterEndDate,
     DateTime? NextInspectionDate,
     int RemainingDays,
-    decimal ProgressPercent);
+    decimal ProgressPercent,
+    /// <summary>
+    /// Quarter windows that have closed with nothing submitted against them. Never
+    /// counted as done — this is the count of inspections that were missed.
+    /// </summary>
+    int OverdueQuarters = 0);
 
 public interface IDiaInspectionCalculator
 {
     /// <summary>
-    /// Computes the admin-facing status of a DIA. The active quarter tracks how many quarterly
-    /// technician inspections have actually been <paramref name="submittedQuarters"/> (same rule as
-    /// the technician portal) rather than elapsed calendar time, so both views stay in sync.
+    /// Computes the admin-facing status of a DIA.
+    ///
+    /// The active quarter follows the calendar: quarter windows are three months long from the
+    /// activation date, so a site activated in December is in its third quarter by August whether
+    /// or not anyone inspected it. Windows that closed with nothing submitted are reported as
+    /// <see cref="DiaCalculation.OverdueQuarters"/> — never as progress.
+    ///
+    /// This used to count submitted inspections instead, which kept a site that had been running
+    /// for eight months displaying "Quarter 1" and made the register unable to show that
+    /// inspections had been missed at all. A technician working ahead still moves on: the quarter
+    /// is whichever is further along, calendar or submissions.
     /// </summary>
     DiaCalculation Calculate(bool isActive, DateTime? activatedDate, int submittedQuarters);
 }
@@ -95,12 +110,27 @@ public sealed class DiaInspectionCalculator(TimeProvider timeProvider) : IDiaIns
             return new(DiaStatus.Completed, null, activated, completion, null, 0, 100);
         }
 
-        var quarter = submitted + 1;
+        // Windows that have fully closed. The year has four, so a site older than
+        // twelve months stops at four rather than running off the end.
+        var elapsed = 0;
+        while (elapsed < 4 && activated.AddMonths((elapsed + 1) * 3) <= now)
+        {
+            elapsed++;
+        }
+
+        // Whichever is further along: the calendar, or a technician working ahead.
+        var quarter = Math.Clamp(Math.Max(submitted + 1, elapsed + 1), 1, 4);
+        var overdue = Math.Max(0, elapsed - submitted);
+
         var start = activated.AddMonths((quarter - 1) * 3);
         var end = activated.AddMonths(quarter * 3);
         var remaining = Math.Max(0, (int)Math.Ceiling((end - now).TotalDays));
 
-        return new((DiaStatus)quarter, quarter, start, end, end, remaining, quarter * 25);
+        // Progress stays a measure of work done, not time served, so a site with
+        // three missed quarters still reads 0%.
+        var progress = submitted * 25m;
+
+        return new((DiaStatus)quarter, quarter, start, end, end, remaining, progress, overdue);
     }
 }
 
@@ -118,6 +148,7 @@ public sealed class DiaMappingProfile : Profile
             .ForMember(d => d.NextInspectionDate, o => o.Ignore())
             .ForMember(d => d.RemainingDays, o => o.Ignore())
             .ForMember(d => d.ProgressPercent, o => o.Ignore())
+            .ForMember(d => d.OverdueQuarters, o => o.Ignore())
             .ForMember(d => d.CreatedBy, o => o.Ignore())
             .ForMember(d => d.UpdatedBy, o => o.Ignore());
     }

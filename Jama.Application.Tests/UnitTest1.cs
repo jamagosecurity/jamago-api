@@ -50,11 +50,17 @@ public sealed class DiaInspectionCalculatorTests
     }
 
     [Fact]
-    public void First_quarter_progress_marker_is_twenty_five_percent()
+    public void Progress_measures_submitted_inspections_not_time_served()
     {
+        // Previously being *in* quarter 1 scored 25%. Once the quarter follows the
+        // calendar that reading breaks down: a site with three missed windows would
+        // have advertised 75% complete having done nothing at all.
         var result = Calculator(Activation.AddDays(1)).Calculate(true, Activation, 0);
         Assert.Equal(new DateTime(2024, 4, 30, 12, 0, 0, DateTimeKind.Utc), result.NextInspectionDate);
-        Assert.Equal(25, result.ProgressPercent);
+        Assert.Equal(0, result.ProgressPercent);
+
+        var oneDone = Calculator(Activation.AddDays(1)).Calculate(true, Activation, 1);
+        Assert.Equal(25, oneDone.ProgressPercent);
     }
 
     [Fact]

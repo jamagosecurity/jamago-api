@@ -24,7 +24,7 @@ public sealed class GetTechnicianDiaHandler(
 
         var submittedQuarters = await repository.Inspections
             .CountAsync(x => x.DiaInspectionId == dia.Id && x.Status == TechnicianInspectionStatus.Submitted, cancellationToken);
-        var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedQuarters);
+        var cycle = calculator.Calculate(dia.InspectionStartedDate ?? dia.ActivatedDate, submittedQuarters);
         TechnicianInspection? quarterInspection = null;
         if (cycle.CurrentQuarter is { } quarter)
         {

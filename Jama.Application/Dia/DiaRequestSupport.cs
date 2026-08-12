@@ -43,6 +43,7 @@ internal static class DiaRequestSupport
             NextInspectionDate = calculation.NextInspectionDate,
             RemainingDays = calculation.RemainingDays,
             ProgressPercent = calculation.ProgressPercent,
+            OverdueQuarters = calculation.OverdueQuarters,
             CreatedBy = createdBy ?? entity.CreatedById.ToString(),
             UpdatedBy = entity.UpdatedById is null ? null : updatedBy ?? entity.UpdatedById.Value.ToString(),
         };

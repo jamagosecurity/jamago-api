@@ -35,7 +35,7 @@ public sealed class GetTechnicianDiaListHandler(
         var items = dias.Select(dia =>
         {
             var submitted = Math.Clamp(submittedByDia.GetValueOrDefault(dia.Id), 0, 4);
-            var cycle = calculator.Calculate(dia.InspectionStartedDate, submitted);
+            var cycle = calculator.Calculate(dia.InspectionStartedDate ?? dia.ActivatedDate, submitted);
             var quarterInspection = cycle.CurrentQuarter is { } q
                 ? inspections.FirstOrDefault(x => x.DiaInspectionId == dia.Id && x.Quarter == q)
                 : null;
@@ -55,7 +55,8 @@ public sealed class GetTechnicianDiaListHandler(
                 cycle.QuarterStartDate,
                 cycle.QuarterEndDate,
                 cycle.RemainingDays,
-                cycle.ProgressPercent);
+                cycle.ProgressPercent,
+                cycle.OverdueQuarters);
         }).ToList();
 
         return ApiResult<IReadOnlyList<TechnicianDiaListItemDto>>.Success(items);

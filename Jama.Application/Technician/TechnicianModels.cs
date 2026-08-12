@@ -18,29 +18,37 @@ public sealed record TechnicianCycleCalculation(
     DateTime? QuarterStartDate,
     DateTime? QuarterEndDate,
     int RemainingDays,
-    decimal ProgressPercent);
+    decimal ProgressPercent,
+    /// <summary>Closed windows with nothing submitted. Missed work, not progress.</summary>
+    int OverdueQuarters = 0);
 
 public interface ITechnicianInspectionCalculator
 {
     /// <summary>
     /// Calculates the technician's current position in the 4-quarter cycle.
-    /// The active quarter is driven by <paramref name="submittedQuarters"/> (how many quarters
-    /// have actually been submitted so far), not by elapsed calendar time — a quarter that is
-    /// never submitted stays open/overdue instead of being silently skipped once its date window
-    /// passes, and a quarter finished early unlocks the next one immediately.
+    ///
+    /// The cycle is anchored on the DIA's schedule, so callers pass the inspection start date
+    /// falling back to the activation date: the quarterly clock belongs to the site's MOI
+    /// schedule and starts when an administrator activates it, not when a technician first
+    /// opens the record. Quarters run three months from that anchor.
+    ///
+    /// A window that closes with nothing submitted is counted in
+    /// <see cref="TechnicianCycleCalculation.OverdueQuarters"/> and never as progress. A
+    /// technician working ahead still unlocks the next quarter immediately.
     /// </summary>
-    TechnicianCycleCalculation Calculate(DateTime? inspectionStartedDate, int submittedQuarters);
+    TechnicianCycleCalculation Calculate(DateTime? scheduleAnchor, int submittedQuarters);
 }
 
 public sealed class TechnicianInspectionCalculator(TimeProvider timeProvider) : ITechnicianInspectionCalculator
 {
-    public TechnicianCycleCalculation Calculate(DateTime? inspectionStartedDate, int submittedQuarters)
+    public TechnicianCycleCalculation Calculate(DateTime? scheduleAnchor, int submittedQuarters)
     {
-        if (inspectionStartedDate is null)
+        if (scheduleAnchor is null)
             return new(TechnicianInspectionCycleStatus.NotStarted, null, null, null, 0, 0);
 
-        var started = DateTime.SpecifyKind(inspectionStartedDate.Value, DateTimeKind.Utc);
+        var started = DateTime.SpecifyKind(scheduleAnchor.Value, DateTimeKind.Utc);
         var submitted = Math.Clamp(submittedQuarters, 0, 4);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
 
         if (submitted >= 4)
         {
@@ -48,13 +56,31 @@ public sealed class TechnicianInspectionCalculator(TimeProvider timeProvider) : 
             return new(TechnicianInspectionCycleStatus.Completed, null, started, completion, 0, 100);
         }
 
-        var quarter = submitted + 1;
+        // A schedule that has not begun yet has no active quarter to work on.
+        if (now < started)
+            return new(TechnicianInspectionCycleStatus.NotStarted, null, null, null, 0, 0);
+
+        var elapsed = 0;
+        while (elapsed < 4 && started.AddMonths((elapsed + 1) * 3) <= now)
+        {
+            elapsed++;
+        }
+
+        var quarter = Math.Clamp(Math.Max(submitted + 1, elapsed + 1), 1, 4);
+        var overdue = Math.Max(0, elapsed - submitted);
+
         var start = started.AddMonths((quarter - 1) * 3);
         var end = started.AddMonths(quarter * 3);
-        var now = timeProvider.GetUtcNow().UtcDateTime;
         var remaining = Math.Max(0, (int)Math.Ceiling((end - now).TotalDays));
 
-        return new((TechnicianInspectionCycleStatus)quarter, quarter, start, end, remaining, quarter * 25m);
+        return new(
+            (TechnicianInspectionCycleStatus)quarter,
+            quarter,
+            start,
+            end,
+            remaining,
+            submitted * 25m,
+            overdue);
     }
 }
 
@@ -84,7 +110,10 @@ public sealed record TechnicianDiaListItemDto(
     DateTime? QuarterStartDate,
     DateTime? QuarterEndDate,
     int RemainingDays,
-    decimal ProgressPercent);
+    decimal ProgressPercent,
+    /// <summary>Quarter windows that closed with nothing submitted, so the card can
+    /// say a site is behind rather than only which quarter is due.</summary>
+    int OverdueQuarters = 0);
 
 public sealed record TechnicianDiaDetailDto(
     Guid Id,

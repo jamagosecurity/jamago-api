@@ -35,7 +35,7 @@ public sealed class GetTechnicianFinalSummaryHandler(
             .ToListAsync(cancellationToken);
 
         var submittedQuarters = inspections.Count(x => x.Status == TechnicianInspectionStatus.Submitted);
-        var cycle = calculator.Calculate(dia.InspectionStartedDate, submittedQuarters);
+        var cycle = calculator.Calculate(dia.InspectionStartedDate ?? dia.ActivatedDate, submittedQuarters);
         if (cycle.Status != TechnicianInspectionCycleStatus.Completed)
             return ApiResult<TechnicianFinalSummaryDto>.Failure("Final summary is available after the inspection cycle completes.");
 
