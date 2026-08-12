@@ -11,8 +11,7 @@ public sealed record GetTechnicianFinalSummaryQuery(Guid DiaInspectionId)
     : IRequest<ApiResult<TechnicianFinalSummaryDto>>;
 
 public sealed class GetTechnicianFinalSummaryHandler(
-    ITechnicianInspectionRepository repository,
-    ITechnicianInspectionCalculator calculator)
+    ITechnicianInspectionRepository repository)
     : IRequestHandler<GetTechnicianFinalSummaryQuery, ApiResult<TechnicianFinalSummaryDto>>
 {
     public async Task<ApiResult<TechnicianFinalSummaryDto>> Handle(
@@ -34,10 +33,14 @@ public sealed class GetTechnicianFinalSummaryHandler(
             .OrderBy(x => x.Quarter)
             .ToListAsync(cancellationToken);
 
-        var submittedQuarters = inspections.Count(x => x.Status == TechnicianInspectionStatus.Submitted);
-        var cycle = calculator.Calculate(dia.InspectionStartedDate ?? dia.ActivatedDate, submittedQuarters);
-        if (cycle.Status != TechnicianInspectionCycleStatus.Completed)
-            return ApiResult<TechnicianFinalSummaryDto>.Failure("Final summary is available after the inspection cycle completes.");
+        // Returns what has been recorded so far rather than only a finished cycle.
+        // The admin detail screen shows this as "quarterly inspection details", and
+        // withholding it until all four quarters were in meant a site two quarters
+        // through reported "no quarters have been submitted yet" directly beneath a
+        // header reading 50% — the same two submissions, described twice, disagreeing.
+        //
+        // A cycle still in progress simply has fewer inspections in the list; nothing
+        // downstream requires four. Invoices and history are already whatever exists.
 
         var invoices = await repository.Invoices
             .Where(x => x.DiaInspectionId == dia.Id)
