@@ -10,7 +10,9 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Jama.Infrastructure.Security;
 
-public class JwtTokenGenerator(IOptions<JwtSettings> options) : ITokenGenerator
+public class JwtTokenGenerator(
+    IOptions<JwtSettings> options,
+    IOptions<AdminSeedSettings> adminSeed) : ITokenGenerator
 {
     public LoginResponse Generate(AdminUser user)
     {
@@ -49,6 +51,12 @@ public class JwtTokenGenerator(IOptions<JwtSettings> options) : ITokenGenerator
         return new LoginResponse(
             accessToken,
             expiresAtUtc,
-            new UserSummaryDto(user.Id, user.Email, user.FullName, user.Role, granted));
+            new UserSummaryDto(
+                user.Id,
+                user.Email,
+                user.FullName,
+                user.Role,
+                granted,
+                adminSeed.Value.IsSuperAdmin(user.Email)));
     }
 }

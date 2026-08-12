@@ -3,6 +3,7 @@ using Jama.Application.Common.Models;
 using Jama.Application.Dia;
 using Jama.Application.Dia.Commands.ChangeDiaInspectionState;
 using Jama.Application.Dia.Commands.CreateDiaInspection;
+using Jama.Application.Dia.Commands.DeleteDiaInspection;
 using Jama.Application.Dia.Commands.UpdateDiaInspection;
 using Jama.Application.Dia.Queries.GetDiaDashboard;
 using Jama.Application.Dia.Queries.GetDiaHistory;
@@ -34,6 +35,9 @@ public sealed class Dia : EndpointGroupBase
             .MapPost(Create, permission: Permissions.DiaUpload)
             .MapPut(Update, "{id:guid}", permission: Permissions.DiaUpload)
             .MapDelete(Archive, "{id:guid}", Roles.Admin)
+            // Permanent delete sits above Admin: archiving is reversible, this is
+            // not, so it is held to the single seeded root account.
+            .MapDelete(Delete, "{id:guid}/permanent", permission: AuthorizationPolicies.SuperAdmin)
             .MapPost(Activate, "{id:guid}/activate", Roles.Admin)
             .MapPost(Deactivate, "{id:guid}/deactivate", Roles.Admin)
             .MapPost(Restore, "{id:guid}/restore", Roles.Admin);
@@ -93,6 +97,22 @@ public sealed class Dia : EndpointGroupBase
         var result = await sender.Send(
             new ChangeDiaInspectionStateCommand(id, DiaMutation.Archive), cancellationToken);
         return result.Succeeded ? Results.NoContent() : Results.NotFound(result);
+    }
+
+    public async Task<IResult> Delete(ISender sender, Guid id, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new DeleteDiaInspectionCommand(id), cancellationToken);
+        if (result.Succeeded)
+        {
+            return Results.NoContent();
+        }
+
+        // A refusal here means the record exists but is protected — not archived,
+        // or carrying inspections. That is a conflict, not a missing resource, and
+        // the UI shows the reason to the operator.
+        return result.Errors.Contains(DeleteDiaInspectionCommand.NotFoundError)
+            ? Results.NotFound(result)
+            : Results.Conflict(result);
     }
 
     public Task<IResult> Activate(ISender sender, Guid id, CancellationToken cancellationToken) =>

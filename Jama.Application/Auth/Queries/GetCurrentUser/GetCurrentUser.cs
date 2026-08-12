@@ -1,7 +1,9 @@
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
+using Jama.Application.Options;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Jama.Application.Auth.Queries.GetCurrentUser;
 
@@ -13,10 +15,14 @@ public record GetCurrentUserQuery : IRequest<TypedResult<UserSummaryDto>>
 public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, TypedResult<UserSummaryDto>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly AdminSeedSettings _adminSeed;
 
-    public GetCurrentUserQueryHandler(IApplicationDbContext context)
+    public GetCurrentUserQueryHandler(
+        IApplicationDbContext context,
+        IOptions<AdminSeedSettings> adminSeed)
     {
         _context = context;
+        _adminSeed = adminSeed.Value;
     }
 
     public async Task<TypedResult<UserSummaryDto>> Handle(
@@ -41,6 +47,12 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, T
             user.Permissions.Select(p => p.Permission));
 
         return TypedResult<UserSummaryDto>.Success(
-            new UserSummaryDto(user.Id, user.Email, user.FullName, user.Role, granted));
+            new UserSummaryDto(
+                user.Id,
+                user.Email,
+                user.FullName,
+                user.Role,
+                granted,
+                _adminSeed.IsSuperAdmin(user.Email)));
     }
 }

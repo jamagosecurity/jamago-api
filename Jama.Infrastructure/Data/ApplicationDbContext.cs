@@ -23,8 +23,21 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        // The audit trail is append-only so nobody can rewrite the record of what
+        // happened to a DIA. Deleting the DIA itself is the one exception: its
+        // history describes a record that no longer exists, and the foreign key
+        // is Restrict, so the rows have to go with it. The exception is scoped to
+        // exactly that — history may only be removed alongside its own parent, so
+        // entries belonging to a surviving record stay untouchable.
+        var deletedInspectionIds = ChangeTracker.Entries<DiaInspection>()
+            .Where(x => x.State is EntityState.Deleted)
+            .Select(x => x.Entity.Id)
+            .ToHashSet();
+
         if (ChangeTracker.Entries<DiaInspectionHistory>()
-            .Any(x => x.State is EntityState.Modified or EntityState.Deleted))
+            .Any(x => x.State is EntityState.Modified
+                || (x.State is EntityState.Deleted
+                    && !deletedInspectionIds.Contains(x.Entity.DiaInspectionId))))
         {
             throw new InvalidOperationException("DIA inspection audit records are immutable.");
         }

@@ -74,7 +74,9 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorizationBuilder().AddPermissionPolicies();
+builder.Services.AddAuthorizationBuilder()
+    .AddPermissionPolicies()
+    .AddSuperAdminPolicy(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

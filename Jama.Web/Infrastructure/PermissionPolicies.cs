@@ -1,4 +1,7 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Jama.Application.Common;
+using Jama.Application.Options;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Jama.Web.Infrastructure;
@@ -30,6 +33,42 @@ public static class PermissionPolicies
                     context.User.IsInRole(Roles.Admin)
                     || context.User.HasClaim(PermissionClaims.Type, key)));
         }
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Registers <see cref="AuthorizationPolicies.SuperAdmin"/>, satisfied only by
+    /// the seeded root account. The email claim is compared against AdminSeed:Email
+    /// — the same value the seeder uses — so the super administrator is whoever the
+    /// deployment says it is, with no extra column to keep in step.
+    ///
+    /// Fails closed: if AdminSeed:Email is missing the assertion denies everyone,
+    /// rather than degrading to "any Admin" and quietly widening a destructive
+    /// action on a misconfigured deployment.
+    /// </summary>
+    public static AuthorizationBuilder AddSuperAdminPolicy(
+        this AuthorizationBuilder builder,
+        IConfiguration configuration)
+    {
+        var seed = configuration
+            .GetSection(AdminSeedSettings.SectionName)
+            .Get<AdminSeedSettings>() ?? new AdminSeedSettings();
+
+        builder.AddPolicy(AuthorizationPolicies.SuperAdmin, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+            {
+                if (!context.User.IsInRole(Roles.Admin))
+                {
+                    return false;
+                }
+
+                var email = context.User.FindFirstValue(JwtRegisteredClaimNames.Email)
+                    ?? context.User.FindFirstValue(ClaimTypes.Email);
+
+                return seed.IsSuperAdmin(email);
+            }));
 
         return builder;
     }
