@@ -19,6 +19,7 @@ internal static class DiaRequestSupport
     public static object Snapshot(DiaInspection x) => new
     {
         x.Id, x.DiaNumber, x.ClientNumber, x.ClientName, x.ClientLocation,
+        x.Latitude, x.Longitude,
         x.ActivatedDate, x.IsActive, x.IsArchived, x.CreatedById, x.UpdatedById,
         x.CreatedAt, x.UpdatedAt,
     };

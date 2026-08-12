@@ -46,6 +46,8 @@ public sealed class GetTechnicianDiaListHandler(
                 dia.ClientNumber,
                 dia.ClientName,
                 dia.ClientLocation,
+                dia.Latitude,
+                dia.Longitude,
                 dia.ActivatedDate,
                 cycle.Status,
                 cycle.CurrentQuarter,

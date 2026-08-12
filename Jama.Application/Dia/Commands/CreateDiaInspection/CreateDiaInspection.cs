@@ -8,12 +8,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Dia.Commands.CreateDiaInspection;
 
-public sealed record CreateDiaInspectionCommand : IRequest<ApiResult<DiaInspectionDto>>
+public sealed record CreateDiaInspectionCommand : IRequest<ApiResult<DiaInspectionDto>>, ISiteCoordinateRequest
 {
     public string? DiaNumber { get; init; }
     public string? ClientNumber { get; init; }
     public string? ClientName { get; init; }
     public string? ClientLocation { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
 }
 
 public sealed class CreateDiaInspectionHandler(
@@ -39,6 +41,8 @@ public sealed class CreateDiaInspectionHandler(
             ClientNumber = request.ClientNumber!.Trim(),
             ClientName = request.ClientName!.Trim(),
             ClientLocation = request.ClientLocation!.Trim(),
+            Latitude = SiteCoordinates.Round(request.Latitude),
+            Longitude = SiteCoordinates.Round(request.Longitude),
             CreatedById = actor.UserId,
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
         };

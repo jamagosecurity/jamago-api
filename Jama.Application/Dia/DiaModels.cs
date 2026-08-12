@@ -20,6 +20,9 @@ public sealed record DiaInspectionDto
     public string ClientNumber { get; init; } = string.Empty;
     public string ClientName { get; init; } = string.Empty;
     public string ClientLocation { get; init; } = string.Empty;
+    /// <summary>WGS 84 site pin. Null when the site has not been pinned; never set alone.</summary>
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
     public DateTime CreatedDate { get; init; }
     public DateTime? ActivatedDate { get; init; }
     public bool IsActive { get; init; }

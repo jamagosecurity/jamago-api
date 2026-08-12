@@ -97,6 +97,10 @@ public sealed record TechnicianDiaListItemDto(
     string ClientNumber,
     string ClientName,
     string ClientLocation,
+    // Site pin, so the card can offer turn-by-turn navigation instead of an
+    // address the technician has to retype into a maps app. Null when unpinned.
+    double? Latitude,
+    double? Longitude,
     DateTime? ActivatedDate,
     TechnicianInspectionCycleStatus InspectionStatus,
     int? CurrentQuarter,
@@ -129,6 +133,8 @@ public sealed record TechnicianDiaDetailDto(
     string ClientNumber,
     string ClientName,
     string ClientLocation,
+    double? Latitude,
+    double? Longitude,
     DateTime? ActivatedDate,
     DateTime? InspectionStartedDate,
     TechnicianInspectionCycleStatus InspectionStatus,

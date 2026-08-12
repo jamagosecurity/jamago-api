@@ -8,7 +8,12 @@ public sealed class DiaInspectionConfiguration : IEntityTypeConfiguration<DiaIns
 {
     public void Configure(EntityTypeBuilder<DiaInspection> builder)
     {
-        builder.ToTable("DiaInspections");
+        // The site pin is guarded in the database as well as in the validators: a
+        // half-filled or out-of-range pin sends a technician to the wrong place, and
+        // this table is also written to by hand during data fixes.
+        builder.ToTable("DiaInspections", t => t.HasCheckConstraint(
+            "CK_DiaInspections_SitePin",
+            """("Latitude" IS NULL) = ("Longitude" IS NULL) AND ("Latitude" IS NULL OR ("Latitude" BETWEEN -90 AND 90 AND "Longitude" BETWEEN -180 AND 180))"""));
         builder.Property(x => x.DiaNumber).HasMaxLength(100).IsRequired();
         builder.Property(x => x.NormalizedDiaNumber).HasMaxLength(100).IsRequired();
         builder.Property(x => x.ClientNumber).HasMaxLength(100).IsRequired();

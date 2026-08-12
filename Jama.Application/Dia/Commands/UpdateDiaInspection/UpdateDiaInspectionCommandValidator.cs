@@ -27,5 +27,7 @@ public sealed class UpdateDiaInspectionCommandValidator : AbstractValidator<Upda
             .NotEmpty().WithMessage("Client location is required.")
             .Must(x => !string.IsNullOrWhiteSpace(x)).WithMessage("Client location cannot be blank.")
             .MaximumLength(300).WithMessage("Client location must not exceed 300 characters.");
+
+        SiteCoordinates.AddRulesTo(this);
     }
 }

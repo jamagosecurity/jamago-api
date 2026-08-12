@@ -7,13 +7,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Dia.Commands.UpdateDiaInspection;
 
-public sealed record UpdateDiaInspectionCommand : IRequest<ApiResult<DiaInspectionDto>>
+public sealed record UpdateDiaInspectionCommand : IRequest<ApiResult<DiaInspectionDto>>, ISiteCoordinateRequest
 {
     public Guid Id { get; init; }
     public string? DiaNumber { get; init; }
     public string? ClientNumber { get; init; }
     public string? ClientName { get; init; }
     public string? ClientLocation { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
 }
 
 public sealed class UpdateDiaInspectionHandler(
@@ -40,6 +42,8 @@ public sealed class UpdateDiaInspectionHandler(
         entity.ClientNumber = request.ClientNumber!.Trim();
         entity.ClientName = request.ClientName!.Trim();
         entity.ClientLocation = request.ClientLocation!.Trim();
+        entity.Latitude = SiteCoordinates.Round(request.Latitude);
+        entity.Longitude = SiteCoordinates.Round(request.Longitude);
         entity.UpdatedById = actor.UserId;
         entity.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
         repository.AddHistory(DiaRequestSupport.Audit(

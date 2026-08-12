@@ -40,6 +40,8 @@ public sealed class GetTechnicianDiaHandler(
             dia.ClientNumber,
             dia.ClientName,
             dia.ClientLocation,
+            dia.Latitude,
+            dia.Longitude,
             dia.ActivatedDate,
             dia.InspectionStartedDate,
             cycle.Status,
