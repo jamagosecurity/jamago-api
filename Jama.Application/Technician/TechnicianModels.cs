@@ -113,7 +113,15 @@ public sealed record TechnicianDiaListItemDto(
     decimal ProgressPercent,
     /// <summary>Quarter windows that closed with nothing submitted, so the card can
     /// say a site is behind rather than only which quarter is due.</summary>
-    int OverdueQuarters = 0);
+    int OverdueQuarters = 0,
+    /// <summary>
+    /// The date each of the four quarters opens, oldest first — the same four dates
+    /// the MOI workflow sheet lists per site. The card previously showed only the
+    /// current quarter's window, so a technician could not see when Q3 or Q4 fall
+    /// without opening the record. Derived here rather than in the browser so the
+    /// three-month rule has one home.
+    /// </summary>
+    IReadOnlyList<DateTime>? QuarterDates = null);
 
 public sealed record TechnicianDiaDetailDto(
     Guid Id,

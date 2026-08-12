@@ -15,6 +15,22 @@ internal static class TechnicianSupport
 {
     private static string Json(object value) => JsonSerializer.Serialize(value);
 
+    /// <summary>
+    /// The date each of the four quarters opens, counting three months at a time
+    /// from the schedule anchor. Null for a site with no schedule yet, so the card
+    /// shows bare quarter chips rather than four meaningless dates.
+    /// </summary>
+    public static IReadOnlyList<DateTime>? QuarterDates(DateTime? scheduleAnchor)
+    {
+        if (scheduleAnchor is null)
+        {
+            return null;
+        }
+
+        var anchor = DateTime.SpecifyKind(scheduleAnchor.Value, DateTimeKind.Utc);
+        return [anchor, anchor.AddMonths(3), anchor.AddMonths(6), anchor.AddMonths(9)];
+    }
+
     public static object Snapshot(TechnicianInspection x) => new
     {
         x.Id, x.DiaInspectionId, x.Quarter, x.TechnicianId, x.Status, x.SubmittedAt,

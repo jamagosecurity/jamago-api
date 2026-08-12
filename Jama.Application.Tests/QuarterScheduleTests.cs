@@ -106,6 +106,37 @@ public sealed class QuarterScheduleTests
     }
 
     [Fact]
+    public void The_four_quarter_dates_are_three_months_apart_from_the_anchor()
+    {
+        // The card indexes these by quarter - 1, so order and offset both matter:
+        // an off-by-one here would show a technician the wrong month.
+        var dates = TechnicianSupport.QuarterDates(DateTime.Parse("2026-08-10"));
+
+        Assert.NotNull(dates);
+        Assert.Equal(4, dates!.Count);
+        Assert.Equal(new DateTime(2026, 8, 10, 0, 0, 0, DateTimeKind.Utc), dates[0]);
+        Assert.Equal(new DateTime(2026, 11, 10, 0, 0, 0, DateTimeKind.Utc), dates[1]);
+        Assert.Equal(new DateTime(2027, 2, 10, 0, 0, 0, DateTimeKind.Utc), dates[2]);
+        Assert.Equal(new DateTime(2027, 5, 10, 0, 0, 0, DateTimeKind.Utc), dates[3]);
+    }
+
+    [Fact]
+    public void The_quarter_dates_match_the_workflow_sheet()
+    {
+        // Sheet row 7, West Walk: 10-08-2026, 10-11-2026, 10-02-2027, 10-05-2027.
+        var dates = TechnicianSupport.QuarterDates(DateTime.Parse("2026-08-10"))!;
+        Assert.Equal(
+            ["2026-08-10", "2026-11-10", "2027-02-10", "2027-05-10"],
+            dates.Select(d => d.ToString("yyyy-MM-dd")));
+    }
+
+    [Fact]
+    public void A_site_with_no_schedule_has_no_quarter_dates()
+    {
+        Assert.Null(TechnicianSupport.QuarterDates(null));
+    }
+
+    [Fact]
     public void An_unscheduled_record_is_not_started()
     {
         var result = TechAt("2026-08-12").Calculate(null, submittedQuarters: 0);

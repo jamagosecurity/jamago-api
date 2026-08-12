@@ -56,7 +56,8 @@ public sealed class GetTechnicianDiaListHandler(
                 cycle.QuarterEndDate,
                 cycle.RemainingDays,
                 cycle.ProgressPercent,
-                cycle.OverdueQuarters);
+                cycle.OverdueQuarters,
+                TechnicianSupport.QuarterDates(dia.InspectionStartedDate ?? dia.ActivatedDate));
         }).ToList();
 
         return ApiResult<IReadOnlyList<TechnicianDiaListItemDto>>.Success(items);

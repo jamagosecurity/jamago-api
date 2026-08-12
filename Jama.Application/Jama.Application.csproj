@@ -20,4 +20,11 @@
     <ProjectReference Include="..\Jama.Domain\Jama.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Helpers shared between handlers stay internal, but the schedule maths in
+         TechnicianSupport is worth pinning directly rather than only through a
+         handler that needs a database to run. -->
+    <InternalsVisibleTo Include="Jama.Application.Tests" />
+  </ItemGroup>
+
 </Project>
