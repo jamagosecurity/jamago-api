@@ -24,11 +24,18 @@ public class Staff : EndpointGroupBase
     public override void Map(WebApplication app)
     {
         app.MapGroup(this)
-            // Anonymous: this is the "Our Team" roster on the marketing site, so
-            // the public homepage calls it before anyone has signed in. StaffDto
-            // carries only the details already meant for that page — the email
-            // and account state live on AdminStaffDto, behind "all" below.
-            .MapGet(GetActiveStaff)
+            // Admin-only, deliberately. StaffDto carries no email or account
+            // state, but it does list every active employee's name, role and
+            // department, and publishing the staff of a security company is a
+            // decision the business made once and settled: see "Require admin
+            // auth on GET /api/staff to stop public exposure of staff data".
+            //
+            // The consequence is that the "Our Team" section on the marketing
+            // site renders empty for anonymous visitors — that is the accepted
+            // cost, not an oversight. Restoring that section needs a separate
+            // endpoint exposing only staff explicitly marked as public, rather
+            // than reopening this one.
+            .MapGet(GetActiveStaff, roles: Roles.Admin)
             .MapGet(GetAllStaff, "all", Roles.Admin)
             .MapGet(GetMyStaffProfile, "me", Roles.Staff)
             .MapGet(GetPermissionCatalogue, "permissions", Roles.Admin)
