@@ -24,6 +24,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<CameraImage> CameraImages => Set<CameraImage>();
     public DbSet<Quotation> Quotations => Set<Quotation>();
     public DbSet<QuotationLine> QuotationLines => Set<QuotationLine>();
+    public DbSet<Boq> Boqs => Set<Boq>();
+    public DbSet<BoqSection> BoqSections => Set<BoqSection>();
+    public DbSet<BoqLine> BoqLines => Set<BoqLine>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

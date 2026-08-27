@@ -20,6 +20,7 @@ public static class Permissions
     public const string PanelsManage = "panels.manage";
     public const string VipManage = "vip.manage";
     public const string CameraManage = "camera.manage";
+    public const string BoqManage = "boq.manage";
 
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
@@ -37,6 +38,10 @@ public static class Permissions
         new(PanelsManage, "Manage control panels", "Can add and edit control panel records."),
         new(VipManage, "Manage VIP clients", "Can create VIP client projects and upload documents to their folders."),
         new(CameraManage, "Manage the stock inventory", "Can add, edit and remove stock items and set their prices. Everyone can read the public catalogue."),
+        // One grant, two screens: the storage calculator sizes the array for a
+        // quotation, so anyone who can build one can size it. Splitting them
+        // would let an account make a quotation it cannot check the storage for.
+        new(BoqManage, "Build quotations & size storage", "Can pick stock items into a quotation, set quantities, and size the NVR storage for it. Rates always come from the catalogue and cannot be changed here."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();

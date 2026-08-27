@@ -21,5 +21,8 @@ public interface IApplicationDbContext
     DbSet<CameraImage> CameraImages { get; }
     DbSet<Quotation> Quotations { get; }
     DbSet<QuotationLine> QuotationLines { get; }
+    DbSet<Boq> Boqs { get; }
+    DbSet<BoqSection> BoqSections { get; }
+    DbSet<BoqLine> BoqLines { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

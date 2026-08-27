@@ -65,6 +65,8 @@
     <EmbeddedResource Include="Documents\Assets\jamago-logo.png" />
 
     <EmbeddedResource Include="Documents\Assets\jamago-logo-watermark.png" />
+    <EmbeddedResource Include="Documents\Assets\jamago-quote-watermark.png" />
+    <EmbeddedResource Include="Documents\Assets\brands\*.png" />
 
   </ItemGroup>
 
