@@ -17,5 +17,7 @@ public interface IApplicationDbContext
     DbSet<VipClient> VipClients { get; }
     DbSet<VipClientFolder> VipClientFolders { get; }
     DbSet<VipClientDocument> VipClientDocuments { get; }
+    DbSet<Camera> Cameras { get; }
+    DbSet<CameraImage> CameraImages { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

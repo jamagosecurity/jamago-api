@@ -20,6 +20,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<VipClient> VipClients => Set<VipClient>();
     public DbSet<VipClientFolder> VipClientFolders => Set<VipClientFolder>();
     public DbSet<VipClientDocument> VipClientDocuments => Set<VipClientDocument>();
+    public DbSet<Camera> Cameras => Set<Camera>();
+    public DbSet<CameraImage> CameraImages => Set<CameraImage>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

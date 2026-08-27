@@ -19,6 +19,7 @@ public static class Permissions
     public const string ContactView = "contact.view";
     public const string PanelsManage = "panels.manage";
     public const string VipManage = "vip.manage";
+    public const string CameraManage = "camera.manage";
 
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
@@ -35,6 +36,7 @@ public static class Permissions
         new(ContactView, "Read website enquiries", "Can read messages people send through the contact form on jamago.qa."),
         new(PanelsManage, "Manage control panels", "Can add and edit control panel records."),
         new(VipManage, "Manage VIP clients", "Can create VIP client projects and upload documents to their folders."),
+        new(CameraManage, "Manage the stock inventory", "Can add, edit and remove stock items and set their prices. Everyone can read the public catalogue."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();
