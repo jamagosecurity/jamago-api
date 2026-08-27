@@ -19,5 +19,7 @@ public interface IApplicationDbContext
     DbSet<VipClientDocument> VipClientDocuments { get; }
     DbSet<Camera> Cameras { get; }
     DbSet<CameraImage> CameraImages { get; }
+    DbSet<Quotation> Quotations { get; }
+    DbSet<QuotationLine> QuotationLines { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

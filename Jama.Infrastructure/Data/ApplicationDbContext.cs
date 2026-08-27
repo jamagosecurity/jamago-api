@@ -22,6 +22,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<VipClientDocument> VipClientDocuments => Set<VipClientDocument>();
     public DbSet<Camera> Cameras => Set<Camera>();
     public DbSet<CameraImage> CameraImages => Set<CameraImage>();
+    public DbSet<Quotation> Quotations => Set<Quotation>();
+    public DbSet<QuotationLine> QuotationLines => Set<QuotationLine>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

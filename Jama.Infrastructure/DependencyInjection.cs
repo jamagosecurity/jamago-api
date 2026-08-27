@@ -34,6 +34,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
         services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
+        services.AddSingleton<IQuotationPdfGenerator, QuotationPdfGenerator>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
 
         return services;
