@@ -37,18 +37,31 @@ if [ -z "$SITE" ]; then
   echo "WARNING: No nginx site containing jamago.qa found."
   echo "Add /api/ proxy manually from deploy/nginx-jamago.qa.conf.snippet"
 else
-  if grep -q 'location /api/' "$SITE"; then
+  # sites-enabled entries are usually symlinks; edit and back up the real file.
+  SITE="$(readlink -f "$SITE")"
+
+  # The block may already be there as a plain prefix or with the ^~ modifier.
+  # Matching only the literal "location /api/" misses "location ^~ /api/" and
+  # appends a second block, which nginx rejects as a duplicate location.
+  if grep -qE 'location[[:space:]]+(\^~[[:space:]]*)?/api/' "$SITE"; then
     echo "nginx /api/ location already present in $SITE"
   else
     echo "Inserting /api/ proxy into $SITE"
+    BACKUP="$SITE.$(date +%Y%m%d%H%M%S).bak"
+    cp -a "$SITE" "$BACKUP"
+    echo "Backed up to $BACKUP"
+
     python3 - "$SITE" <<'PY'
+import re
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 text = path.read_text()
-block = """
-    location /api/ {
+
+# ^~ so the regex asset locations further down cannot capture a proxied URL
+# that happens to end in .js or .css.
+block = """    location ^~ /api/ {
         proxy_pass         http://127.0.0.1:5093;
         proxy_http_version 1.1;
         proxy_set_header   Host              $host;
@@ -57,17 +70,25 @@ block = """
         proxy_set_header   X-Forwarded-Proto $scheme;
         proxy_set_header   Connection        "";
     }
+
 """
-marker = "location / {"
-idx = text.find(marker)
-if idx == -1:
-    idx = text.rfind("}")
-    text = text[:idx] + block + "\n" + text[idx:]
-else:
-    text = text[:idx] + block + "\n" + text[idx:]
-path.write_text(text)
+
+# Anchor to the start of the `location / {` line, not the match offset, or the
+# insert lands mid-line and strips that line's indentation.
+match = re.search(r'^[ \t]*location\s+/\s*\{', text, re.MULTILINE)
+idx = match.start() if match else text.rfind("}")
+path.write_text(text[:idx] + block + text[idx:])
 print("Updated", path)
 PY
+
+    # Roll back rather than leave a config that breaks the next reload — nginx
+    # keeps serving the old one until then, so a bad file hides until reboot.
+    if ! nginx -t; then
+      echo "nginx -t failed; restoring $BACKUP" >&2
+      cp -a "$BACKUP" "$SITE"
+      nginx -t
+      exit 1
+    fi
   fi
   nginx -t
   systemctl reload nginx
