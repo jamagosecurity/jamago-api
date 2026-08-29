@@ -42,6 +42,12 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     private static readonly byte[] WatermarkBytes =
         LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-quote-watermark.png");
 
+    /// <summary>Static QR to the website, printed in the top-right corner of both
+    /// proposal pages. The target never varies, so it is a build-time asset rather
+    /// than something generated per document.</summary>
+    private static readonly byte[] QrBytes =
+        LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-qr.png");
+
     /// <summary>
     /// Maker's marks, keyed by every spelling that should resolve to one.
     ///
@@ -96,6 +102,109 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     /// prices have not moved underneath us.</summary>
     private const int ValidityDays = 14;
 
+    // ===== Letterhead =====
+    //
+    // Mirrors the contact component on the public site. Both are typed out
+    // rather than shared, which is a real duplication — but a client-facing
+    // document must not start printing a blank address because a service was
+    // not wired up, and there is no configuration source for these yet.
+
+    private const string CompanyName = "Jama Go Security Equipment";
+    private const string CompanyShort = "Jama Go";
+    private const string CompanyTagline = "A trusted partner to customers and suppliers";
+    private const string CompanyAddress =
+        "Unit 41, Zone 56, Street 340, Building No. 349, Al Ain Complex, Salwa Road";
+    private const string CompanyCity = "Doha – Qatar";
+    // Listed one per line on the letterhead, the way a switchboard is printed,
+    // rather than run together on one line separated by dots.
+    private const string CompanyPhone1 = "+974 3064 4006";
+    private const string CompanyPhone2 = "+974 3139 5879";
+    private const string CompanyPhone3 = "+974 4001 3599";
+    private const string CompanyEmail = "info@jamago.qa";
+    private const string CompanyWebsite = "www.jamago.qa";
+
+    /// <summary>One clause of the commercial offer. <paramref name="Body"/> is the
+    /// paragraph beneath the heading, where there is one; the bullets follow it.</summary>
+    private sealed record Term(string Heading, string? Body, string[] Bullets)
+    {
+        /// <summary>A line set bold on its own between the body and the list. The
+        /// validity term is the one clause a client actually has to act on, so it
+        /// is lifted out of the paragraph rather than buried in it.</summary>
+        public string? Emphasis { get; init; }
+
+        /// <summary>Numbers the list 1., 2., 3. instead of bulleting it. Only the
+        /// validity clause does this: its points are referred to by number when a
+        /// client queries a price.</summary>
+        public bool Numbered { get; init; }
+    }
+
+    /// <summary>
+    /// The standing commercial terms, printed ahead of the priced tables.
+    ///
+    /// Held here as data rather than laid out by hand so the wording is edited in
+    /// one place and the numbering can never disagree with the order on the page.
+    /// The validity clause reads <see cref="ValidityDays"/> for the same reason:
+    /// the tables page already prints a "valid until" date, and a letter quoting a
+    /// different term would contradict the document it introduces.
+    /// </summary>
+    private static readonly Term[] Terms =
+    [
+        new("Offer Validity and Price Escalation",
+            "These prices are valid for a Contract or Purchase Order coming into force during " +
+            "the validity of this offer.",
+            [
+                "Prices may be subject to revision after that validity date.",
+                $"For any variation in quantity, {CompanyShort} reserves the right to revise the pricing and the delivery period.",
+                "All unit prices are in QAR, inclusive of customs, transportation and any other charges within Qatar, and apply only to the quantities stated.",
+            ])
+        {
+            Emphasis = $"The offer is valid for {ValidityDays} days from the date of this offer.",
+            Numbered = true,
+        },
+
+        new("Terms of Payment", null,
+            [
+                "50% advance payment with the LPO, 40% upon delivery, and the remaining 10% upon completion.",
+            ]),
+
+        new("Delivery of Materials", null,
+            [
+                "Material delivery: within 3–6 days after official confirmation and advance payment.",
+                "MOI documentation and approval process: 4–8 weeks.",
+                "Project completion: within 8–12 weeks.",
+            ]),
+
+        new("Scope", null,
+            [
+                "Supply of the materials listed in the item descriptions.",
+            ]),
+
+        new("Out of Scope", null,
+            [
+                "Installation, electrical and fibre cabling, and copper cabling for the cameras.",
+                "Both-side termination, labelling and camera installation, MOI documentation, and project sign-off.",
+                "Anything not mentioned in the scope.",
+            ]),
+
+        new("Warranty", null,
+            [
+                "Cameras and NVR — 2 years.",
+                "All other equipment — 1 year.",
+                "Physical damage is not covered. We follow the manufacturer's standard warranty against manufacturing defects only.",
+            ]),
+    ];
+
+    /// <summary>The two clauses that qualify everything above them, so they are set
+    /// apart from the numbered list rather than buried as its last bullets.</summary>
+    private const string WarrantyVoid =
+        "THIS WARRANTY IS VOID IF the device has been damaged by negligence, mishandling, acts of " +
+        "third parties, accident, fire, flood, lightning, power surges or outages, or other events, " +
+        "or has not been operated in accordance with the operating and installation instructions.";
+
+    private const string VariationNote =
+        "Any variation in quantity or design suggested by the client or by MOI-SSD will be calculated " +
+        "as a variation and invoiced separately.";
+
     /// <summary>Matches an email inside a display name, capturing only the part
     /// before the "@".</summary>
     private static readonly Regex EmbeddedEmail =
@@ -112,6 +221,23 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     private static string Date(DateOnly value) =>
         value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
 
+    /// <summary>"26th July 2026" — the long form the cover and the letter open
+    /// with. The compact "26 Jul 2026" the tables use reads as a filing code,
+    /// which is right above a column of figures and wrong under a signature.</summary>
+    private static string LongDate(DateOnly value) =>
+        $"{value.Day}{DayOrdinal(value.Day)} {value.ToString("MMMM yyyy", CultureInfo.InvariantCulture)}";
+
+    /// <summary>11th, 12th and 13th break the last-digit rule and have to be
+    /// matched before it.</summary>
+    private static string DayOrdinal(int day) => day switch
+    {
+        11 or 12 or 13 => "th",
+        _ when day % 10 == 1 => "st",
+        _ when day % 10 == 2 => "nd",
+        _ when day % 10 == 3 => "rd",
+        _ => "th",
+    };
+
     /// <summary>Trims a trailing ".00" so quantities read "12" not "12.00", while
     /// "2.5" keeps its half — cable is measured in metres.</summary>
     private static string Qty(decimal value) =>
@@ -123,6 +249,35 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     {
         return Document.Create(container =>
         {
+            // Three page definitions, in the order a client reads them: the cover
+            // that says who this is for, the letter that states the terms, then the
+            // priced tables the letter introduces. Page numbering runs across all
+            // three, so the tables open at "Page 3 of n" rather than restarting.
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(28);
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(Fonts.Calibri));
+
+                // No watermark and no page number: a cover that numbers itself
+                // reads as a form. The letterhead is part of the cover's own
+                // column rather than a page footer, because it follows
+                // "Prepared By:" and must sit directly beneath it.
+                page.Content().Element(content => ComposeCover(content, model));
+            });
+
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(28);
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(Fonts.Calibri));
+
+                page.Background().Element(ComposeWatermark);
+                page.Header().Element(header => ComposeProposalHeader(header, model));
+                page.Content().PaddingTop(14).Element(content => ComposeProposal(content, model));
+                page.Footer().Element(footer => ComposeFooter(footer, model));
+            });
+
             container.Page(page =>
             {
                 page.Size(PageSizes.A4);
@@ -135,6 +290,279 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 page.Footer().Element(footer => ComposeFooter(footer, model));
             });
         }).GeneratePdf();
+    }
+
+    // ===== Page 1: cover =====
+
+    /// <summary>
+    /// The mark and the QR, on the line every proposal page opens with.
+    ///
+    /// Shared by the cover and the letter so the two sit at identical heights —
+    /// laid out separately they drifted by a few points, which reads as a
+    /// printing fault rather than a design.
+    /// </summary>
+    private static void ComposeProposalCorners(IContainer container)
+    {
+        container.Row(row =>
+        {
+            if (LogoBytes.Length > 0)
+                row.ConstantItem(140).AlignMiddle().Image(LogoBytes).FitWidth();
+            else
+                row.ConstantItem(140).AlignMiddle().Text(CompanyName)
+                    .FontSize(12).Bold().FontColor(Brand);
+
+            row.RelativeItem();
+
+            if (QrBytes.Length > 0)
+                row.ConstantItem(52).AlignTop().Image(QrBytes).FitWidth();
+        });
+    }
+
+    private static void ComposeCover(IContainer container, BoqPdfModel model)
+    {
+        container.Column(column =>
+        {
+            column.Item().Element(ComposeProposalCorners);
+
+            // Ref no stands alone above the title, centred, the way the trade
+            // sets a proposal cover.
+            column.Item().PaddingTop(52).AlignCenter().Text(text =>
+            {
+                text.Span("Ref No: ").FontSize(11).FontColor(InkSoft);
+                text.Span(model.BoqNumber).FontSize(11).Bold().FontColor(Ink);
+            });
+
+            // Boxed rather than merely bold: the rule around it is what makes
+            // this read as the document's title and not as another heading.
+            column.Item().PaddingTop(26).AlignCenter().Border(1.2f).BorderColor(Ink)
+                .PaddingVertical(9).PaddingHorizontal(34)
+                .Text("COMMERCIAL PROPOSAL")
+                .FontSize(14).Bold().FontColor(Ink);
+
+            column.Item().PaddingTop(26).AlignCenter().Width(330)
+                .Element(panel => ComposeCoverPanel(panel, model));
+
+            column.Item().PaddingTop(44).Text("Prepared By:")
+                .FontSize(10).Bold().Italic().Underline().FontColor(Accent);
+
+            column.Item().PaddingTop(10).Element(ComposeCoverCompany);
+        });
+    }
+
+    /// <summary>
+    /// Prepared For / Project Title / Date of Submission, stacked and centred on
+    /// a tinted panel, each pair split by a rule.
+    ///
+    /// Label above value rather than beside it: the three values are of very
+    /// different lengths, and a label column wide enough for "Date of Submission"
+    /// left the short ones stranded against a column of white.
+    /// </summary>
+    private static void ComposeCoverPanel(IContainer container, BoqPdfModel model)
+    {
+        container.Background(PanelBg).PaddingVertical(16).PaddingHorizontal(18).Column(column =>
+        {
+            CoverPair(column, "Prepared For:", CoverClient(model));
+
+            column.Item().PaddingVertical(11).Height(1).Background(Accent);
+
+            CoverPair(column, "Project Title:", model.ProjectName.ToUpperInvariant());
+
+            column.Item().PaddingVertical(11).Height(1).Background(Accent);
+
+            column.Item().AlignCenter().Text(text =>
+            {
+                text.Span("Date of Submission: ").FontSize(9.5f).FontColor(InkSoft);
+                text.Span(LongDate(model.IssueDate)).FontSize(9.5f).Bold().FontColor(Ink);
+            });
+        });
+    }
+
+    private static void CoverPair(ColumnDescriptor column, string label, string value)
+    {
+        column.Item().AlignCenter().Text(label).FontSize(9.5f).FontColor(InkSoft);
+        column.Item().PaddingTop(4).AlignCenter().Text(value)
+            .FontSize(11.5f).Bold().FontColor(Ink);
+    }
+
+    /// <summary>The client and where they are, on one line — "Bahzat Group, Doha
+    /// – Qatar". The location is dropped rather than printed empty when a BOQ
+    /// never recorded one.</summary>
+    private static string CoverClient(BoqPdfModel model)
+    {
+        var parts = new[] { model.ClientName, model.SiteLocation }
+            .Where(part => !string.IsNullOrWhiteSpace(part));
+
+        var joined = string.Join(", ", parts);
+        return string.IsNullOrWhiteSpace(joined) ? "—" : joined;
+    }
+
+    /// <summary>The mark beside the contact block, as a letterhead sets it — the
+    /// logo carries the identity and the lines beside it carry the detail, rather
+    /// than the name being repeated as text next to its own logo.</summary>
+    private static void ComposeCoverCompany(IContainer container)
+    {
+        container.Row(row =>
+        {
+            if (LogoBytes.Length > 0)
+                row.ConstantItem(120).AlignTop().PaddingTop(2).Image(LogoBytes).FitWidth();
+
+            row.ConstantItem(14);
+
+            row.RelativeItem().Column(column =>
+            {
+                column.Item().Text(CompanyName)
+                    .FontSize(12).Bold().FontColor(BrandStrong);
+                column.Item().PaddingTop(1).Text(CompanyTagline)
+                    .FontSize(8.5f).Italic().FontColor(Accent);
+
+                column.Item().PaddingTop(7).Text(CompanyAddress)
+                    .FontSize(8.5f).FontColor(InkSoft);
+                column.Item().Text(CompanyCity)
+                    .FontSize(8.5f).FontColor(InkSoft);
+
+                column.Item().PaddingTop(6);
+                ContactRow(column, "Telephone", CompanyPhone1, false);
+                ContactRow(column, "", CompanyPhone2, false);
+                ContactRow(column, "", CompanyPhone3, false);
+                ContactRow(column, "Email", CompanyEmail, true);
+                ContactRow(column, "Website", CompanyWebsite, true);
+            });
+        });
+    }
+
+    /// <summary>One "Label : value" line, colons aligned down a fixed track so the
+    /// values form a column. An empty label continues the row above it — the
+    /// second and third phone numbers belong to "Telephone" and repeating the word
+    /// three times would say nothing.</summary>
+    private static void ContactRow(ColumnDescriptor column, string label, string value, bool link)
+    {
+        column.Item().PaddingTop(1).Row(row =>
+        {
+            row.ConstantItem(58).Text(label).FontSize(8.5f).FontColor(InkSoft);
+            row.ConstantItem(8).Text(label.Length > 0 ? ":" : "").FontSize(8.5f).FontColor(InkSoft);
+
+            var text = row.RelativeItem().Text(value).FontSize(8.5f);
+            if (link) text.Bold().FontColor(Brand).Underline();
+            else text.FontColor(Ink);
+        });
+    }
+
+    // ===== Page 2: the commercial offer =====
+
+    /// <summary>The same mark-and-QR line the cover opens with, so the two pages
+    /// read as one letterhead. The ref sits under it rather than beside the logo,
+    /// which is where the QR now is.</summary>
+    private static void ComposeProposalHeader(IContainer container, BoqPdfModel model)
+    {
+        container.Column(column =>
+        {
+            column.Item().Element(ComposeProposalCorners);
+
+            column.Item().PaddingTop(6).Text(text =>
+            {
+                text.Span("Ref No: ").FontSize(9).FontColor(InkSoft);
+                text.Span(model.BoqNumber).FontSize(9).Bold().FontColor(Ink);
+            });
+
+            column.Item().PaddingTop(8).Height(2).Background(Brand);
+        });
+    }
+
+    private static void ComposeProposal(IContainer container, BoqPdfModel model)
+    {
+        container.Column(column =>
+        {
+            column.Item().AlignRight().Text(LongDate(model.IssueDate))
+                .FontSize(9).FontColor(InkSoft);
+
+            // Addressee block, in the position a letter puts it.
+            column.Item().PaddingTop(10).Text(CoverClient(model))
+                .FontSize(10.5f).Bold().FontColor(Ink);
+            column.Item().Text("Procurement Department").FontSize(9).FontColor(InkSoft);
+
+            column.Item().PaddingTop(12).Element(subject => ComposeSubject(subject, model));
+
+            column.Item().PaddingTop(12).Text("Dear Sir / Madam,")
+                .FontSize(9.5f).Bold().FontColor(Ink);
+
+            column.Item().PaddingTop(7).Text(
+                    "With reference to the above subject, and to the requirements stated in your " +
+                    "request, we are pleased to submit our priced commercial offer with the scope " +
+                    "of work set out below.")
+                .FontSize(9).FontColor(InkSoft).LineHeight(1.35f);
+
+            var number = 0;
+            foreach (var term in Terms)
+                column.Item().PaddingTop(10).Element(x => ComposeTerm(x, ++number, term));
+
+            column.Item().PaddingTop(12).Border(1).BorderColor(PanelBorder).Padding(9).Column(inner =>
+            {
+                inner.Item().Text(WarrantyVoid)
+                    .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
+                inner.Item().PaddingTop(6).Text(VariationNote)
+                    .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
+            });
+
+            column.Item().PaddingTop(14).Text("Yours faithfully,")
+                .FontSize(9).FontColor(InkSoft);
+            column.Item().PaddingTop(3).Text(PreparedBy(model.PreparedByName) ?? CompanyName)
+                .FontSize(9.5f).Bold().FontColor(Ink);
+            column.Item().Text(CompanyName).FontSize(8.5f).FontColor(Muted);
+        });
+    }
+
+    /// <summary>Project title and subject, aligned on their colons the way the
+    /// rest of the trade writes them.</summary>
+    private static void ComposeSubject(IContainer container, BoqPdfModel model)
+    {
+        container.Column(column =>
+        {
+            SubjectRow(column, "Project Title", model.ProjectName);
+            SubjectRow(column, "Subject", "Priced / Commercial Offer");
+        });
+    }
+
+    private static void SubjectRow(ColumnDescriptor column, string label, string value)
+    {
+        column.Item().PaddingTop(2).Row(row =>
+        {
+            row.ConstantItem(86).Text(label).FontSize(9).FontColor(Muted);
+            row.ConstantItem(10).Text(":").FontSize(9).FontColor(Muted);
+            row.RelativeItem().Text(value).FontSize(9).Bold().FontColor(Ink);
+        });
+    }
+
+    private static void ComposeTerm(IContainer container, int number, Term term)
+    {
+        container.Column(column =>
+        {
+            column.Item().Text($"{number}.  {term.Heading}")
+                .FontSize(9.5f).Bold().FontColor(BrandStrong);
+
+            if (!string.IsNullOrWhiteSpace(term.Body))
+                column.Item().PaddingTop(3).PaddingLeft(16).Text(term.Body)
+                    .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+
+            if (!string.IsNullOrWhiteSpace(term.Emphasis))
+                column.Item().PaddingTop(5).PaddingLeft(16).Text(term.Emphasis)
+                    .FontSize(8.8f).Bold().FontColor(Ink).LineHeight(1.35f);
+
+            var item = 0;
+            foreach (var bullet in term.Bullets)
+            {
+                var marker = term.Numbered ? $"{++item}." : "•";
+
+                column.Item().PaddingTop(3).PaddingLeft(term.Numbered ? 28 : 16).Row(row =>
+                {
+                    // Marker in its own track, so a line that wraps aligns under
+                    // its own text rather than back under the dot.
+                    row.ConstantItem(14).Text(marker).FontSize(8.6f)
+                        .FontColor(term.Numbered ? InkSoft : Accent);
+                    row.RelativeItem().Text(bullet)
+                        .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                });
+            }
+        });
     }
 
     private static void ComposeHeader(IContainer container, BoqPdfModel model)

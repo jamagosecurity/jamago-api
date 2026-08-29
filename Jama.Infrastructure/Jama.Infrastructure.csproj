@@ -68,6 +68,11 @@
     <EmbeddedResource Include="Documents\Assets\jamago-quote-watermark.png" />
     <EmbeddedResource Include="Documents\Assets\brands\*.png" />
 
+    <!-- Static QR to www.jamago.qa, printed in the corner of the proposal pages.
+         Pre-rendered rather than generated at run time: the URL never changes, so
+         a build-time asset costs nothing and keeps a QR library out of the API. -->
+    <EmbeddedResource Include="Documents\Assets\jamago-qr.png" />
+
   </ItemGroup>
 
 
