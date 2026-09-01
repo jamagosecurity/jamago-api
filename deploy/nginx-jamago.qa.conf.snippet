@@ -60,8 +60,18 @@ server {
 
     # Angular SPA routes and prerendered HTML. HTML must revalidate every time or
     # a deploy goes unnoticed while clients hold a stale shell.
+    #
+    # The fallback is index.csr.html — the EMPTY shell — and not index.html,
+    # which is the prerendered HOME page. Falling back to index.html served the
+    # marketing site's markup to anyone opening /admin/login or /admin/staff
+    # directly: the visitor watched the home page render, then had it replaced
+    # once Angular booted and routed them.
+    #
+    # $uri/index.html comes before $uri/ so the prerendered pages that live in a
+    # directory — contact/, sifeddine/ — still resolve to their own real file
+    # rather than falling through to the shell and losing their prerendering.
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri $uri/index.html $uri/ /index.csr.html;
         add_header Cache-Control "no-cache" always;
     }
 }
