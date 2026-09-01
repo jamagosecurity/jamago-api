@@ -10,7 +10,7 @@ public sealed record CreateCameraCommand : IRequest<ApiResult<CameraDto>>, ICame
 {
     public string? ItemName { get; init; }
     public string? Brand { get; init; }
-    public CameraType Type { get; init; }
+    public string? Type { get; init; }
     public string? ModelNo { get; init; }
     public ProductCategory Category { get; init; }
     public string? SearchKey { get; init; }

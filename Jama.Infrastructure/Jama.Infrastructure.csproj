@@ -73,6 +73,10 @@
          a build-time asset costs nothing and keeps a QR library out of the API. -->
     <EmbeddedResource Include="Documents\Assets\jamago-qr.png" />
 
+    <!-- The company stamp for MOI submissions. Conditional: the generator prints
+         without it, so a missing file must not break the build. -->
+    <EmbeddedResource Include="Documents\Assets\jamago-stamp.png" Condition="Exists('Documents\Assets\jamago-stamp.png')" />
+
   </ItemGroup>
 
 

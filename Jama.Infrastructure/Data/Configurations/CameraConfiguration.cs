@@ -15,7 +15,9 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
 
         // Enums stored as their name rather than an ordinal, so a row still reads
         // "Dome" in psql and reordering an enum cannot silently remap old rows.
-        builder.Property(x => x.Type).HasConversion<string>().HasMaxLength(20).IsRequired();
+        // Free text now, not an enum name. 60 rather than 20: the old ceiling
+        // fitted "Fisheye" and nothing a supplier actually writes.
+        builder.Property(x => x.Type).HasMaxLength(60).IsRequired();
         builder.Property(x => x.Category).HasConversion<string>().HasMaxLength(30).IsRequired();
         builder.Property(x => x.Uom).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.Resolution).HasConversion<string>().HasMaxLength(20).IsRequired();

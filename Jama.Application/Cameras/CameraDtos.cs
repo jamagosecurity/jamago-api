@@ -7,7 +7,7 @@ public sealed record CameraDto(
     // Identity
     string ItemName,
     string Brand,
-    CameraType Type,
+    string Type,
     string ModelNo,
     ProductCategory Category,
     string? SearchKey,

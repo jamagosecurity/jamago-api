@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Cameras.Queries.GetCameraTypeCounts;
 
-public sealed record CameraTypeCountDto(CameraType Type, int ItemCount, int UnitCount);
+public sealed record CameraTypeCountDto(string Type, int ItemCount, int UnitCount);
 
 /// <summary>
 /// How many stock lines and units sit under each camera type.
@@ -33,12 +33,13 @@ public sealed class GetCameraTypeCountsQueryHandler(IApplicationDbContext contex
             .Select(g => new { Type = g.Key, Items = g.Count(), Units = g.Sum(x => x.Quantity) })
             .ToListAsync(cancellationToken);
 
-        var counts = Enum.GetValues<CameraType>()
-            .Select(type =>
-            {
-                var match = grouped.FirstOrDefault(x => x.Type == type);
-                return new CameraTypeCountDto(type, match?.Items ?? 0, match?.Units ?? 0);
-            })
+        // Built from the types the data actually holds, not from a fixed list.
+        // Type is free text now, so there is no set of values to enumerate — and
+        // a tile for a form factor nobody stocks told the reader nothing.
+        var counts = grouped
+            .OrderByDescending(x => x.Items)
+            .ThenBy(x => x.Type)
+            .Select(x => new CameraTypeCountDto(x.Type, x.Items, x.Units))
             .ToList();
 
         return ApiResult<IReadOnlyList<CameraTypeCountDto>>.Success(counts);

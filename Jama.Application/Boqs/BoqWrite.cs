@@ -162,8 +162,16 @@ internal static class BoqWriter
                     ItemName = item.ItemName,
                     ModelNo = string.IsNullOrWhiteSpace(item.ModelNo) ? null : item.ModelNo,
                     Brand = item.Brand,
+                    Type = string.IsNullOrWhiteSpace(item.Type) ? null : item.Type,
                     Uom = item.Uom,
                     Quantity = line.Quantity,
+                    // Frozen with the rest of the line, so storage sized from this
+                    // bill gives the same answer after the stock item is edited or
+                    // retired. Copied as-is: a blank profile is recorded as blank
+                    // rather than guessed at, because the guess would then be
+                    // indistinguishable from a figure someone actually chose.
+                    Resolution = item.Resolution,
+                    BitrateMbps = item.BitrateMbps,
                     // The whole point: the rate is the catalogue's, not the caller's.
                     UnitRate = item.Rate ?? 0m,
                     SortOrder = lineOrder++,

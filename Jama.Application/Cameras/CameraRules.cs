@@ -39,17 +39,20 @@ internal static class CameraRules
     internal static Task<bool> ExistsAsync(
         IApplicationDbContext context,
         string brand,
-        CameraType type,
+        string? type,
         string modelNo,
         Guid? excludingId,
         CancellationToken cancellationToken)
     {
         var normalizedBrand = brand.ToLower();
         var normalizedModel = modelNo.ToLower();
+        // Type joined the key as free text, so "Dome" and "dome" have to be the
+        // same item — otherwise the unique key stops catching duplicates.
+        var normalizedType = (type ?? string.Empty).Trim().ToLower();
 
         var query = context.Cameras
             .AsNoTracking()
-            .Where(x => x.Type == type
+            .Where(x => x.Type.ToLower() == normalizedType
                 && x.Brand.ToLower() == normalizedBrand
                 && x.ModelNo.ToLower() == normalizedModel);
 
@@ -61,7 +64,7 @@ internal static class CameraRules
         return query.AnyAsync(cancellationToken);
     }
 
-    internal static string DuplicateMessage(string brand, CameraType type, string modelNo)
+    internal static string DuplicateMessage(string brand, string? type, string modelNo)
     {
         // Naming the model only when there is one — "Hikvision (Dome, )" reads
         // like a bug to whoever gets the message.

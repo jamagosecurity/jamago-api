@@ -17,7 +17,7 @@ public interface ICameraWrite
 {
     string? ItemName { get; }
     string? Brand { get; }
-    CameraType Type { get; }
+    string? Type { get; }
     string? ModelNo { get; }
     ProductCategory Category { get; }
     string? SearchKey { get; }
@@ -117,7 +117,7 @@ internal static class CameraWriter
     {
         entity.ItemName = request.ItemName?.Trim() ?? string.Empty;
         entity.Brand = CameraRules.NormalizeBrand(request.Brand);
-        entity.Type = request.Type;
+        entity.Type = request.Type?.Trim() ?? string.Empty;
         entity.ModelNo = CameraRules.NormalizeModelNo(request.ModelNo);
         entity.Category = request.Category;
         entity.SearchKey = CameraRules.NormalizeOptional(request.SearchKey);

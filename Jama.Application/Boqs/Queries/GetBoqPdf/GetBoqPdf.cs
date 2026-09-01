@@ -84,6 +84,7 @@ public sealed class GetBoqPdfQueryHandler(
                         line.ItemName,
                         line.ModelNo,
                         line.Brand,
+                        line.Type,
                         line.Uom.ToString(),
                         line.Quantity,
                         line.UnitRate,

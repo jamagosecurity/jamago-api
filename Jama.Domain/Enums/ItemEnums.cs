@@ -2,21 +2,36 @@ namespace Jama.Domain.Enums;
 
 /// <summary>
 /// Pick-lists for a stock item. All stored as their enum NAME, matching the
-/// convention set by <see cref="CameraType"/>: a row reads "AccessControl" in
+/// convention the other pick-lists follow: a row reads "AccessControl" in
 /// psql, and adding or reordering a member never remaps existing rows.
+/// </summary>
+/// <summary>
+/// What section of a bill of quantities a stock item belongs to.
+///
+/// These mirror <c>BoqSectionTitles</c> one for one, deliberately: an item's
+/// category is what decides which section it lands in, and two lists that were
+/// meant to agree but were maintained separately had already drifted.
+///
+/// Stored as the enum NAME, so the members below can be reordered freely and
+/// existing rows still read. Alarm and Other are gone — Other was never used,
+/// and the single Alarm item moved to AccessControl, which is where an intruder
+/// panel is quoted.
 /// </summary>
 public enum ProductCategory
 {
     Cctv,
-    AccessControl,
-    Alarm,
-    Network,
-    Cable,
+    Accessory,
     Storage,
     Monitor,
+    Network,
     PowerSupply,
-    Accessory,
-    Other,
+
+    /// <summary>Key Point of Interest cameras. Broken out from the ordinary
+    /// camera count on an MOI submission, which states them separately.</summary>
+    Kpoi,
+
+    Cable,
+    AccessControl,
 }
 
 public enum UnitOfMeasurement

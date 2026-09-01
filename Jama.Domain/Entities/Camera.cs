@@ -21,7 +21,14 @@ public class Camera : BaseEntity
     public string ItemName { get; set; } = string.Empty;
 
     public string Brand { get; set; } = string.Empty;
-    public CameraType Type { get; set; }
+    /// <summary>
+    /// The form factor, as free text — "Dome", "Bullet PTZ", "Thermal ANPR".
+    ///
+    /// Was a fixed enum. The list could never cover what suppliers actually
+    /// ship, and an item that did not fit one of seven names had to be filed
+    /// under the wrong one. It reaches the client and the BOQ exactly as typed.
+    /// </summary>
+    public string Type { get; set; } = string.Empty;
 
     /// <summary>
     /// Manufacturer model number, e.g. "DS-2CD2143G0-I". Optional, and stored as

@@ -49,8 +49,11 @@ internal static class BoqMappings
             line.ItemName,
             line.ModelNo,
             line.Brand,
+            line.Type,
             line.Uom,
             line.Quantity,
+            line.Resolution,
+            line.BitrateMbps,
             line.UnitRate,
             line.LineTotal,
             line.SortOrder);

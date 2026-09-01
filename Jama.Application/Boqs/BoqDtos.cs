@@ -10,8 +10,15 @@ public sealed record BoqLineDto(
     string ItemName,
     string? ModelNo,
     string? Brand,
+    /// <summary>Form factor as the catalogue held it when the line was written.</summary>
+    string? Type,
     UnitOfMeasurement Uom,
     decimal Quantity,
+    /// <summary>The recording profile as it stood when this line was written, not
+    /// as the catalogue holds it now. Unspecified and null on everything that is
+    /// not a camera.</summary>
+    CameraResolution Resolution,
+    decimal? BitrateMbps,
     decimal UnitRate,
     decimal LineTotal,
     int SortOrder);

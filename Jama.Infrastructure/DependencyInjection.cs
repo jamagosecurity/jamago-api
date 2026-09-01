@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
         services.AddSingleton<IQuotationPdfGenerator, QuotationPdfGenerator>();
         services.AddSingleton<IBoqPdfGenerator, BoqPdfGenerator>();
+        services.AddSingleton<IMoiStoragePdfGenerator, MoiStoragePdfGenerator>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
 
         return services;

@@ -5,6 +5,8 @@ public sealed record BoqPdfLine(
     string ItemName,
     string? ModelNo,
     string? Brand,
+    /// <summary>Form factor as the line recorded it — printed beside the model.</summary>
+    string? Type,
     string Uom,
     decimal Quantity,
     decimal UnitRate,

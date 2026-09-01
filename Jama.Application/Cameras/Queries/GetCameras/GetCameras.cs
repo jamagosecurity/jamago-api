@@ -20,7 +20,7 @@ public sealed record GetCamerasQuery : IRequest<ApiResult<PaginatedResult<Camera
     /// <summary>Matches on item name, brand, model number, search key or HSN code.</summary>
     public string? Search { get; init; }
 
-    public CameraType? Type { get; init; }
+    public string? Type { get; init; }
     public ProductCategory? Category { get; init; }
 
     /// <summary>Exact brand, matched case-insensitively — the value comes from
@@ -56,8 +56,11 @@ public sealed class GetCamerasQueryHandler(IApplicationDbContext context)
                 || (x.HsnCode != null && x.HsnCode.ToLower().Contains(search)));
         }
 
-        if (request.Type is { } type)
-            query = query.Where(x => x.Type == type);
+        if (!string.IsNullOrWhiteSpace(request.Type))
+        {
+            var type = request.Type.Trim().ToLower();
+            query = query.Where(x => x.Type.ToLower() == type);
+        }
 
         if (request.Category is { } category)
             query = query.Where(x => x.Category == category);

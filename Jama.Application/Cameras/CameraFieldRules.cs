@@ -12,6 +12,10 @@ internal static class CameraFieldRules
 {
     internal const int ItemNameMaxLength = 200;
     internal const int BrandMaxLength = 120;
+
+    /// <summary>Free text since the form-factor enum was dropped; 60 matches the
+    /// column.</summary>
+    internal const int TypeMaxLength = 60;
     internal const int ModelNoMaxLength = 120;
     internal const int SearchKeyMaxLength = 300;
     internal const int DescriptionMaxLength = 500;
@@ -38,8 +42,11 @@ internal static class CameraFieldRules
             .MaximumLength(BrandMaxLength)
             .WithMessage($"Brand must be {BrandMaxLength} characters or fewer.");
 
-    internal static IRuleBuilderOptions<T, CameraType> Type<T>(IRuleBuilder<T, CameraType> rule) =>
-        rule.IsInEnum().WithMessage("Select a valid camera type.");
+    internal static IRuleBuilderOptions<T, string?> Type<T>(IRuleBuilder<T, string?> rule) =>
+        rule
+            .NotEmpty().WithMessage("Camera type is required.")
+            .MaximumLength(TypeMaxLength)
+            .WithMessage($"Camera type must be {TypeMaxLength} characters or fewer.");
 
     internal static IRuleBuilderOptions<T, ProductCategory> Category<T>(IRuleBuilder<T, ProductCategory> rule) =>
         rule.IsInEnum().WithMessage("Select a valid product category.");

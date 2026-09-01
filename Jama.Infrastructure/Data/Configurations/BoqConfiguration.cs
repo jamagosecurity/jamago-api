@@ -58,11 +58,18 @@ public sealed class BoqLineConfiguration : IEntityTypeConfiguration<BoqLine>
         builder.Property(x => x.ItemName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.ModelNo).HasMaxLength(120);
         builder.Property(x => x.Brand).HasMaxLength(120);
+        // 60 to match the Cameras column it is copied from.
+        builder.Property(x => x.Type).HasMaxLength(60);
         builder.Property(x => x.Uom).HasConversion<string>().HasMaxLength(20).IsRequired();
 
         builder.Property(x => x.Quantity).HasPrecision(14, 2);
         builder.Property(x => x.UnitRate).HasPrecision(18, 2);
         builder.Property(x => x.LineTotal).HasPrecision(18, 2);
+
+        // Same shape the Cameras table stores these in, so a copied value and its
+        // source read identically in psql: the enum NAME, and 8,3 for a bitrate.
+        builder.Property(x => x.Resolution).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(x => x.BitrateMbps).HasPrecision(8, 3);
 
         builder.HasIndex(x => new { x.BoqSectionId, x.SortOrder });
 

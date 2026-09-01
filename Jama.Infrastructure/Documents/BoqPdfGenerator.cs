@@ -704,12 +704,13 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 // The client's own layout: image, brand, model and description
                 // each get a column instead of being stacked into one cell.
                 // Page is A4 less 28pt margins = 539pt, so the fixed columns
-                // total 362 and description takes what is left.
+                // total 406 and description takes what is left.
                 table.ColumnsDefinition(columns =>
                 {
                     columns.ConstantColumn(30);   // s.no
                     columns.ConstantColumn(54);   // brand
                     columns.ConstantColumn(46);   // image
+                    columns.ConstantColumn(44);   // type
                     columns.ConstantColumn(66);   // model
                     columns.RelativeColumn(1);    // description
                     columns.ConstantColumn(32);   // unit
@@ -723,6 +724,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     HeaderCell(header.Cell(), "S.No", false);
                     HeaderCell(header.Cell(), "Brand", false);
                     HeaderCell(header.Cell(), "Image", false);
+                    HeaderCell(header.Cell(), "Type", false);
                     HeaderCell(header.Cell(), "Model", false);
                     HeaderCell(header.Cell(), "Description", false);
                     HeaderCell(header.Cell(), "Unit", true);
@@ -765,6 +767,9 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                         photo.AlignCenter().Image(line.Image).FitArea();
                     else
                         photo.AlignCenter().Text(EmDash).FontSize(9).FontColor(Muted);
+                    // Type before model, the order a specifier chooses them in:
+                    // a brand, then the form factor, then the model that is both.
+                    Body(table.Cell(), shaded).Text(Dash(line.Type)).FontSize(8).FontColor(InkSoft);
                     Body(table.Cell(), shaded).Text(Dash(line.ModelNo)).FontSize(8).FontColor(InkSoft);
 
                     Body(table.Cell(), shaded).Column(cell =>

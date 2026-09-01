@@ -1,5 +1,7 @@
 using Jama.Application.Common;
+using Jama.Application.Common.Models;
 using Jama.Application.StorageDesigns.Queries.CalculateStorageDesign;
+using Jama.Application.StorageDesigns.Queries.GetStorageDesignPdf;
 using Jama.Web.Infrastructure;
 using MediatR;
 
@@ -23,7 +25,24 @@ public sealed class StorageDesigns : EndpointGroupBase
     public override void Map(WebApplication app)
     {
         app.MapGroup(this)
-            .MapPost(Calculate, "calculate", permission: Permissions.BoqManage);
+            .MapPost(Calculate, "calculate", permission: Permissions.BoqManage)
+            .MapPost(Pdf, "pdf", permission: Permissions.BoqManage);
+    }
+
+    /// <summary>
+    /// The MOI submission sheet as a PDF. POST for the same reason Calculate is:
+    /// the input is a nested document that will not survive a query string.
+    /// </summary>
+    public async Task<IResult> Pdf(
+        ISender sender,
+        GetStorageDesignPdfQuery query,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(query, cancellationToken);
+        if (!result.Succeeded || result.Data is null)
+            return Results.BadRequest(ApiResult<string>.Failure(result.Errors));
+
+        return Results.File(result.Data.Content, "application/pdf", result.Data.FileName);
     }
 
     public async Task<IResult> Calculate(
