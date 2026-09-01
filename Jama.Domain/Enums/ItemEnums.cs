@@ -34,6 +34,18 @@ public enum ProductCategory
     AccessControl,
 }
 
+/// <summary>
+/// How a stock item is counted.
+///
+/// Stored as the enum NAME, and written on screen and on the document in the
+/// abbreviated form the trade uses — "Pcs", "Mtr", "Loc". The two are kept
+/// apart deliberately: the printed form is what a client reads and changes
+/// with taste, while the stored name is in every existing row and cannot move
+/// without a data migration.
+///
+/// Pack and Pair are gone. Neither was ever quoted here, and a pick-list that
+/// offers units nobody uses is one more thing to get wrong on a priced page.
+/// </summary>
 public enum UnitOfMeasurement
 {
     Piece,
@@ -41,8 +53,10 @@ public enum UnitOfMeasurement
     Set,
     Metre,
     Roll,
-    Pack,
-    Pair,
+
+    /// <summary>A whole location, priced as one lump — the unit for work that
+    /// is quoted per site rather than per item.</summary>
+    Location,
 }
 
 /// <summary>

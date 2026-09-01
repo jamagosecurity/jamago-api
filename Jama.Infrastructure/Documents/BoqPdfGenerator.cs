@@ -820,11 +820,21 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     /// <summary>
     /// How a unit is written on the document.
     ///
-    /// The enum member stays "Piece" — it is the stored value, and renaming it
-    /// would need a data migration — so only the printed form changes.
+    /// The enum members stay as they are — they are the stored values, and
+    /// renaming one would need a data migration — so only the printed form
+    /// changes. Anything without an entry prints its own name, which is already
+    /// the word a reader wants for Box, Set and Roll.
     /// </summary>
+    private static readonly Dictionary<string, string> UnitNames =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Piece"] = "Pcs",
+            ["Metre"] = "Mtr",
+            ["Location"] = "Loc",
+        };
+
     private static string Unit(string uom) =>
-        string.Equals(uom, "Piece", StringComparison.OrdinalIgnoreCase) ? "pcs" : uom;
+        UnitNames.TryGetValue(uom, out var name) ? name : uom;
 
     /// <summary>An em dash for an empty cell, so a blank reads as "not recorded"
     /// rather than as a column that failed to print.</summary>
