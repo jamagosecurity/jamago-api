@@ -43,19 +43,36 @@ server {
     # new URL — they can be cached indefinitely.
     location ~* \.(?:js|css)$ {
         try_files $uri =404;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     # Self-hosted fonts, served from a fixed path with stable content.
     location /fonts/ {
         try_files $uri =404;
-        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     # Images are not content-hashed, so keep the window short enough to replace them.
     location ~* \.(?:png|jpe?g|gif|svg|webp|avif|ico)$ {
         try_files $uri =404;
-        add_header Cache-Control "public, max-age=2592000" always;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+
+    # A 404 must never be cacheable, whichever location produced it.
+    #
+    # scp uploads a build one file at a time, so a bundle is briefly absent
+    # mid-deploy. With `always` on the rule above, that 404 was served carrying
+    # "immutable, max-age=1y" — so a single request landing in that window
+    # pinned a 404 for main.js at the CDN for a year, and every visitor got a
+    # blank page while the file sat on disk perfectly intact.
+    #
+    # Dropping `always` is the actual fix: nginx then applies the cache-forever
+    # header only to 2xx/3xx, which is all it was ever meant to cover. This
+    # block is the belt to that braces.
+    error_page 404 = @notfound;
+    location @notfound {
+        add_header Cache-Control "no-store" always;
+        return 404;
     }
 
     # Angular SPA routes and prerendered HTML. HTML must revalidate every time or
