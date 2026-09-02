@@ -30,6 +30,17 @@ public enum ProductCategory
     /// camera count on an MOI submission, which states them separately.</summary>
     Kpoi,
 
+    /// <summary>Number-plate cameras. Broken out for the same reason KPOI is —
+    /// a submission states them apart from the main system — and because they
+    /// are sized apart from it too: stills per event rather than continuous
+    /// video, on their own array and their own page of the storage sheet.
+    ///
+    /// They were previously quoted under Cctv and told apart by the free-text
+    /// type reading "ANPR". That worked until someone typed the type
+    /// differently, at which point a number-plate camera was silently sized as
+    /// continuous video. A category cannot be mistyped.</summary>
+    Anpr,
+
     Cable,
     AccessControl,
 }

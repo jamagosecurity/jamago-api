@@ -19,6 +19,7 @@ public static class BoqSectionTitles
     public const string Switches = "Switch & Components";
     public const string RackUps = "Rack & UPS";
     public const string Kpoi = "Key Point of Interest Camera (KPOI)";
+    public const string Anpr = "Automatic Number Plate Recognition (ANPR)";
     public const string PassiveComponents = "Passive Components & Cables";
     public const string AccessControl = "Access Control System";
 
@@ -32,6 +33,7 @@ public static class BoqSectionTitles
         Switches,
         RackUps,
         Kpoi,
+        Anpr,
         PassiveComponents,
         AccessControl,
     ];
