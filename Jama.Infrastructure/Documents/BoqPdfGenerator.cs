@@ -218,6 +218,81 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     private static string Money(decimal value) => value.ToString("N2", CultureInfo.InvariantCulture);
 
+    private static readonly string[] WordsToNineteen =
+    [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+        "eighteen", "nineteen",
+    ];
+
+    private static readonly string[] WordsTens =
+        ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+    private static readonly (long Value, string Name)[] WordScales =
+        [(1_000_000_000L, "billion"), (1_000_000L, "million"), (1_000L, "thousand")];
+
+    /// <summary>Spells a whole number: 248 becomes "two hundred forty-eight".</summary>
+    private static string Spell(long value)
+    {
+        if (value < 20) return WordsToNineteen[value];
+
+        if (value < 100)
+        {
+            var tens = WordsTens[value / 10];
+            return value % 10 == 0 ? tens : $"{tens}-{WordsToNineteen[value % 10]}";
+        }
+
+        if (value < 1_000)
+        {
+            var hundreds = $"{WordsToNineteen[value / 100]} hundred";
+            return value % 100 == 0 ? hundreds : $"{hundreds} {Spell(value % 100)}";
+        }
+
+        foreach (var (scale, name) in WordScales)
+        {
+            if (value < scale) continue;
+
+            var head = $"{Spell(value / scale)} {name}";
+            return value % scale == 0 ? head : $"{head} {Spell(value % scale)}";
+        }
+
+        return value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// The total written out: "Eighty-five thousand two hundred forty-eight
+    /// riyals and seventy dirhams only".
+    ///
+    /// Every priced document carries this, and not for decoration. A figure can
+    /// be altered after it leaves here with one keystroke and no trace; the same
+    /// edit to a sentence has to be rewritten to agree with it, and a total that
+    /// disagrees with its own words is a document nobody has to honour. It is
+    /// also what a bank reads first on a cheque drawn against the quotation.
+    ///
+    /// "only" closes the sentence for the same reason: it marks the end of the
+    /// amount, so nothing can be appended to it.
+    /// </summary>
+    private static string AmountInWords(decimal amount)
+    {
+        // Away from zero to match the printed figure, which is rounded the same
+        // way. Half a dirham resolving in opposite directions would put the
+        // words and the number one dirham apart — the exact disagreement this
+        // line exists to make impossible.
+        var rounded = Math.Round(Math.Abs(amount), 2, MidpointRounding.AwayFromZero);
+
+        var riyals = (long)decimal.Truncate(rounded);
+        var dirhams = (int)decimal.Truncate((rounded - riyals) * 100m);
+
+        var text = $"{Spell(riyals)} {(riyals == 1 ? "riyal" : "riyals")}";
+
+        // A whole amount says nothing about dirhams rather than "and zero
+        // dirhams", which reads like a field nobody filled in.
+        if (dirhams > 0)
+            text += $" and {Spell(dirhams)} {(dirhams == 1 ? "dirham" : "dirhams")}";
+
+        return $"{char.ToUpperInvariant(text[0])}{text[1..]} only";
+    }
+
     private static string Date(DateOnly value) =>
         value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
 
@@ -704,7 +779,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 // The client's own layout: image, brand, model and description
                 // each get a column instead of being stacked into one cell.
                 // Page is A4 less 28pt margins = 539pt, so the fixed columns
-                // total 406 and description takes what is left.
+                // total 426 and description takes what is left.
                 table.ColumnsDefinition(columns =>
                 {
                     columns.ConstantColumn(30);   // s.no
@@ -716,7 +791,14 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     columns.ConstantColumn(32);   // unit
                     columns.ConstantColumn(28);   // qty
                     columns.ConstantColumn(52);   // unit price
-                    columns.ConstantColumn(62);   // total
+                    // 74, not 62. The section total prints larger and bolder
+                    // than the line totals under it, so it was the first thing
+                    // to run out of room: 62 less 10pt of cell padding left
+                    // 52pt, and "12,265.39" set bold needed more, so the figure
+                    // broke across two lines with the last digit alone on the
+                    // second — on the one number in the section a reader checks.
+                    // 64pt of usable width holds a seven-figure total.
+                    columns.ConstantColumn(74);   // total
                 });
 
                 table.Header(header =>
@@ -743,12 +825,22 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
                     Body(table.Cell(), shaded).Text(line.Number).FontColor(Muted);
 
-                    // Fixed height whether or not there is a picture, so rows in
-                    // the same section line up rather than jumping about.
-                    // The maker's mark where there is one, the name where there
-                    // is not — most of a real catalogue is cable and brackets
-                    // from suppliers whose logo nobody has on file.
-                    var brandCell = Body(table.Cell(), shaded).AlignMiddle();
+                    // Brand and image share one box height and one anchor, and
+                    // that is the whole point of the next few lines.
+                    //
+                    // They used to disagree. The photo read .Height(38) BEFORE
+                    // .AlignMiddle(), so the 38pt box was pinned to the top of
+                    // the row and the picture centred inside it; the brand read
+                    // .AlignMiddle() first, so its 18pt box was centred in the
+                    // whole row instead. On a short row the two land in much the
+                    // same place, which is why this survived. On a row as tall
+                    // as its description — every camera line, in other words —
+                    // the photo sat at the top and the maker's mark floated a
+                    // centimetre below it, against a different row's text.
+                    //
+                    // Same box, same anchor, content centred within: their
+                    // centres now coincide however tall the description grows.
+                    var brandCell = Body(table.Cell(), shaded).AlignTop().Height(MediaBoxHeight).AlignMiddle();
                     if (BrandMark(line.Brand) is { } mark)
                         // FitArea, not FitHeight: a wide wordmark scaled to a
                         // fixed height overflows a 54pt column, which QuestPDF
@@ -756,13 +848,13 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                         // clipping. Bounded both ways, it just gets smaller.
                         brandCell.Height(18).AlignLeft().Image(mark).FitArea();
                     else
-                        brandCell.Text(Dash(line.Brand)).FontColor(InkSoft);
+                        brandCell.AlignLeft().Text(Dash(line.Brand)).FontColor(InkSoft);
 
                     // Fixed box, as the editor has: a source photo may be
                     // 4000px wide or 200px tall and every row must still show
                     // the same size picture. FitArea contains it inside the box
                     // rather than cropping the camera out of its own thumbnail.
-                    var photo = Body(table.Cell(), shaded).Height(38).AlignMiddle();
+                    var photo = Body(table.Cell(), shaded).AlignTop().Height(MediaBoxHeight).AlignMiddle();
                     if (line.Image is { Length: > 0 })
                         photo.AlignCenter().Image(line.Image).FitArea();
                     else
@@ -810,10 +902,17 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     .PaddingVertical(6).PaddingHorizontal(5)
                     .AlignRight()
                     .Text(Money(section.Subtotal))
-                    .FontSize(9.5f).Bold().FontColor(BrandStrong);
+                    // 9, not 9.5: still larger than the lines it sums, with the
+                    // margin the wider column is there to guarantee.
+                    .FontSize(9f).Bold().FontColor(BrandStrong);
             });
         });
     }
+
+    /// <summary>Box height shared by the Brand and Image cells. One constant
+    /// because the two only line up while they agree, and they are set ten
+    /// lines apart.</summary>
+    private const float MediaBoxHeight = 38;
 
     private const string EmDash = "\u2014";
 
@@ -855,18 +954,33 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     private static void ComposeTotal(IContainer container, BoqPdfModel model)
     {
-        container.Row(row =>
+        container.Column(column =>
         {
-            // Left half stays empty: the total belongs on the same side as the
-            // amounts column it sums.
-            row.RelativeItem();
-
-            row.ConstantItem(260).Background(BrandStrong).Padding(9).Row(inner =>
+            column.Item().Row(row =>
             {
-                inner.RelativeItem().Text("TOTAL (QAR)")
-                    .FontSize(10).Bold().FontColor(White);
-                inner.ConstantItem(110).AlignRight().Text(Money(model.Total))
-                    .FontSize(13).Bold().FontColor(White);
+                // Left half stays empty: the total belongs on the same side as
+                // the amounts column it sums.
+                row.RelativeItem();
+
+                row.ConstantItem(260).Background(BrandStrong).Padding(9).Row(inner =>
+                {
+                    inner.RelativeItem().Text("TOTAL (QAR)")
+                        .FontSize(10).Bold().FontColor(White);
+                    inner.ConstantItem(110).AlignRight().Text(Money(model.Total))
+                        .FontSize(13).Bold().FontColor(White);
+                });
+            });
+
+            // Full width rather than tucked under the box: the sentence runs
+            // longer than the figure on any real job, and wrapping the amount
+            // across two lines inside a 260pt column is how it stops being
+            // readable as one number.
+            column.Item().PaddingTop(7).Row(words =>
+            {
+                words.ConstantItem(84).Text("AMOUNT IN WORDS")
+                    .FontSize(7.5f).Bold().FontColor(Muted).LetterSpacing(0.06f);
+                words.RelativeItem().Text(AmountInWords(model.Total))
+                    .FontSize(8.5f).Italic().FontColor(Ink);
             });
         });
     }
