@@ -2,11 +2,22 @@ using Jama.Application.StorageDesigns.Queries.CalculateStorageDesign;
 
 namespace Jama.Application.Common.Interfaces;
 
-/// <summary>One RAID set as the sheet lists it: a lettered pool and its disks.</summary>
+/// <summary>
+/// One RAID set as the sheet lists it: a lettered pool, its disks, and the share
+/// of the system it carries.
+/// </summary>
+/// <param name="Cameras">Cameras recording to THIS pool. The reference states a
+/// count per row, not one for the whole system — its two arrays each carry 18 of
+/// 36 — because a reviewer checks each pool's capacity against its own load.</param>
+/// <param name="RequiredTerabytes">What this pool's own cameras need. Sits
+/// against AvailableTerabytes on the same row, so the pair reconciles line by
+/// line rather than only at the grand total.</param>
 public sealed record MoiArrayRow(
     string Letter,
     int DataDisks,
     int ParityDisks,
+    int Cameras,
+    decimal RequiredTerabytes,
     decimal AvailableTerabytes,
     decimal ProposedTerabytes);
 

@@ -106,6 +106,39 @@ public sealed class GetStorageDesignPdfQueryHandler(
             new StorageDesignPdfDto(name, generator.Generate(model)));
     }
 
+    /// <summary>
+    /// The pools, each carrying its share of the cameras.
+    ///
+    /// Split evenly with the remainder on the earlier rows. Sizing already spreads
+    /// data disks the same way, so a row with more cameras is the row with more
+    /// capacity and the pair reconciles per line.
+    /// </summary>
+    private static List<MoiArrayRow> SplitRows(
+        StorageRecommendationDto array,
+        int cameras,
+        decimal perCamera)
+    {
+        var groups = Math.Max(1, array.Layout.Count);
+        var each = cameras / groups;
+        var spare = cameras % groups;
+
+        return array.Layout
+            .Select((g, index) =>
+            {
+                var mine = each + (index < spare ? 1 : 0);
+
+                return new MoiArrayRow(
+                    ((char)('A' + g.Number - 1)).ToString(),
+                    g.DataDisks,
+                    g.ParityDisks,
+                    mine,
+                    Math.Round(mine * perCamera, 2, MidpointRounding.AwayFromZero),
+                    g.AvailableTerabytes,
+                    g.ProposedTerabytes);
+            })
+            .ToList();
+    }
+
     /// <summary>Weighted by camera count, so one outlier does not read as the
     /// midpoint of two numbers.</summary>
     private static decimal Bitrate(StorageDesignDto design)
@@ -139,14 +172,12 @@ public sealed class GetStorageDesignPdfQueryHandler(
             array.BaysPerGroup,
             design.HddType,
             array.DiskTerabytes,
-            array.Layout
-                .Select(g => new MoiArrayRow(
-                    ((char)('A' + g.Number - 1)).ToString(),
-                    g.DataDisks,
-                    g.ParityDisks,
-                    g.AvailableTerabytes,
-                    g.ProposedTerabytes))
-                .ToList(),
+            // Cameras are shared across the pools the same way the disks are, so
+            // each row states its own load and its own requirement — the reference
+            // splits 36 cameras as 18 and 18 rather than repeating the total. Any
+            // remainder lands on the earlier rows, which is where the extra data
+            // disk sits too, so the two stay in step.
+            SplitRows(array, cameras, perCamera),
             array.HotSpareDisks,
             array.TotalDisks,
             cameras,

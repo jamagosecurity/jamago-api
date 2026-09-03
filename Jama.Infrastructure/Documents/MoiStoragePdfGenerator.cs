@@ -321,7 +321,17 @@ public sealed class MoiStoragePdfGenerator : IMoiStoragePdfGenerator
                 {
                     Spanned(table, rows, sheet.HotSpareDisks.ToString(CultureInfo.InvariantCulture));
                     Spanned(table, rows, sheet.TotalDisks.ToString(CultureInfo.InvariantCulture), bold: true);
-                    Spanned(table, rows, sheet.Cameras.ToString(CultureInfo.InvariantCulture), bold: true);
+                }
+
+                // Cameras and the requirement are stated PER POOL, not once for
+                // the system. The reference splits 36 across two arrays as 18 and
+                // 18, so each row's capacity can be checked against its own load;
+                // spanning the totals down the rows left a reader comparing a
+                // pool's 57.60 TB against the whole design's 111.24.
+                Body(table.Cell(), array?.Cameras.ToString(CultureInfo.InvariantCulture) ?? "0", bold: true);
+
+                if (i == 0)
+                {
                     Spanned(table, rows, sheet.Resolution);
                     Spanned(table, rows, sheet.Codec);
                     Spanned(table, rows, sheet.Fps.ToString(CultureInfo.InvariantCulture));
@@ -329,9 +339,9 @@ public sealed class MoiStoragePdfGenerator : IMoiStoragePdfGenerator
                     Spanned(table, rows, sheet.MotionPercent.ToString(CultureInfo.InvariantCulture));
                     Spanned(table, rows, sheet.RecordingDays.ToString(CultureInfo.InvariantCulture));
                     Spanned(table, rows, N2(sheet.PerCameraTerabytes));
-                    Spanned(table, rows, N2(sheet.RequiredTerabytes), colour: Required, bold: true);
                 }
 
+                Body(table.Cell(), array is null ? "0" : N2(array.RequiredTerabytes), Required, bold: true);
                 Body(table.Cell(), array is null ? "0" : Tb(array.AvailableTerabytes), Required, bold: true);
                 Body(table.Cell(), array is null ? "0" : Tb(array.ProposedTerabytes), Proposed, bold: true);
             }
