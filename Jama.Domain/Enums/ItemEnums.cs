@@ -43,6 +43,15 @@ public enum ProductCategory
 
     Cable,
     AccessControl,
+
+    /// <summary>Labour rather than hardware — installation, commissioning, an
+    /// annual maintenance contract. Quoted as a line like anything else, but
+    /// never sized: the storage calculator reads only the camera categories, so
+    /// a service line cannot contribute imaginary footage to an array.
+    ///
+    /// Distinct from <c>ItemType.Service</c>, which says how a line is priced.
+    /// This says which section of the document it prints under.</summary>
+    Service,
 }
 
 /// <summary>

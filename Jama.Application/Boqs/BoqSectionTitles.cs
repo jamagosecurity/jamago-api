@@ -23,6 +23,10 @@ public static class BoqSectionTitles
     public const string PassiveComponents = "Passive Components & Cables";
     public const string AccessControl = "Access Control System";
 
+    /// <summary>Labour, printed last — a client reads the equipment first and the
+    /// work to install it after, which is the order the trade quotes in.</summary>
+    public const string Service = "Service";
+
     /// <summary>In the order they should appear on the document.</summary>
     public static readonly IReadOnlyList<string> All =
     [
@@ -36,6 +40,7 @@ public static class BoqSectionTitles
         Anpr,
         PassiveComponents,
         AccessControl,
+        Service,
     ];
 
     /// <summary>Case-insensitive: the client sends back what it was given, but a
