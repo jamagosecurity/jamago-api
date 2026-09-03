@@ -22,6 +22,13 @@ public enum ProductCategory
     Cctv,
     Accessory,
     Storage,
+
+    /// <summary>Video management software and the machine it runs on. Between
+    /// storage and monitors because that is the order a system is specified in:
+    /// the cameras record to disk, the software makes the recording watchable,
+    /// and the workstations are what it is watched on.</summary>
+    VmsServer,
+
     Monitor,
     Network,
     PowerSupply,

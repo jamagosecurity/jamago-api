@@ -15,6 +15,7 @@ public static class BoqSectionTitles
     public const string MainCctv = "Main CCTV System";
     public const string CameraAccessories = "Camera Accessories";
     public const string NvrStorage = "NVR & Storage";
+    public const string VmsServer = "VMS & Server";
     public const string Monitors = "Monitors and Work Stations";
     public const string Switches = "Switch & Components";
     public const string RackUps = "Rack & UPS";
@@ -33,6 +34,7 @@ public static class BoqSectionTitles
         MainCctv,
         CameraAccessories,
         NvrStorage,
+        VmsServer,
         Monitors,
         Switches,
         RackUps,
