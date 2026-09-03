@@ -70,12 +70,25 @@ public sealed record CalculateStorageDesignQuery : IRequest<TypedResult<StorageD
     public decimal FilesystemFactor { get; init; } = 0.90m;
 
     /// <summary>
-    /// RAID level to build at. Null weighs 1, 5 and 6 and takes the cheapest,
-    /// which is what most jobs want — a small stills volume is cheapest mirrored
-    /// and a large recording array is cheapest striped, so one level for both
-    /// over-buys at one end. Set it explicitly when compliance requires a level.
+    /// RAID level to build at. Null weighs every scheme on offer and takes the
+    /// cheapest, which is what most jobs want — a small stills volume is cheapest
+    /// mirrored and a large recording array is cheapest striped, so one scheme for
+    /// both over-buys at one end. Set it explicitly when compliance requires one.
+    ///
+    /// 1 or 5. A caller sending 6 is read as RAID-5 with two parity disks, which
+    /// is the same array under the name this business quotes it by.
     /// </summary>
     public int? RaidLevel { get; init; }
+
+    /// <summary>
+    /// Disks per group given over to parity: 1 or 2. Only meaningful alongside
+    /// RAID-5, and null lets the server weigh both.
+    ///
+    /// Separate from the level because dual parity is quoted here as RAID-5 with
+    /// two parity disks, not as RAID-6. The level names the scheme, this says what
+    /// it costs in disks, and the sheet prints the two in their own columns.
+    /// </summary>
+    public int? RaidParityDisks { get; init; }
 
     /// <summary>Days of footage the failover copy keeps, and how many cameras it
     /// covers. Zero cameras means no failover block.</summary>
@@ -354,9 +367,16 @@ public sealed class CalculateStorageDesignQueryValidator : AbstractValidator<Cal
         RuleFor(x => x.FilesystemFactor)
             .InclusiveBetween(0.5m, 1m).WithMessage("Filesystem factor must be between 0.5 and 1.");
 
+        // 6 is still accepted, unadvertised, as the older spelling of RAID-5 with
+        // two parity disks. Rejecting it would break a client that had not yet
+        // reloaded, for a request whose meaning is not in doubt.
         RuleFor(x => x.RaidLevel)
             .Must(x => x is null or 1 or 5 or 6)
-            .WithMessage("RAID level must be 1, 5 or 6.");
+            .WithMessage("RAID level must be 1 or 5.");
+
+        RuleFor(x => x.RaidParityDisks)
+            .Must(x => x is null or 1 or 2)
+            .WithMessage("Parity disks must be 1 or 2.");
 
         RuleFor(x => x.FailoverDays)
             .InclusiveBetween(0, 3650).WithMessage("Failover retention must be between 0 and 3650 days.");
@@ -409,11 +429,25 @@ public sealed class CalculateStorageDesignQueryHandler
         CancellationToken cancellationToken)
     {
         var days = request.RetentionDays;
-        // Levels on offer: the one asked for, or all three to be weighed up.
-        int[] levels = request.RaidLevel is { } fixedLevel ? [fixedLevel] : [1, 5, 6];
 
-        // RAID-1 mirrors, so its "parity" disk is the copy — one per pair.
-        static int ParityFor(int level) => level == 6 ? 2 : 1;
+        // Schemes on offer: the one asked for, or all three to be weighed up.
+        //
+        // RAID-1 mirrors, so its "parity" disk is the copy — one per pair. The
+        // other two are RAID-5 with one or two parity disks per group; the second
+        // is what other tools call RAID-6, and 6 is accepted as an alias so an
+        // older client asking for it still gets the array it meant.
+        static RaidScheme[] SchemesFor(int? level, int? parity) => (level, parity) switch
+        {
+            (null, 1) => [new RaidScheme(1, 1), new RaidScheme(5, 1)],
+            (null, 2) => [new RaidScheme(5, 2)],
+            (null, _) => [new RaidScheme(1, 1), new RaidScheme(5, 1), new RaidScheme(5, 2)],
+            (1, _) => [new RaidScheme(1, 1)],
+            (6, _) => [new RaidScheme(5, 2)],
+            (_, 2) => [new RaidScheme(5, 2)],
+            _ => [new RaidScheme(5, 1)],
+        };
+
+        var schemes = SchemesFor(request.RaidLevel, request.RaidParityDisks);
 
         // ===== Video =====
         var cameras = request.Cameras.Select(input =>
@@ -496,15 +530,15 @@ public sealed class CalculateStorageDesignQueryHandler
             request.BaysPerGroup,
             request.HotSpareDisks,
             request.EnclosurePricePerGroup,
-            levels);
+            schemes);
 
         var best = comparison.FirstOrDefault(o => request.RecommendDiskTerabytes is null
                                                  || o.DiskTerabytes == request.RecommendDiskTerabytes)
                    ?? comparison.FirstOrDefault();
 
         var chosenDiskTb = request.RecommendDiskTerabytes ?? best?.DiskTerabytes ?? 16m;
-        var chosenLevel = best?.RaidLevel ?? request.RaidLevel ?? 5;
-        var parity = ParityFor(chosenLevel);
+        var chosenLevel = best?.RaidLevel ?? schemes[0].Level;
+        var parity = best?.ParityDisks ?? schemes[0].ParityDisks;
 
         // ===== Array =====
         var groups = request.Groups.Select((input, index) =>
@@ -569,7 +603,7 @@ public sealed class CalculateStorageDesignQueryHandler
             request.BaysPerGroup,
             anprRequired > 0 ? request.HotSpareDisks : 0,
             request.EnclosurePricePerGroup,
-            levels);
+            schemes);
 
         var anprBest = anprComparison.FirstOrDefault(o => request.AnprDiskTerabytes is null
                                                          || o.DiskTerabytes == request.AnprDiskTerabytes)
@@ -577,13 +611,19 @@ public sealed class CalculateStorageDesignQueryHandler
 
         var anprDiskTb = request.AnprDiskTerabytes ?? anprBest?.DiskTerabytes ?? chosenDiskTb;
         var anprLevel = anprBest?.RaidLevel ?? chosenLevel;
+
+        // The ANPR array's own parity. It used to inherit the recording array's,
+        // which held only while parity was implied by the level: a stills volume
+        // that lands on RAID-1 beside a dual-parity recording array would
+        // otherwise have been sized as a mirror paying for two parity disks.
+        var anprParity = anprBest?.ParityDisks ?? parity;
         var anprDiskOptionCost = anprComparison.FirstOrDefault()?.TotalCost;
 
         var recommendedAnpr = StorageMath.RecommendArray(
             anprRequired,
             anprDiskTb,
             request.FilesystemFactor,
-            parity,
+            anprParity,
             request.BaysPerGroup,
             anprRequired > 0 ? request.HotSpareDisks : 0,
             anprLevel);
@@ -610,7 +650,7 @@ public sealed class CalculateStorageDesignQueryHandler
                 videoRequired + anprRequired,
                 request.CandidateDisks.Select(c => new DiskCandidate(c.Terabytes, c.PricePerDisk)),
                 request.FilesystemFactor, request.BaysPerGroup,
-                request.HotSpareDisks, request.EnclosurePricePerGroup, levels)
+                request.HotSpareDisks, request.EnclosurePricePerGroup, schemes)
                 .FirstOrDefault();
 
             var separateDisks = recommended.TotalDisks + recommendedAnpr.TotalDisks;

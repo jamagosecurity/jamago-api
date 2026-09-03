@@ -57,6 +57,21 @@ public sealed record RaidArray(
     IReadOnlyList<RaidGroup> Layout);
 
 /// <summary>
+/// A RAID level together with the disks per group it gives over to parity.
+///
+/// These were one number, with parity inferred — "level 6 means two parity
+/// disks". They are two now because they are two: the business quotes dual
+/// parity as RAID-5 with two parity disks per group, and one int cannot say
+/// both "level 5" and "two parity" at once.
+///
+/// The arithmetic never cared about the level as such. Only <see cref="ParityDisks"/>
+/// changes what a group holds; the level is what the submission is labelled with,
+/// and the one place it steers the maths is RAID-1, which mirrors rather than
+/// striping and so has no data-disk count to speak of.
+/// </summary>
+public readonly record struct RaidScheme(int Level, int ParityDisks);
+
+/// <summary>
 /// One disk size costed out: what the array looks like if built from it.
 /// </summary>
 /// <param name="OverBuyTerabytes">Usable capacity beyond what was asked for. Buying
@@ -65,6 +80,13 @@ public sealed record ArrayOption(
     decimal DiskTerabytes,
     /// <summary>RAID level this option was costed at.</summary>
     int RaidLevel,
+    /// <summary>Parity disks PER GROUP this option was costed at.
+    ///
+    /// Carried here because <see cref="RaidArray.ParityDisks"/> is the total
+    /// across every group, and the two are only equal in a single-group array.
+    /// Reading the total back as a per-group figure multiplies it by the group
+    /// count a second time.</summary>
+    int ParityDisks,
     RaidArray Array,
     decimal OverBuyTerabytes,
     /// <summary>What the disks alone cost, when a price was supplied.</summary>
@@ -346,6 +368,7 @@ public static class StorageMath
             options.Add(new ArrayOption(
                 candidate.Terabytes,
                 raidLevel,
+                parityDisks,
                 array,
                 Round(array.UsableTerabytes - requiredTerabytes),
                 diskCost,
@@ -400,16 +423,15 @@ public static class StorageMath
         int baysPerGroup,
         int hotSpareDisks,
         decimal? enclosurePricePerGroup,
-        IEnumerable<int> raidLevels)
+        IEnumerable<RaidScheme> schemes)
     {
         var disks = candidates.ToList();
         var all = new List<ArrayOption>();
 
-        foreach (var level in raidLevels.Distinct())
+        foreach (var scheme in schemes.Distinct())
         {
-            var parity = level == 6 ? 2 : 1;
             all.AddRange(CompareDiskSizes(requiredTerabytes, disks, filesystemFactor,
-                parity, baysPerGroup, hotSpareDisks, enclosurePricePerGroup, level));
+                scheme.ParityDisks, baysPerGroup, hotSpareDisks, enclosurePricePerGroup, scheme.Level));
         }
 
         var priced = all.Count(o => o.TotalCost is not null);
