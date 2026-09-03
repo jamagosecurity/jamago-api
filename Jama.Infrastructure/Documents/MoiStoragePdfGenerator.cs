@@ -50,7 +50,9 @@ public sealed class MoiStoragePdfGenerator : IMoiStoragePdfGenerator
         LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-logo.png");
 
     /// <summary>
-    /// The company stamp, and the signature if it is scanned in with it.
+    /// The company stamp with the authorised signature across it — the same seal
+    /// the Ministry submissions carry, kept as one asset because the signature is
+    /// written over the stamp and the two cannot be placed independently.
     ///
     /// Optional on purpose: LoadEmbedded returns empty when the asset is absent,
     /// and the sheet then prints without it rather than failing or drawing a
@@ -170,7 +172,10 @@ public sealed class MoiStoragePdfGenerator : IMoiStoragePdfGenerator
     {
         if (StampBytes.Length == 0) return;
 
-        container.PaddingTop(10).AlignLeft().Width(120).Image(StampBytes).FitWidth();
+        // 137pt wide and centred, which is where and how large the reference
+        // prints it. The asset is the stamp and signature already composited, so
+        // it needs no arranging here beyond its position on the sheet.
+        container.PaddingTop(10).AlignCenter().Width(137).Image(StampBytes).FitWidth();
     }
 
     /// <summary>Logo and the rule beneath it — the company's own letterhead, which
