@@ -7,10 +7,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Jama.Application.Tests;
 
 /// <summary>
-/// The rate on a quotation line is a commercial decision, so who may set it is
-/// worth pinning down. These cover the boundary: the catalogue price is the
-/// default, an override needs the grant, and a caller without it is refused
-/// rather than silently repriced.
+/// The rate on a quotation line defaults to the catalogue's and may be
+/// overridden. These pin the boundary: the default, an override, an echo of the
+/// catalogue rate, and zero — and that the list price survives all of them,
+/// which is what keeps a discount visible after the fact.
 /// </summary>
 public class BoqRateOverrideTests
 {
@@ -58,13 +58,12 @@ public class BoqRateOverrideTests
         ]);
 
     private static Task<(string? Error, List<BoqSection> Sections)> BuildAsync(
-        ApplicationDbContext context, Request request, bool canPrice) =>
+        ApplicationDbContext context, Request request) =>
         BoqWriter.BuildAsync(
             new Boq { Id = Guid.CreateVersion7() },
             request,
             context,
             TimeProvider.System,
-            canPrice,
             CancellationToken.None);
 
     [Fact]
@@ -72,7 +71,7 @@ public class BoqRateOverrideTests
     {
         var (context, cameraId) = await SeedAsync(270.47m);
 
-        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, null), canPrice: false);
+        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, null));
 
         Assert.Null(error);
         var line = sections.Single().Lines.Single();
@@ -83,32 +82,20 @@ public class BoqRateOverrideTests
     }
 
     [Fact]
-    public async Task Holder_of_the_grant_may_reprice_a_line()
+    public async Task A_line_may_be_repriced()
     {
         var (context, cameraId) = await SeedAsync(270.47m);
 
-        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, 250m), canPrice: true);
+        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, 250m));
 
         Assert.Null(error);
         var line = sections.Single().Lines.Single();
         Assert.Equal(250m, line.UnitRate);
         // The list price survives the override — that is what makes the discount
-        // reviewable afterwards instead of invisible.
+        // reviewable afterwards instead of invisible, and it is the only reason
+        // anyone can tell later that this line was negotiated at all.
         Assert.Equal(270.47m, line.CatalogueRate);
         Assert.Equal(4250m, line.LineTotal);
-    }
-
-    [Fact]
-    public async Task Caller_without_the_grant_is_refused_rather_than_silently_repriced()
-    {
-        var (context, cameraId) = await SeedAsync(270.47m);
-
-        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, 1m), canPrice: false);
-
-        // Refused, not ignored: dropping the rate would print 270.47 to a
-        // preparer who believed they had agreed 1.00.
-        Assert.NotNull(error);
-        Assert.Empty(sections);
     }
 
     [Fact]
@@ -116,23 +103,23 @@ public class BoqRateOverrideTests
     {
         var (context, cameraId) = await SeedAsync(270.47m);
 
-        // The editor posts the rate it was showing. Unchanged, that must not
-        // count as repricing, or every ordinary save from an account without the
-        // grant would fail.
-        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, 270.47m), canPrice: false);
+        // The editor posts the rate it was showing. Unchanged, that must land on
+        // the catalogue price rather than being recorded as a deliberate choice
+        // — otherwise every save would pin today's price onto the line.
+        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 17, 270.47m));
 
         Assert.Null(error);
         Assert.Equal(270.47m, sections.Single().Lines.Single().UnitRate);
     }
 
     [Fact]
-    public async Task Zero_is_a_price_a_grant_holder_may_set()
+    public async Task Zero_is_a_price_that_may_be_set()
     {
         var (context, cameraId) = await SeedAsync(270.47m);
 
         // An item included at no charge is a normal thing to quote, and must not
         // be confused with "no rate supplied".
-        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 2, 0m), canPrice: true);
+        var (error, sections) = await BuildAsync(context, OneLine(cameraId, 2, 0m));
 
         Assert.Null(error);
         var line = sections.Single().Lines.Single();

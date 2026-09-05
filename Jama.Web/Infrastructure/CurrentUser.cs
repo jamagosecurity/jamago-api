@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 
 namespace Jama.Web.Infrastructure;
@@ -40,15 +39,4 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
     }
 
     public string? Role => User.FindFirstValue(ClaimTypes.Role);
-
-    /// <summary>
-    /// Read straight off the token, which is where the endpoint policies read it
-    /// from too — so a handler and its route gate can never disagree about what
-    /// the caller holds.
-    ///
-    /// An admin's token is minted carrying every permission claim, so this needs
-    /// no special case for them.
-    /// </summary>
-    public bool Has(string permission) =>
-        User.HasClaim(PermissionClaims.Type, permission);
 }

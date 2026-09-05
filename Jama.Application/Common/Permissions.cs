@@ -21,7 +21,6 @@ public static class Permissions
     public const string VipManage = "vip.manage";
     public const string CameraManage = "camera.manage";
     public const string BoqManage = "boq.manage";
-    public const string BoqPrice = "boq.price";
 
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
@@ -42,14 +41,7 @@ public static class Permissions
         // One grant, two screens: the storage calculator sizes the array for a
         // quotation, so anyone who can build one can size it. Splitting them
         // would let an account make a quotation it cannot check the storage for.
-        new(BoqManage, "Build quotations & size storage", "Can pick stock items into a quotation, set quantities, and size the NVR storage for it. Rates come from the catalogue unless the account also holds the rate override below."),
-        // Deliberately separate from BoqManage. Quantity is a fact about the
-        // site and belongs to whoever surveys it; a rate is a commercial
-        // decision, and one person discounting on their own authority is how a
-        // job goes out below cost. The catalogue rate is still recorded on every
-        // line, so an override is always visible as a variance rather than
-        // replacing the list price.
-        new(BoqPrice, "Change rates on a quotation", "Can type a different unit price on a quotation line instead of taking the catalogue rate. The catalogue price is still recorded beside it, so any discount is visible."),
+        new(BoqManage, "Build quotations & size storage", "Can pick stock items into a quotation, set quantities and rates, and size the NVR storage for it. The catalogue price is recorded on every line, so any change to it stays visible."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();
@@ -71,16 +63,6 @@ public static class Permissions
         if (effective.Contains(DiaUpload) || effective.Contains(DiaInspect))
         {
             effective.Add(DiaView);
-        }
-
-        // Overriding a rate is something you do WHILE building a quotation, so
-        // the grant is meaningless without the screen it applies to. Ticking it
-        // alone would otherwise produce an account that cannot open a quotation
-        // and holds a permission about quotations — the same trap DiaUpload
-        // without DiaView used to set.
-        if (effective.Contains(BoqPrice))
-        {
-            effective.Add(BoqManage);
         }
 
         return effective.ToList();

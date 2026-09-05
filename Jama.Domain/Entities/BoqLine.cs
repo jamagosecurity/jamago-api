@@ -55,9 +55,9 @@ public class BoqLine : BaseEntity
     /// <summary>
     /// The rate this line is priced at, and what prints on the document.
     ///
-    /// Defaults to <see cref="CatalogueRate"/>. A caller holding boq.price may
+    /// Defaults to <see cref="CatalogueRate"/>. Anyone building a quotation may
     /// send a different one — a negotiated price, a job-specific discount — and
-    /// the server takes it only from those callers.
+    /// the catalogue figure is kept beside it so the change stays visible.
     /// </summary>
     public decimal UnitRate { get; set; }
 

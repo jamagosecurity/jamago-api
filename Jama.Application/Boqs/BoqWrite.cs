@@ -20,12 +20,12 @@ public sealed record BoqLineInput
 
     /// <summary>
     /// A rate to use instead of the catalogue's. NULL means "price it from the
-    /// catalogue", which is what an ordinary line sends.
+    /// catalogue", which is what an untouched line sends.
     ///
-    /// Honoured only for a caller holding boq.price; from anyone else a value
-    /// that differs from the catalogue is REFUSED rather than quietly dropped.
-    /// Silently ignoring it would show the preparer one price, print another,
-    /// and give them no way to tell which they had agreed to.
+    /// Null rather than "send the catalogue rate back" on purpose: echoing
+    /// today's price into every line would pin it there, so re-saving an
+    /// untouched quotation after an admin corrected the catalogue would keep the
+    /// stale figure and make it look like somebody had chosen it.
     /// </summary>
     public decimal? UnitRate { get; init; }
 }
@@ -124,17 +124,15 @@ internal static class BoqWriter
     /// client named — never from the request. A line naming an item that does
     /// not exist is refused rather than written with blanks.
     ///
-    /// The rate comes from the catalogue too, unless the caller holds boq.price
-    /// and sent a different one. <paramref name="canPrice"/> is passed in rather
-    /// than read here so this stays a pure builder, and so a caller cannot reach
-    /// it without having decided the question.
+    /// The rate defaults to the catalogue's and may be overridden per line. Both
+    /// figures are kept, so a negotiated price never erases the list price it was
+    /// negotiated down from.
     /// </summary>
     internal static async Task<(string? Error, List<BoqSection> Sections)> BuildAsync(
         Boq boq,
         IBoqWrite request,
         IApplicationDbContext context,
         TimeProvider timeProvider,
-        bool canPrice,
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -183,21 +181,11 @@ internal static class BoqWriter
 
                 var catalogueRate = item.Rate ?? 0m;
 
-                // Rounded before comparing. A UI that shows 57.00 can post
-                // 57.000000001 back, and an unrounded comparison would read that
-                // as a deliberate override and refuse a caller who changed
-                // nothing.
-                var requested = line.UnitRate.HasValue
+                // Rounded on the way in: a UI showing 57.00 can post 57.000000001
+                // back, and storing that would print one price and hold another.
+                var effectiveRate = line.UnitRate.HasValue
                     ? BoqMath.Round(line.UnitRate.Value)
-                    : (decimal?)null;
-
-                var overridden = requested.HasValue && requested.Value != BoqMath.Round(catalogueRate);
-
-                if (overridden && !canPrice)
-                    return ($"You do not have permission to change the rate on \"{item.ItemName}\". "
-                            + "Ask an administrator for the rate override grant, or leave the catalogue price.", []);
-
-                var effectiveRate = overridden ? requested!.Value : catalogueRate;
+                    : catalogueRate;
 
                 section.Lines.Add(new BoqLine
                 {
