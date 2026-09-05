@@ -7,17 +7,27 @@ using Microsoft.EntityFrameworkCore;
 namespace Jama.Application.Boqs;
 
 /// <summary>
-/// A line as the client may specify it: which catalogue item, and how many.
+/// A line as the client may specify it: which catalogue item, how many, and —
+/// for a caller allowed to set one — at what rate.
 ///
-/// Note what is NOT here — no name, no unit, and above all no rate. Those are
-/// read from the catalogue by the server. Accepting a rate from the client would
-/// make "staff cannot change prices" a rule the UI merely chooses to honour,
-/// which is not a rule at all.
+/// The name, model, brand and unit are still not here. Those are read from the
+/// catalogue by the server, because they describe the item rather than the deal.
 /// </summary>
 public sealed record BoqLineInput
 {
     public Guid CameraId { get; init; }
     public decimal Quantity { get; init; }
+
+    /// <summary>
+    /// A rate to use instead of the catalogue's. NULL means "price it from the
+    /// catalogue", which is what an ordinary line sends.
+    ///
+    /// Honoured only for a caller holding boq.price; from anyone else a value
+    /// that differs from the catalogue is REFUSED rather than quietly dropped.
+    /// Silently ignoring it would show the preparer one price, print another,
+    /// and give them no way to tell which they had agreed to.
+    /// </summary>
+    public decimal? UnitRate { get; init; }
 }
 
 public sealed record BoqSectionInput
@@ -46,6 +56,7 @@ internal static class BoqWriteRules
     internal const int MaxSections = 40;
     internal const int MaxLinesPerSection = 200;
     internal const decimal QuantityMax = 1_000_000m;
+    internal const decimal RateMax = 10_000_000m;
 
     internal static void Apply<T>(AbstractValidator<T> validator) where T : IBoqWrite
     {
@@ -87,6 +98,16 @@ internal static class BoqWriteRules
                     .GreaterThan(0).WithMessage("Line quantity must be greater than 0.")
                     .LessThanOrEqualTo(QuantityMax)
                     .WithMessage($"Line quantity must be {QuantityMax:N0} or fewer.");
+
+                // Zero is allowed: an item thrown in free is a normal thing to
+                // quote, and forcing a penny onto it would misstate the offer.
+                // Negative is not — a line that subtracts from the total is a
+                // discount pretending to be equipment.
+                line.RuleFor(x => x.UnitRate)
+                    .GreaterThanOrEqualTo(0m).WithMessage("A rate cannot be negative.")
+                    .LessThanOrEqualTo(RateMax)
+                    .WithMessage($"A rate must be {RateMax:N0} or less.")
+                    .When(x => x.UnitRate.HasValue);
             });
         });
     }
@@ -99,15 +120,21 @@ internal static class BoqWriter
     /// returns rather than attaching. How they are attached differs between
     /// create and update, and that is the caller's business.
     ///
-    /// Every line's name, model, brand, unit and rate come from the catalogue row
-    /// the client named — never from the request. A line naming an item that does
+    /// Every line's name, model, brand and unit come from the catalogue row the
+    /// client named — never from the request. A line naming an item that does
     /// not exist is refused rather than written with blanks.
+    ///
+    /// The rate comes from the catalogue too, unless the caller holds boq.price
+    /// and sent a different one. <paramref name="canPrice"/> is passed in rather
+    /// than read here so this stays a pure builder, and so a caller cannot reach
+    /// it without having decided the question.
     /// </summary>
     internal static async Task<(string? Error, List<BoqSection> Sections)> BuildAsync(
         Boq boq,
         IBoqWrite request,
         IApplicationDbContext context,
         TimeProvider timeProvider,
+        bool canPrice,
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -154,6 +181,24 @@ internal static class BoqWriter
             {
                 var item = catalogue[line.CameraId];
 
+                var catalogueRate = item.Rate ?? 0m;
+
+                // Rounded before comparing. A UI that shows 57.00 can post
+                // 57.000000001 back, and an unrounded comparison would read that
+                // as a deliberate override and refuse a caller who changed
+                // nothing.
+                var requested = line.UnitRate.HasValue
+                    ? BoqMath.Round(line.UnitRate.Value)
+                    : (decimal?)null;
+
+                var overridden = requested.HasValue && requested.Value != BoqMath.Round(catalogueRate);
+
+                if (overridden && !canPrice)
+                    return ($"You do not have permission to change the rate on \"{item.ItemName}\". "
+                            + "Ask an administrator for the rate override grant, or leave the catalogue price.", []);
+
+                var effectiveRate = overridden ? requested!.Value : catalogueRate;
+
                 section.Lines.Add(new BoqLine
                 {
                     Id = Guid.CreateVersion7(),
@@ -172,8 +217,12 @@ internal static class BoqWriter
                     // indistinguishable from a figure someone actually chose.
                     Resolution = item.Resolution,
                     BitrateMbps = item.BitrateMbps,
-                    // The whole point: the rate is the catalogue's, not the caller's.
-                    UnitRate = item.Rate ?? 0m,
+                    // Both recorded: the list price the catalogue held, and the
+                    // price this line actually goes out at. They match unless
+                    // somebody with the grant chose otherwise, and keeping both
+                    // is what makes a discount reviewable afterwards.
+                    CatalogueRate = catalogueRate,
+                    UnitRate = effectiveRate,
                     SortOrder = lineOrder++,
                     CreatedAt = now,
                 });

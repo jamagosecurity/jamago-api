@@ -55,6 +55,7 @@ internal static class BoqMappings
             line.Resolution,
             line.BitrateMbps,
             line.UnitRate,
+            line.CatalogueRate,
             line.LineTotal,
             line.SortOrder);
 }

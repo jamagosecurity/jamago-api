@@ -19,7 +19,12 @@ public sealed record BoqLineDto(
     /// not a camera.</summary>
     CameraResolution Resolution,
     decimal? BitrateMbps,
+    /// <summary>The rate this line is priced at — what the client is charged.</summary>
     decimal UnitRate,
+    /// <summary>What the catalogue held when the line was written. Equal to
+    /// UnitRate unless somebody overrode it, so the editor can show the list
+    /// price beside a negotiated one instead of losing it.</summary>
+    decimal CatalogueRate,
     decimal LineTotal,
     int SortOrder);
 

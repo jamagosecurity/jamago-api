@@ -64,6 +64,7 @@ public sealed class BoqLineConfiguration : IEntityTypeConfiguration<BoqLine>
 
         builder.Property(x => x.Quantity).HasPrecision(14, 2);
         builder.Property(x => x.UnitRate).HasPrecision(18, 2);
+        builder.Property(x => x.CatalogueRate).HasPrecision(18, 2);
         builder.Property(x => x.LineTotal).HasPrecision(18, 2);
 
         // Same shape the Cameras table stores these in, so a copied value and its

@@ -52,9 +52,29 @@ public class BoqLine : BaseEntity
     /// profile nobody has filled in yet.</summary>
     public decimal? BitrateMbps { get; set; }
 
-    /// <summary>Taken from the catalogue by the server. Never accepted from the
-    /// client — that is what makes the rate an administrator's to set.</summary>
+    /// <summary>
+    /// The rate this line is priced at, and what prints on the document.
+    ///
+    /// Defaults to <see cref="CatalogueRate"/>. A caller holding boq.price may
+    /// send a different one — a negotiated price, a job-specific discount — and
+    /// the server takes it only from those callers.
+    /// </summary>
     public decimal UnitRate { get; set; }
+
+    /// <summary>
+    /// What the catalogue said when this line was written, whether or not anyone
+    /// overrode it.
+    ///
+    /// Held separately rather than overwritten so a discount stays visible as a
+    /// variance. Replacing the list price with the agreed one loses the fact
+    /// that a decision was ever made: nobody can see afterwards that a line went
+    /// out under cost, and the same bill re-priced from stock would silently
+    /// disagree with the copy the client holds.
+    ///
+    /// Equal to UnitRate on an ordinary line, which is the common case and reads
+    /// as "no discount" rather than as missing data.
+    /// </summary>
+    public decimal CatalogueRate { get; set; }
 
     public decimal LineTotal { get; set; }
     public int SortOrder { get; set; }

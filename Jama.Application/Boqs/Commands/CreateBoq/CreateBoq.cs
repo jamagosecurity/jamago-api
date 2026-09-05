@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Entities;
@@ -42,7 +43,7 @@ public sealed class CreateBoqCommandHandler(
         };
 
         var (error, sections) = await BoqWriter.BuildAsync(
-            boq, request, context, timeProvider, cancellationToken);
+            boq, request, context, timeProvider, actor.Has(Permissions.BoqPrice), cancellationToken);
 
         if (error is not null)
             return ApiResult<BoqDto>.Failure(error);

@@ -96,6 +96,9 @@ public sealed class DiaActivationTests
         public Guid UserId { get; } = Guid.NewGuid();
         public string DisplayName => "Admin <admin@example.test>";
         public string Role => Roles.Admin;
+
+        /// <summary>An admin holds everything, which is what the real token carries.</summary>
+        public bool Has(string permission) => true;
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Enums;
@@ -22,7 +23,10 @@ public sealed record UpdateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     public IReadOnlyList<BoqSectionInput> Sections { get; init; } = [];
 }
 
-public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeProvider timeProvider)
+public sealed class UpdateBoqCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUser actor,
+    TimeProvider timeProvider)
     : IRequestHandler<UpdateBoqCommand, ApiResult<BoqDto>>
 {
     public async Task<ApiResult<BoqDto>> Handle(
@@ -40,7 +44,7 @@ public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeP
         // The number and who prepared it are set once. Neither is rewritten here:
         // the reference may already be circulating, and authorship is a fact.
         var (error, sections) = await BoqWriter.BuildAsync(
-            boq, request, context, timeProvider, cancellationToken);
+            boq, request, context, timeProvider, actor.Has(Permissions.BoqPrice), cancellationToken);
 
         if (error is not null)
             return ApiResult<BoqDto>.Failure(error);
