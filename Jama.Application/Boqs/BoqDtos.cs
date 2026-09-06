@@ -47,7 +47,11 @@ public sealed record BoqDto(
     string? Notes,
     Guid PreparedById,
     string? PreparedByName,
+    /// <summary>Sum of the lines, before the discount.</summary>
     decimal Total,
+    decimal SpecialDiscount,
+    /// <summary>What is payable: the lines less the discount.</summary>
+    decimal GrandTotal,
     IReadOnlyList<BoqSectionDto> Sections,
     DateTime CreatedAt,
     DateTime? UpdatedAt);
@@ -62,6 +66,8 @@ public sealed record BoqListItemDto(
     DateOnly IssueDate,
     BoqStatus Status,
     decimal Total,
+    decimal SpecialDiscount,
+    decimal GrandTotal,
     int SectionCount,
     int LineCount,
     string? PreparedByName,

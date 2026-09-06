@@ -46,6 +46,7 @@ public class BoqRateOverrideTests
         public DateOnly? IssueDate => null;
         public BoqStatus Status => BoqStatus.Draft;
         public string? Notes => null;
+        public decimal SpecialDiscount => 0m;
     }
 
     private static Request OneLine(Guid cameraId, decimal quantity, decimal? unitRate) =>

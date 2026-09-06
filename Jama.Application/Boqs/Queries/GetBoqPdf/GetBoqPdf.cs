@@ -117,6 +117,8 @@ public sealed class GetBoqPdfQueryHandler(
             boq.Notes,
             boq.PreparedByName,
             boq.Total,
+            boq.SpecialDiscount,
+            boq.GrandTotal,
             sections);
 
         return ApiResult<BoqPdfDto>.Success(

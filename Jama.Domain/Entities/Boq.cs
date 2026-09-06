@@ -36,8 +36,25 @@ public class Boq : BaseEntity
     public Guid PreparedById { get; set; }
     public string? PreparedByName { get; set; }
 
-    /// <summary>Sum of every line. Server-computed on each write.</summary>
+    /// <summary>Sum of every line, before any discount. Server-computed on each
+    /// write.</summary>
     public decimal Total { get; set; }
+
+    /// <summary>
+    /// A lump sum knocked off the finished quotation, in QAR — the discount
+    /// agreed with the customer once the lines are settled.
+    ///
+    /// Held as an amount rather than a percentage because that is how it is
+    /// negotiated: a round number off the total, not a rate applied to it. Kept
+    /// beside <see cref="Total"/> rather than folded into the line rates, so the
+    /// document can show what was given away instead of quietly restating every
+    /// price.
+    /// </summary>
+    public decimal SpecialDiscount { get; set; }
+
+    /// <summary>What the customer pays: <see cref="Total"/> less
+    /// <see cref="SpecialDiscount"/>. Server-computed on each write.</summary>
+    public decimal GrandTotal { get; set; }
 
     public ICollection<BoqSection> Sections { get; set; } = [];
 }

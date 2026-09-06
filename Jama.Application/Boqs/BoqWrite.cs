@@ -15,7 +15,23 @@ namespace Jama.Application.Boqs;
 /// </summary>
 public sealed record BoqLineInput
 {
-    public Guid CameraId { get; init; }
+    /// <summary>
+    /// The line's own id, when it is already on this BOQ.
+    ///
+    /// Only load-bearing for a line whose stock item has since been deleted:
+    /// <see cref="CameraId"/> went null with it, so the id is the only way left
+    /// to say which line is being kept. The content is still read from the stored
+    /// row and never from the request — the client may say "keep this line", not
+    /// what the line says.
+    /// </summary>
+    public Guid? Id { get; init; }
+
+    /// <summary>
+    /// The catalogue item this line prices. Null only for a line left behind by a
+    /// deleted stock item, which is carried forward by <see cref="Id"/> instead.
+    /// </summary>
+    public Guid? CameraId { get; init; }
+
     public decimal Quantity { get; init; }
 
     /// <summary>
@@ -45,6 +61,11 @@ public interface IBoqWrite
     DateOnly? IssueDate { get; }
     BoqStatus Status { get; }
     string? Notes { get; }
+
+    /// <summary>A lump sum off the finished quotation, in QAR. Zero when none was
+    /// agreed, which is the ordinary case.</summary>
+    decimal SpecialDiscount { get; }
+
     IReadOnlyList<BoqSectionInput> Sections { get; }
 }
 
@@ -57,6 +78,7 @@ internal static class BoqWriteRules
     internal const int MaxLinesPerSection = 200;
     internal const decimal QuantityMax = 1_000_000m;
     internal const decimal RateMax = 10_000_000m;
+    internal const decimal DiscountMax = 9_999_999.99m;
 
     internal static void Apply<T>(AbstractValidator<T> validator) where T : IBoqWrite
     {
@@ -71,6 +93,15 @@ internal static class BoqWriteRules
             .WithMessage($"Contact number must be {ContactMaxLength} characters or fewer.");
         validator.RuleFor(x => x.Notes).MaximumLength(NotesMaxLength);
         validator.RuleFor(x => x.Status).IsInEnum().WithMessage("Select a valid status.");
+
+        // Only the bounds here. Whether the discount fits inside the quotation is
+        // settled by the writer, which is where the line rates are known — they
+        // come from the catalogue, not from the request, so the total cannot be
+        // worked out from what was posted.
+        validator.RuleFor(x => x.SpecialDiscount)
+            .GreaterThanOrEqualTo(0m).WithMessage("Discount cannot be negative.")
+            .LessThanOrEqualTo(DiscountMax)
+            .WithMessage($"Discount must be {DiscountMax:N2} or less.");
 
         validator.RuleFor(x => x.Sections)
             .NotEmpty().WithMessage("Add at least one section.")
@@ -91,8 +122,15 @@ internal static class BoqWriteRules
 
             section.RuleForEach(x => x.Lines).ChildRules(line =>
             {
+                // One or the other: a line names a catalogue item, or it names
+                // itself — the case where the item behind it has been deleted.
+                line.RuleFor(x => x)
+                    .Must(x => x.CameraId.HasValue || x.Id.HasValue)
+                    .WithMessage("Every line must point at a stock item.");
+
                 line.RuleFor(x => x.CameraId)
-                    .NotEmpty().WithMessage("Every line must point at a stock item.");
+                    .NotEmpty().WithMessage("Every line must point at a stock item.")
+                    .When(x => x.CameraId.HasValue);
 
                 line.RuleFor(x => x.Quantity)
                     .GreaterThan(0).WithMessage("Line quantity must be greater than 0.")
@@ -140,7 +178,8 @@ internal static class BoqWriter
         // Every referenced item fetched once, rather than per line.
         var wanted = request.Sections
             .SelectMany(s => s.Lines)
-            .Select(l => l.CameraId)
+            .Where(l => l.CameraId.HasValue)
+            .Select(l => l.CameraId!.Value)
             .Distinct()
             .ToList();
 
@@ -151,6 +190,37 @@ internal static class BoqWriter
 
         if (wanted.Any(id => !catalogue.ContainsKey(id)))
             return ("A line refers to a stock item that no longer exists. Remove it and try again.", []);
+
+        // Lines whose stock item has been deleted: CameraId went null with it, so
+        // there is nothing to price them from except the row already stored. They
+        // are read back here — scoped to THIS BOQ, so an id copied from another
+        // document cannot pull its line across — and carried forward unchanged.
+        //
+        // Without this the whole document became unsaveable the moment one of its
+        // items was retired, which is precisely the case the copied name and rate
+        // exist to survive.
+        // Named by neither: the validator refuses this, and so does the writer —
+        // there is nothing to build the line from either way, and a line built
+        // from nothing would go out blank on a bill.
+        if (request.Sections.SelectMany(s => s.Lines).Any(l => !l.CameraId.HasValue && !l.Id.HasValue))
+            return ("Every line must point at a stock item.", []);
+
+        var carried = request.Sections
+            .SelectMany(s => s.Lines)
+            .Where(l => !l.CameraId.HasValue)
+            .Select(l => l.Id!.Value)
+            .Distinct()
+            .ToList();
+
+        var existing = carried.Count == 0
+            ? []
+            : await context.BoqLines
+                .AsNoTracking()
+                .Where(l => carried.Contains(l.Id) && l.Section.BoqId == boq.Id)
+                .ToDictionaryAsync(l => l.Id, cancellationToken);
+
+        if (carried.Any(id => !existing.ContainsKey(id)))
+            return ("A line is no longer on this BOQ. Reload the page and try again.", []);
 
         boq.ProjectName = request.ProjectName?.Trim() ?? string.Empty;
         boq.SiteLocation = Clean(request.SiteLocation);
@@ -177,34 +247,40 @@ internal static class BoqWriter
             var lineOrder = 0;
             foreach (var line in input.Lines)
             {
-                var item = catalogue[line.CameraId];
+                // A retired item's line is described by the row already stored;
+                // everything else by the catalogue. Either way the description
+                // comes from the server, never from the request.
+                var previous = line.CameraId.HasValue ? null : existing[line.Id!.Value];
+                var item = line.CameraId.HasValue ? catalogue[line.CameraId.Value] : null;
 
-                var catalogueRate = item.Rate ?? 0m;
+                var catalogueRate = item?.Rate ?? previous?.CatalogueRate ?? 0m;
 
                 // Rounded on the way in: a UI showing 57.00 can post 57.000000001
                 // back, and storing that would print one price and hold another.
                 var effectiveRate = line.UnitRate.HasValue
                     ? BoqMath.Round(line.UnitRate.Value)
-                    : catalogueRate;
+                    // A carried line falls back to the price it already went out
+                    // at, not to a catalogue rate that no longer exists.
+                    : previous?.UnitRate ?? catalogueRate;
 
                 section.Lines.Add(new BoqLine
                 {
                     Id = Guid.CreateVersion7(),
                     BoqSectionId = section.Id,
-                    CameraId = item.Id,
-                    ItemName = item.ItemName,
-                    ModelNo = string.IsNullOrWhiteSpace(item.ModelNo) ? null : item.ModelNo,
-                    Brand = item.Brand,
-                    Type = string.IsNullOrWhiteSpace(item.Type) ? null : item.Type,
-                    Uom = item.Uom,
+                    CameraId = item?.Id,
+                    ItemName = item?.ItemName ?? previous!.ItemName,
+                    ModelNo = Clean(item is null ? previous!.ModelNo : item.ModelNo),
+                    Brand = item?.Brand ?? previous!.Brand,
+                    Type = Clean(item is null ? previous!.Type : item.Type),
+                    Uom = item?.Uom ?? previous!.Uom,
                     Quantity = line.Quantity,
                     // Frozen with the rest of the line, so storage sized from this
                     // bill gives the same answer after the stock item is edited or
                     // retired. Copied as-is: a blank profile is recorded as blank
                     // rather than guessed at, because the guess would then be
                     // indistinguishable from a figure someone actually chose.
-                    Resolution = item.Resolution,
-                    BitrateMbps = item.BitrateMbps,
+                    Resolution = item?.Resolution ?? previous!.Resolution,
+                    BitrateMbps = item is null ? previous!.BitrateMbps : item.BitrateMbps,
                     // Both recorded: the list price the catalogue held, and the
                     // price this line actually goes out at. They match unless
                     // somebody with the grant chose otherwise, and keeping both
@@ -220,6 +296,16 @@ internal static class BoqWriter
         }
 
         boq.Total = Total(sections);
+        boq.SpecialDiscount = BoqMath.Round(request.SpecialDiscount);
+
+        // Refused, not clamped: someone typing 5,000 off a 500 quotation has
+        // mistyped, and a quotation silently worth nothing is worse than a save
+        // that comes back and says so. BoqMath still clamps on write, for the
+        // case where the lines are cut down under a discount already agreed.
+        if (boq.SpecialDiscount > boq.Total)
+            return ($"A discount of {boq.SpecialDiscount:N2} QAR is more than the quotation total of {boq.Total:N2} QAR.", []);
+
+        BoqMath.ApplyDiscount(boq);
         return (null, sections);
     }
 

@@ -66,6 +66,8 @@ public sealed class GetBoqsQueryHandler(IApplicationDbContext context, ICurrentU
                 x.IssueDate,
                 x.Status,
                 x.Total,
+                x.SpecialDiscount,
+                x.GrandTotal,
                 x.Sections.Count,
                 x.Sections.Sum(s => s.Lines.Count),
                 x.PreparedByName,

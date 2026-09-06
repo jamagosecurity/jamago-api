@@ -22,6 +22,8 @@ internal static class BoqMappings
             entity.PreparedById,
             entity.PreparedByName,
             entity.Total,
+            entity.SpecialDiscount,
+            entity.GrandTotal,
             sections.Select((section, index) => ToDto(section, index + 1)).ToList(),
             entity.CreatedAt,
             entity.UpdatedAt);

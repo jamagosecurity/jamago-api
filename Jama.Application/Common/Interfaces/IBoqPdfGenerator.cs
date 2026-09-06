@@ -44,7 +44,15 @@ public sealed record BoqPdfModel(
     string Status,
     string? Notes,
     string? PreparedByName,
+    /// <summary>Sum of the lines, before any discount.</summary>
     decimal Total,
+    /// <summary>The lump sum agreed off the total. Zero prints nothing at all —
+    /// a "Discount: 0.00" line on an undiscounted quotation invites the question
+    /// of what was refused.</summary>
+    decimal SpecialDiscount,
+    /// <summary>What is payable: <see cref="Total"/> less
+    /// <see cref="SpecialDiscount"/>.</summary>
+    decimal GrandTotal,
     IReadOnlyList<BoqPdfSection> Sections);
 
 public interface IBoqPdfGenerator

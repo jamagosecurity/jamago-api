@@ -218,81 +218,6 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     private static string Money(decimal value) => value.ToString("N2", CultureInfo.InvariantCulture);
 
-    private static readonly string[] WordsToNineteen =
-    [
-        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-        "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
-        "eighteen", "nineteen",
-    ];
-
-    private static readonly string[] WordsTens =
-        ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
-
-    private static readonly (long Value, string Name)[] WordScales =
-        [(1_000_000_000L, "billion"), (1_000_000L, "million"), (1_000L, "thousand")];
-
-    /// <summary>Spells a whole number: 248 becomes "two hundred forty-eight".</summary>
-    private static string Spell(long value)
-    {
-        if (value < 20) return WordsToNineteen[value];
-
-        if (value < 100)
-        {
-            var tens = WordsTens[value / 10];
-            return value % 10 == 0 ? tens : $"{tens}-{WordsToNineteen[value % 10]}";
-        }
-
-        if (value < 1_000)
-        {
-            var hundreds = $"{WordsToNineteen[value / 100]} hundred";
-            return value % 100 == 0 ? hundreds : $"{hundreds} {Spell(value % 100)}";
-        }
-
-        foreach (var (scale, name) in WordScales)
-        {
-            if (value < scale) continue;
-
-            var head = $"{Spell(value / scale)} {name}";
-            return value % scale == 0 ? head : $"{head} {Spell(value % scale)}";
-        }
-
-        return value.ToString(CultureInfo.InvariantCulture);
-    }
-
-    /// <summary>
-    /// The total written out: "Eighty-five thousand two hundred forty-eight
-    /// riyals and seventy dirhams only".
-    ///
-    /// Every priced document carries this, and not for decoration. A figure can
-    /// be altered after it leaves here with one keystroke and no trace; the same
-    /// edit to a sentence has to be rewritten to agree with it, and a total that
-    /// disagrees with its own words is a document nobody has to honour. It is
-    /// also what a bank reads first on a cheque drawn against the quotation.
-    ///
-    /// "only" closes the sentence for the same reason: it marks the end of the
-    /// amount, so nothing can be appended to it.
-    /// </summary>
-    private static string AmountInWords(decimal amount)
-    {
-        // Away from zero to match the printed figure, which is rounded the same
-        // way. Half a dirham resolving in opposite directions would put the
-        // words and the number one dirham apart — the exact disagreement this
-        // line exists to make impossible.
-        var rounded = Math.Round(Math.Abs(amount), 2, MidpointRounding.AwayFromZero);
-
-        var riyals = (long)decimal.Truncate(rounded);
-        var dirhams = (int)decimal.Truncate((rounded - riyals) * 100m);
-
-        var text = $"{Spell(riyals)} {(riyals == 1 ? "riyal" : "riyals")}";
-
-        // A whole amount says nothing about dirhams rather than "and zero
-        // dirhams", which reads like a field nobody filled in.
-        if (dirhams > 0)
-            text += $" and {Spell(dirhams)} {(dirhams == 1 ? "dirham" : "dirhams")}";
-
-        return $"{char.ToUpperInvariant(text[0])}{text[1..]} only";
-    }
-
     private static string Date(DateOnly value) =>
         value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
 
@@ -322,6 +247,8 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     public byte[] Generate(BoqPdfModel model)
     {
+        DocumentFonts.EnsureRegistered();
+
         return Document.Create(container =>
         {
             // Three page definitions, in the order a client reads them: the cover
@@ -879,6 +806,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                             cell.Item().PaddingTop(1)
                                 .ContentFromRightToLeft()
                                 .Text(line.DescriptionAr!)
+                                .FontFamily(DocumentFonts.Arabic)
                                 .FontSize(7.5f).FontColor(Muted);
                     });
 
@@ -954,6 +882,10 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     private static void ComposeTotal(IContainer container, BoqPdfModel model)
     {
+        // Nothing printed at all when none was given: a "Discount 0.00" line on
+        // an ordinary quotation reads as an offer that was asked for and refused.
+        var discounted = model.SpecialDiscount > 0;
+
         container.Column(column =>
         {
             column.Item().Row(row =>
@@ -962,12 +894,25 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 // the amounts column it sums.
                 row.RelativeItem();
 
-                row.ConstantItem(260).Background(BrandStrong).Padding(9).Row(inner =>
+                row.ConstantItem(260).Column(totals =>
                 {
-                    inner.RelativeItem().Text("TOTAL (QAR)")
-                        .FontSize(10).Bold().FontColor(White);
-                    inner.ConstantItem(110).AlignRight().Text(Money(model.Total))
-                        .FontSize(13).Bold().FontColor(White);
+                    if (discounted)
+                    {
+                        // The figure the discount comes off, then what comes off
+                        // it, then what is left — the order a reader checks them.
+                        totals.Item().Element(x => TotalRow(
+                            x, "Total", "الإجمالي", Money(model.Total)));
+
+                        totals.Item().Element(x => TotalRow(
+                            x, "Discount", "الخصم", Minus(model.SpecialDiscount), accent: true));
+                    }
+
+                    totals.Item().Element(x => TotalRow(
+                        x,
+                        discounted ? "FINAL AMOUNT (QAR)" : "TOTAL (QAR)",
+                        discounted ? "المبلغ النهائي (ر.ق)" : "الإجمالي (ر.ق)",
+                        Money(model.GrandTotal),
+                        emphasis: true));
                 });
             });
 
@@ -975,13 +920,78 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             // longer than the figure on any real job, and wrapping the amount
             // across two lines inside a 260pt column is how it stops being
             // readable as one number.
+            //
+            // It spells out what is payable, not what the lines came to — the
+            // discount is part of the offer, not a note beside it. A figure can
+            // be altered after the document leaves here with one keystroke; the
+            // sentence has to be rewritten to agree with it.
             column.Item().PaddingTop(7).Row(words =>
             {
                 words.ConstantItem(84).Text("AMOUNT IN WORDS")
                     .FontSize(7.5f).Bold().FontColor(Muted).LetterSpacing(0.06f);
-                words.RelativeItem().Text(AmountInWords(model.Total))
+                words.RelativeItem().Text(MoneyWords.English(model.GrandTotal))
                     .FontSize(8.5f).Italic().FontColor(Ink);
             });
+
+            // The whole line is reversed, label included: the Arabic sentence
+            // opens with "فقط" and closes with "لا غير", and set left to right it
+            // would read with those two ends swapped.
+            column.Item().PaddingTop(3).ContentFromRightToLeft().Row(words =>
+            {
+                words.ConstantItem(84).Text("المبلغ كتابةً")
+                    .FontFamily(DocumentFonts.Arabic)
+                    .FontSize(8f).Bold().FontColor(Muted);
+                words.RelativeItem().Text(MoneyWords.Arabic(model.GrandTotal))
+                    .FontFamily(DocumentFonts.Arabic)
+                    .FontSize(9f).FontColor(Ink);
+            });
+        });
+    }
+
+    /// <summary>A subtracted amount, written the way a reader checks it: with the
+    /// sign against the figure, not implied by the label.</summary>
+    private static string Minus(decimal value) => "−" + Money(value);
+
+    /// <summary>
+    /// One line of the totals block, labelled in both languages.
+    ///
+    /// The emphasised row is the amount payable and keeps the solid brand box the
+    /// document has always ended on; the rows above it are plain, so the eye
+    /// still lands on the figure that matters.
+    /// </summary>
+    private static void TotalRow(
+        IContainer container,
+        string label,
+        string labelAr,
+        string value,
+        bool emphasis = false,
+        bool accent = false)
+    {
+        var box = emphasis
+            ? container.Background(BrandStrong).Padding(9)
+            : container.BorderBottom(1).BorderColor(Line).PaddingVertical(5).PaddingHorizontal(9);
+
+        box.Row(row =>
+        {
+            row.RelativeItem().Column(text =>
+            {
+                text.Item().Text(label)
+                    .FontSize(emphasis ? 10 : 9).Bold()
+                    .FontColor(emphasis ? White : InkSoft);
+
+                // Right-to-left on the cell, not the string: Arabic set in a
+                // left-to-right flow puts its brackets on the wrong end of the
+                // line. AlignLeft keeps the pair stacked against the same edge,
+                // which reversing the direction would otherwise undo.
+                text.Item().ContentFromRightToLeft().AlignLeft().Text(labelAr)
+                    .FontFamily(DocumentFonts.Arabic)
+                    .FontSize(emphasis ? 9 : 8)
+                    .FontColor(emphasis ? White : Muted);
+            });
+
+            row.ConstantItem(110).AlignRight().AlignMiddle().Text(value)
+                .FontSize(emphasis ? 13 : 9).Bold()
+                .FontColor(emphasis ? White : accent ? Accent : Ink);
         });
     }
 

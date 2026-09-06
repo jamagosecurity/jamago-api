@@ -27,6 +27,20 @@ internal static class BoqMath
         }
 
         boq.Total = total;
+        ApplyDiscount(boq);
+    }
+
+    /// <summary>
+    /// Settles the discount against the lines it comes off.
+    ///
+    /// Clamped rather than trusted. The validator already refuses a discount
+    /// larger than the lines, but a quotation whose lines are cut down after a
+    /// discount was agreed would otherwise print a negative amount payable.
+    /// </summary>
+    internal static void ApplyDiscount(Boq boq)
+    {
+        boq.SpecialDiscount = Math.Clamp(Round(boq.SpecialDiscount), 0m, boq.Total);
+        boq.GrandTotal = boq.Total - boq.SpecialDiscount;
     }
 
     internal static decimal Round(decimal value) =>

@@ -20,6 +20,8 @@ public sealed class BoqConfiguration : IEntityTypeConfiguration<Boq>
 
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.Total).HasPrecision(18, 2);
+        builder.Property(x => x.SpecialDiscount).HasPrecision(18, 2);
+        builder.Property(x => x.GrandTotal).HasPrecision(18, 2);
 
         // The reference may already be circulating, so no two may share one. Also
         // the backstop for two writers allocating a number at the same moment.

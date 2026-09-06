@@ -15,6 +15,9 @@ public sealed record CreateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     public DateOnly? IssueDate { get; init; }
     public BoqStatus Status { get; init; } = BoqStatus.Draft;
     public string? Notes { get; init; }
+
+    /// <summary>A lump sum off the finished quotation, in QAR.</summary>
+    public decimal SpecialDiscount { get; init; }
     public IReadOnlyList<BoqSectionInput> Sections { get; init; } = [];
 }
 
