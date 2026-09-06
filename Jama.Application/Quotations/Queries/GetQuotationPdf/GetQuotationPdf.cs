@@ -56,6 +56,8 @@ public sealed class GetQuotationPdfQueryHandler(
             quotation.Subtotal,
             quotation.DiscountTotal,
             quotation.TaxTotal,
+            QuotationMath.TotalBeforeDiscount(quotation),
+            quotation.SpecialDiscount,
             quotation.GrandTotal,
             lines);
 

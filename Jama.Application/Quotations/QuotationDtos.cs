@@ -32,6 +32,12 @@ public sealed record QuotationDto(
     decimal Subtotal,
     decimal DiscountTotal,
     decimal TaxTotal,
+    /// <summary>What the lines come to before the quote-level discount — the
+    /// figure the discount is taken off.</summary>
+    decimal TotalBeforeDiscount,
+    /// <summary>The lump sum given off the finished quote, in QAR.</summary>
+    decimal SpecialDiscount,
+    /// <summary>What is payable, after the discount.</summary>
     decimal GrandTotal,
     IReadOnlyList<QuotationLineDto> Lines,
     DateTime CreatedAt,

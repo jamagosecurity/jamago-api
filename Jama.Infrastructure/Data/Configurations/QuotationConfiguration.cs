@@ -24,6 +24,7 @@ public sealed class QuotationConfiguration : IEntityTypeConfiguration<Quotation>
         builder.Property(x => x.Subtotal).HasPrecision(18, 2);
         builder.Property(x => x.DiscountTotal).HasPrecision(18, 2);
         builder.Property(x => x.TaxTotal).HasPrecision(18, 2);
+        builder.Property(x => x.SpecialDiscount).HasPrecision(18, 2);
         builder.Property(x => x.GrandTotal).HasPrecision(18, 2);
 
         // The reference may already be on a document in a customer's inbox, so no

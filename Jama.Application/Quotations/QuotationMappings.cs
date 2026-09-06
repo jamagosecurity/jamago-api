@@ -38,6 +38,8 @@ internal static class QuotationMappings
             entity.Subtotal,
             entity.DiscountTotal,
             entity.TaxTotal,
+            QuotationMath.TotalBeforeDiscount(entity),
+            entity.SpecialDiscount,
             entity.GrandTotal,
             entity.Lines
                 .OrderBy(line => line.SortOrder)

@@ -62,11 +62,29 @@
 
   <ItemGroup>
 
+    <!-- The document helpers stay internal, but the money-in-words sentences are
+         worth pinning directly rather than only through a rendered PDF. -->
+
+    <InternalsVisibleTo Include="Jama.Application.Tests" />
+
+  </ItemGroup>
+
+
+
+  <ItemGroup>
+
     <EmbeddedResource Include="Documents\Assets\jamago-logo.png" />
 
     <EmbeddedResource Include="Documents\Assets\jamago-logo-watermark.png" />
     <EmbeddedResource Include="Documents\Assets\jamago-quote-watermark.png" />
     <EmbeddedResource Include="Documents\Assets\brands\*.png" />
+
+    <!-- The Arabic face for the bilingual lines on a quotation. Carried in the
+         assembly rather than named and hoped for: the server has no Arabic font
+         installed, and QuestPDF throws on a glyph it cannot draw. SIL Open Font
+         License 1.1 — see Documents/Assets/OFL.txt. -->
+    <EmbeddedResource Include="Documents\Assets\noto-naskh-arabic-regular.ttf" />
+    <EmbeddedResource Include="Documents\Assets\noto-naskh-arabic-bold.ttf" />
 
     <!-- Static QR to www.jamago.qa, printed in the corner of the proposal pages.
          Pre-rendered rather than generated at run time: the URL never changes, so

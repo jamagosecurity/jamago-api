@@ -27,6 +27,12 @@ public sealed record QuotationPdfModel(
     decimal Subtotal,
     decimal DiscountTotal,
     decimal TaxTotal,
+    /// <summary>The "Total" line: the lines less their own discounts, plus tax,
+    /// before the discount given on the finished quote.</summary>
+    decimal TotalBeforeDiscount,
+    /// <summary>The lump sum off the finished quote. Zero prints no discount row.</summary>
+    decimal SpecialDiscount,
+    /// <summary>The "Final amount" line — what the customer pays.</summary>
     decimal GrandTotal,
     IReadOnlyList<QuotationPdfLine> Lines);
 

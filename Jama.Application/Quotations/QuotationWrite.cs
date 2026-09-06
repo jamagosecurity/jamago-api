@@ -36,6 +36,10 @@ public interface IQuotationWrite
     QuotationStatus Status { get; }
     string? Notes { get; }
     string? Terms { get; }
+
+    /// <summary>A lump sum off the finished quote, in QAR. Zero when none was given.</summary>
+    decimal SpecialDiscount { get; }
+
     IReadOnlyList<QuotationLineInput> Lines { get; }
 }
 
@@ -85,6 +89,22 @@ internal static class QuotationWriteRules
             .Must(lines => lines.Count <= MaxLines)
             .WithMessage($"A quotation cannot have more than {MaxLines} lines.");
 
+        validator.RuleFor(x => x.SpecialDiscount)
+            .GreaterThanOrEqualTo(0).WithMessage("Discount cannot be negative.")
+            .LessThanOrEqualTo(MoneyMax)
+            .WithMessage($"Discount must be {MoneyMax:N2} or less.");
+
+        // Checked against the lines rather than clamped quietly: someone typing
+        // 5,000 off a 500 quote has mistyped, and a quote silently worth nothing
+        // is worse than a rejected save. QuotationMath still clamps on write, for
+        // the case where the lines shrink under a discount already agreed.
+        validator.RuleFor(x => x.SpecialDiscount)
+            .Must((request, discount) => discount <= QuotationMath.TotalOf(request.Lines))
+            .WithMessage(request =>
+                "Discount cannot be more than the quotation total of "
+                + $"{QuotationMath.TotalOf(request.Lines):N2} QAR.")
+            .When(x => x.SpecialDiscount > 0 && x.Lines.Count > 0);
+
         validator.RuleForEach(x => x.Lines).ChildRules(line =>
         {
             line.RuleFor(x => x.ItemName)
@@ -133,6 +153,7 @@ internal static class QuotationWriter
         quotation.Status = request.Status;
         quotation.Notes = Clean(request.Notes);
         quotation.Terms = Clean(request.Terms);
+        quotation.SpecialDiscount = request.SpecialDiscount;
 
         quotation.Lines.Clear();
 

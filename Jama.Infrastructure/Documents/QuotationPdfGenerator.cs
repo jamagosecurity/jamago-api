@@ -58,6 +58,10 @@ public sealed class QuotationPdfGenerator : IQuotationPdfGenerator
 
     public byte[] Generate(QuotationPdfModel model)
     {
+        // The totals and the closing sentence are set in Arabic as well as
+        // English, and the face that draws them ships with the assembly.
+        DocumentFonts.EnsureRegistered();
+
         return Document.Create(container =>
         {
             container.Page(page =>
@@ -92,6 +96,8 @@ public sealed class QuotationPdfGenerator : IQuotationPdfGenerator
                 {
                     right.Item().Text("QUOTATION")
                         .FontSize(21).Bold().FontColor(BrandStrong).LetterSpacing(0.06f);
+                    right.Item().Text("عرض سعر")
+                        .FontFamily(DocumentFonts.Arabic).FontSize(12).FontColor(InkSoft);
                     right.Item().PaddingTop(2).Text(model.QuoteNumber)
                         .FontSize(11).Bold().FontColor(Ink);
                     right.Item().PaddingTop(1).Text(model.Status.ToUpperInvariant())
@@ -248,45 +254,134 @@ public sealed class QuotationPdfGenerator : IQuotationPdfGenerator
 
     private static void ComposeTotals(IContainer container, QuotationPdfModel model)
     {
-        container.Row(row =>
+        var discounted = model.SpecialDiscount > 0;
+
+        container.Column(outer =>
         {
-            // Left half is deliberately empty: totals belong on the same side as
-            // the amounts column they sum.
-            row.RelativeItem();
-
-            row.ConstantItem(250).Column(column =>
+            outer.Item().Row(row =>
             {
-                column.Item().Element(x => TotalRow(x, "Subtotal", Money(model.Subtotal), false));
+                // Left half is deliberately empty: totals belong on the same side
+                // as the amounts column they sum.
+                row.RelativeItem();
 
-                if (model.DiscountTotal > 0)
-                    column.Item().Element(x => TotalRow(x, "Discount", "-" + Money(model.DiscountTotal), false));
+                row.ConstantItem(272).Column(column =>
+                {
+                    column.Item().Element(x => TotalRow(
+                        x, "Subtotal", "الإجمالي الفرعي", Money(model.Subtotal)));
 
-                if (model.TaxTotal > 0)
-                    column.Item().Element(x => TotalRow(x, "Tax", Money(model.TaxTotal), false));
+                    if (model.DiscountTotal > 0)
+                        column.Item().Element(x => TotalRow(
+                            x, "Line discount", "خصم البنود", Minus(model.DiscountTotal)));
 
-                column.Item().PaddingTop(4).Element(x => TotalRow(x, "TOTAL (QAR)", Money(model.GrandTotal), true));
+                    if (model.TaxTotal > 0)
+                        column.Item().Element(x => TotalRow(
+                            x, "Tax", "الضريبة", Money(model.TaxTotal)));
+
+                    // The discount agreed on the finished quote earns two rows:
+                    // the total it came off, then what it takes away, so the
+                    // customer can follow the subtraction rather than being asked
+                    // to trust it. Without one, that pair would only repeat the
+                    // final line, so it is left out entirely.
+                    if (discounted)
+                    {
+                        column.Item().Element(x => TotalRow(
+                            x, "Total", "الإجمالي", Money(model.TotalBeforeDiscount)));
+
+                        column.Item().Element(x => TotalRow(
+                            x, "Discount", "الخصم", Minus(model.SpecialDiscount), accent: true));
+                    }
+
+                    column.Item().PaddingTop(4).Element(x => TotalRow(
+                        x,
+                        discounted ? "FINAL AMOUNT (QAR)" : "TOTAL (QAR)",
+                        discounted ? "المبلغ النهائي (ر.ق)" : "الإجمالي (ر.ق)",
+                        Money(model.GrandTotal),
+                        emphasis: true));
+                });
             });
+
+            outer.Item().PaddingTop(9).Element(x => ComposeAmountInWords(x, model.GrandTotal));
         });
     }
 
-    private static void TotalRow(IContainer container, string label, string value, bool emphasis)
+    /// <summary>A subtracted amount, written the way a reader checks it: with the
+    /// sign against the figure, not implied by the label.</summary>
+    private static string Minus(decimal value) => "−" + Money(value);
+
+    private static void TotalRow(
+        IContainer container,
+        string label,
+        string labelAr,
+        string value,
+        bool emphasis = false,
+        bool accent = false)
     {
         var box = emphasis
             ? container.Background(BrandStrong).Padding(8)
             : container.BorderBottom(1).BorderColor(Line).PaddingVertical(5).PaddingHorizontal(8);
 
+        var valueColor = emphasis ? White : accent ? Accent : Ink;
+
         box.Row(row =>
         {
-            row.RelativeItem().Text(label)
-                .FontSize(emphasis ? 10 : 9)
-                .Bold()
-                .FontColor(emphasis ? White : InkSoft);
+            row.RelativeItem().Column(text =>
+            {
+                text.Item().Text(label)
+                    .FontSize(emphasis ? 10 : 9)
+                    .Bold()
+                    .FontColor(emphasis ? White : InkSoft);
 
-            row.ConstantItem(100).AlignRight().Text(value)
-                .FontSize(emphasis ? 12 : 9)
+                // Right-to-left on the cell, not the string: Arabic set in a
+                // left-to-right flow puts its brackets on the wrong end of the
+                // line. AlignLeft keeps the pair stacked against the same edge,
+                // which reversing the direction would otherwise undo.
+                text.Item().ContentFromRightToLeft().AlignLeft().Text(labelAr)
+                    .FontFamily(DocumentFonts.Arabic)
+                    .FontSize(emphasis ? 9 : 8)
+                    .FontColor(emphasis ? White : Muted);
+            });
+
+            row.ConstantItem(100).AlignRight().AlignMiddle().Text(value)
+                .FontSize(emphasis ? 13 : 9)
                 .Bold()
-                .FontColor(emphasis ? White : Ink);
+                .FontColor(valueColor);
         });
+    }
+
+    /// <summary>
+    /// The amount payable, spelled out in both languages.
+    ///
+    /// A figure can be altered after the document leaves here with one keystroke;
+    /// the sentence has to be rewritten to agree with it, so the two together are
+    /// what make the total hard to quietly change.
+    /// </summary>
+    private static void ComposeAmountInWords(IContainer container, decimal amount)
+    {
+        container.Border(1).BorderColor(PanelBorder).Background(PanelBg)
+            .PaddingVertical(7).PaddingHorizontal(9)
+            .Column(column =>
+            {
+                column.Item().Row(row =>
+                {
+                    row.ConstantItem(96).Text("AMOUNT IN WORDS")
+                        .FontSize(7.5f).Bold().FontColor(Brand).LetterSpacing(0.06f);
+                    row.RelativeItem().Text(MoneyWords.English(amount))
+                        .FontSize(8.5f).Italic().FontColor(Ink);
+                });
+
+                // The whole line is reversed, label included: the Arabic sentence
+                // opens with "فقط" and closes with "لا غير", and set left to right
+                // it would read with those two ends swapped.
+                column.Item().PaddingTop(4).ContentFromRightToLeft().Row(row =>
+                {
+                    row.ConstantItem(96).Text("المبلغ كتابةً")
+                        .FontFamily(DocumentFonts.Arabic)
+                        .FontSize(8f).Bold().FontColor(Brand);
+                    row.RelativeItem().Text(MoneyWords.Arabic(amount))
+                        .FontFamily(DocumentFonts.Arabic)
+                        .FontSize(9f).FontColor(Ink);
+                });
+            });
     }
 
     private static void ComposeNote(IContainer container, string title, string body)

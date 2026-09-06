@@ -22,6 +22,7 @@ public sealed record UpdateQuotationCommand : IRequest<ApiResult<QuotationDto>>,
     public QuotationStatus Status { get; init; } = QuotationStatus.Draft;
     public string? Notes { get; init; }
     public string? Terms { get; init; }
+    public decimal SpecialDiscount { get; init; }
     public IReadOnlyList<QuotationLineInput> Lines { get; init; } = [];
 }
 
