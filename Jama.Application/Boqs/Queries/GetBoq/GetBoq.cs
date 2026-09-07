@@ -18,6 +18,7 @@ public sealed class GetBoqQueryHandler(IApplicationDbContext context)
             .AsNoTracking()
             .Include(x => x.Sections)
             .ThenInclude(x => x.Lines)
+            .Include(x => x.ApprovalEvents)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
         return boq is null

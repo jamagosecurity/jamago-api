@@ -17,7 +17,6 @@ public sealed record UpdateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     public string? ClientName { get; init; }
     public string? ContactNumber { get; init; }
     public DateOnly? IssueDate { get; init; }
-    public BoqStatus Status { get; init; } = BoqStatus.Draft;
     public string? Notes { get; init; }
 
     /// <summary>A lump sum off the finished quotation, in QAR.</summary>
@@ -39,6 +38,17 @@ public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeP
 
         if (boq is null)
             return ApiResult<BoqDto>.Failure("BOQ not found.");
+
+        // The approval is a statement about a particular set of lines and
+        // figures. Editing them afterwards would leave that statement attached to
+        // a document nobody approved, so the write is refused rather than
+        // silently reverting the quotation to a draft. A rejected one stays open:
+        // reworking it is what the reason was given for.
+        if (!BoqWorkflow.IsEditable(boq.Status))
+            return ApiResult<BoqDto>.Failure(
+                boq.Status == BoqStatus.Submitted
+                    ? "This quotation is waiting for approval and cannot be edited. Ask an approver to reject it if it needs changes."
+                    : "An approved quotation cannot be edited.");
 
         // The number and who prepared it are set once. Neither is rewritten here:
         // the reference may already be circulating, and authorship is a fact.
@@ -66,6 +76,7 @@ public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeP
             .AsNoTracking()
             .Include(x => x.Sections)
             .ThenInclude(x => x.Lines)
+            .Include(x => x.ApprovalEvents)
             .FirstAsync(x => x.Id == boq.Id, cancellationToken);
 
         return ApiResult<BoqDto>.Success(BoqMappings.ToDto(saved));

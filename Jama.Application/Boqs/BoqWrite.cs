@@ -59,7 +59,6 @@ public interface IBoqWrite
     string? ClientName { get; }
     string? ContactNumber { get; }
     DateOnly? IssueDate { get; }
-    BoqStatus Status { get; }
     string? Notes { get; }
 
     /// <summary>A lump sum off the finished quotation, in QAR. Zero when none was
@@ -92,7 +91,6 @@ internal static class BoqWriteRules
         validator.RuleFor(x => x.ContactNumber).MaximumLength(ContactMaxLength)
             .WithMessage($"Contact number must be {ContactMaxLength} characters or fewer.");
         validator.RuleFor(x => x.Notes).MaximumLength(NotesMaxLength);
-        validator.RuleFor(x => x.Status).IsInEnum().WithMessage("Select a valid status.");
 
         // Only the bounds here. Whether the discount fits inside the quotation is
         // settled by the writer, which is where the line rates are known — they
@@ -227,7 +225,6 @@ internal static class BoqWriter
         boq.ClientName = Clean(request.ClientName);
         boq.ContactNumber = Clean(request.ContactNumber);
         boq.IssueDate = request.IssueDate ?? DateOnly.FromDateTime(now);
-        boq.Status = request.Status;
         boq.Notes = Clean(request.Notes);
 
         var sections = new List<BoqSection>();

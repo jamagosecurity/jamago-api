@@ -34,6 +34,16 @@ public static class PermissionPolicies
                     || context.User.HasClaim(PermissionClaims.Type, key)));
         }
 
+        // Composite: either grant opens a quotation. Registered here rather than
+        // in the loop above because it is not a permission anybody is granted —
+        // it is the question "may this person look at one at all".
+        builder.AddPolicy(AuthorizationPolicies.BoqRead, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.IsInRole(Roles.Admin)
+                || context.User.HasClaim(PermissionClaims.Type, Permissions.BoqManage)
+                || context.User.HasClaim(PermissionClaims.Type, Permissions.BoqApprove)));
+
         return builder;
     }
 

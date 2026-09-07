@@ -22,6 +22,11 @@ public static class Permissions
     public const string CameraManage = "camera.manage";
     public const string BoqManage = "boq.manage";
 
+    /// <summary>Deciding on a quotation someone else built. Deliberately not
+    /// implied by <see cref="BoqManage"/>: building one and approving it are
+    /// different jobs, and one person doing both is the thing this separates.</summary>
+    public const string BoqApprove = "boq.approve";
+
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
@@ -41,7 +46,10 @@ public static class Permissions
         // One grant, two screens: the storage calculator sizes the array for a
         // quotation, so anyone who can build one can size it. Splitting them
         // would let an account make a quotation it cannot check the storage for.
-        new(BoqManage, "Build quotations & size storage", "Can pick stock items into a quotation, set quantities and rates, and size the NVR storage for it. The catalogue price is recorded on every line, so any change to it stays visible."),
+        new(BoqManage, "Build quotations & size storage", "Can pick stock items into a quotation, set quantities and rates, submit it for approval, and size the NVR storage for it. Cannot approve one — not even their own."),
+        // The one grant that is about somebody else's work. Held on its own it
+        // is enough to open a quotation and decide on it, and nothing else.
+        new(BoqApprove, "Approve or reject quotations", "Can open a quotation submitted for approval and approve it, or reject it with a reason. Does not include building or editing quotations."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();

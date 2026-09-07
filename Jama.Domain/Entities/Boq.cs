@@ -57,4 +57,36 @@ public class Boq : BaseEntity
     public decimal GrandTotal { get; set; }
 
     public ICollection<BoqSection> Sections { get; set; } = [];
+
+    // ===== Where the approval stands =====
+    //
+    // Denormalised from the history rows deliberately. A list of approved
+    // quotations has to show who approved each and when, and reading that back
+    // through the trail would be a join and a "latest of" for every row on the
+    // page. The trail remains the record of what happened; these are the answer
+    // to where it landed.
+    //
+    // A decision is CLEARED when the quotation moves on — re-submitting a
+    // rejected quotation drops the rejection from here, because it is no longer
+    // where the document stands. It stays in the history, which is what the
+    // history is for.
+
+    /// <summary>When it was last handed to an approver. Null while it is a
+    /// draft nobody has submitted.</summary>
+    public DateTime? SubmittedAt { get; set; }
+
+    public Guid? ApprovedById { get; set; }
+    public string? ApprovedByName { get; set; }
+    public DateTime? ApprovedAt { get; set; }
+
+    public Guid? RejectedById { get; set; }
+    public string? RejectedByName { get; set; }
+    public DateTime? RejectedAt { get; set; }
+
+    /// <summary>Why the current rejection was given. Required to reject, and the
+    /// thing the person reworking the quotation actually needs.</summary>
+    public string? RejectionReason { get; set; }
+
+    /// <summary>Every approval step, oldest first. Append-only.</summary>
+    public ICollection<BoqApprovalEvent> ApprovalEvents { get; set; } = [];
 }

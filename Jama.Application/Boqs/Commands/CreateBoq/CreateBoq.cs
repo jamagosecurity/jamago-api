@@ -13,7 +13,6 @@ public sealed record CreateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     public string? ClientName { get; init; }
     public string? ContactNumber { get; init; }
     public DateOnly? IssueDate { get; init; }
-    public BoqStatus Status { get; init; } = BoqStatus.Draft;
     public string? Notes { get; init; }
 
     /// <summary>A lump sum off the finished quotation, in QAR.</summary>
@@ -55,6 +54,8 @@ public sealed class CreateBoqCommandHandler(
             boq.Sections.Add(section);
 
         context.Boqs.Add(boq);
+        BoqWorkflow.Record(context, boq, BoqApprovalAction.Created, actor, now);
+
         await context.SaveChangesAsync(cancellationToken);
 
         return ApiResult<BoqDto>.Success(BoqMappings.ToDto(boq));

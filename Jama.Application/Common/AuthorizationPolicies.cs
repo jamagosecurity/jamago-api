@@ -15,4 +15,18 @@ public static class AuthorizationPolicies
     /// deliberately coarse. Guards actions that destroy data outright.
     /// </summary>
     public const string SuperAdmin = "superadmin";
+
+    /// <summary>
+    /// Reading quotations, satisfied by EITHER the build grant or the approve
+    /// grant.
+    ///
+    /// An approver has to open the document to decide on it, and building
+    /// quotations is not part of that job. Without this the only way to let
+    /// somebody approve would be to also let them write — which is the division
+    /// the approve grant exists to make.
+    ///
+    /// Composite, so deliberately not in <see cref="Permissions.All"/>: it is
+    /// not a thing an admin ticks, it is two things that both open the door.
+    /// </summary>
+    public const string BoqRead = "boq.read";
 }
