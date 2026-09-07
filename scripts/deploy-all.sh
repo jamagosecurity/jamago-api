@@ -105,7 +105,17 @@ done
 # ---------------------------------------------------------------------------
 
 step "Deploying the frontend"
-scp -r "$DIST/." "$REMOTE_HOST:$REMOTE_WEB/"
+
+# rsync --delete, not scp: the web root has to MIRROR the build, not accumulate
+# it. Angular hashes every bundle name, so each deploy used to leave the whole
+# previous set behind — 887 dead chunks and 95 MB of them by the time anyone
+# looked, and any browser still holding an old index.html kept running the old
+# code because its chunks were all still there to serve.
+#
+# --delete is what makes a removed or renamed file actually go. The HTML is
+# served no-cache, so a client revalidates on every load and lands on the
+# current index rather than one pointing at bundles that no longer exist.
+rsync -az --delete --omit-dir-times --no-perms "$DIST/" "$REMOTE_HOST:$REMOTE_WEB/"
 ssh "$REMOTE_HOST" "chown -R www-data:www-data $REMOTE_WEB && chmod -R 755 $REMOTE_WEB"
 
 step "Checking the live site"
