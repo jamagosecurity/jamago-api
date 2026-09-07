@@ -17,4 +17,9 @@ public enum BoqApprovalAction
     Submitted,
     Approved,
     Rejected,
+    /// <summary>Changed after a decision had been taken on it. Only the super
+    /// administrator can do this, and it is recorded rather than silent: an
+    /// approval that refers to lines which have since moved must not look
+    /// untouched.</summary>
+    Amended,
 }

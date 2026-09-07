@@ -100,6 +100,7 @@ public sealed class DiaActivationTests
 
         /// <summary>An admin's token carries every permission claim.</summary>
         public bool Has(string permission) => true;
+        public bool IsSuperAdmin => false;
     }
 
     private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

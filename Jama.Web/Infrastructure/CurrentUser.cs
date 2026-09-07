@@ -2,10 +2,14 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
+using Jama.Application.Options;
+using Microsoft.Extensions.Options;
 
 namespace Jama.Web.Infrastructure;
 
-public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
+public sealed class CurrentUser(
+    IHttpContextAccessor accessor,
+    IOptions<AdminSeedSettings> adminSeed) : ICurrentUser
 {
     private ClaimsPrincipal User => accessor.HttpContext?.User
         ?? throw new UnauthorizedAccessException("An authenticated user is required.");
@@ -55,6 +59,25 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
     ///
     /// An anonymous caller has no principal to ask, and holds nothing.
     /// </summary>
+    /// <summary>
+    /// Read from the same place the SuperAdmin policy reads it — the email claim
+    /// against AdminSeed:Email — so the handler and the policy cannot disagree
+    /// about who the root account is.
+    /// </summary>
+    public bool IsSuperAdmin
+    {
+        get
+        {
+            var user = accessor.HttpContext?.User;
+            if (user is null || !user.IsInRole(Roles.Admin)) return false;
+
+            var email = user.FindFirstValue(JwtRegisteredClaimNames.Email)
+                ?? user.FindFirstValue(ClaimTypes.Email);
+
+            return adminSeed.Value.IsSuperAdmin(email);
+        }
+    }
+
     public bool Has(string permission)
     {
         var user = accessor.HttpContext?.User;

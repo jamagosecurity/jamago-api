@@ -48,4 +48,13 @@ public interface ICurrentUser
     /// Safe for an anonymous caller, who holds nothing.
     /// </summary>
     bool Has(string permission);
+
+    /// <summary>
+    /// The single seeded root administrator, identified the same way
+    /// AuthorizationPolicies.SuperAdmin identifies them — by AdminSeed:Email.
+    ///
+    /// For rules an ordinary administrator should not reach. Fails closed: with
+    /// no seed email configured, nobody is the super administrator.
+    /// </summary>
+    bool IsSuperAdmin { get; }
 }

@@ -32,6 +32,9 @@ public class BoqApprovalWorkflowTests
         /// <summary>Not what these tests are about — the endpoint policies decide
         /// who may call what, and they are pinned in Jama.Web.</summary>
         public bool Has(string permission) => false;
+
+        /// <summary>Set per test — the amendment rule turns on it.</summary>
+        public bool IsSuperAdmin { get; init; }
     }
 
     private static readonly DateTime Now = new(2026, 9, 6, 9, 0, 0, DateTimeKind.Utc);
@@ -260,7 +263,8 @@ public class BoqApprovalWorkflowTests
     {
         var (context, boq) = await SeedAsync(BoqStatus.Approved);
 
-        var result = await new UpdateBoqCommandHandler(context, TimeProvider.System).Handle(
+        var result = await new UpdateBoqCommandHandler(
+            context, new FakeCurrentUser("Sara"), TimeProvider.System).Handle(
             new UpdateBoqCommand
             {
                 Id = boq.Id,
@@ -270,8 +274,58 @@ public class BoqApprovalWorkflowTests
             CancellationToken.None);
 
         Assert.False(result.Succeeded);
-        Assert.Contains("An approved quotation cannot be edited.", result.Errors);
+        Assert.Contains(
+            "An approved quotation can only be edited by the super administrator.",
+            result.Errors);
         Assert.Equal("Villa 22", boq.ProjectName);
+    }
+
+    [Fact]
+    public async Task The_super_administrator_may_amend_an_approved_quotation()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var root = new FakeCurrentUser("Root <admin@jamago.qa>") { IsSuperAdmin = true };
+
+        // Somebody has to be able to correct a signed-off document. The
+        // alternative is deleting and rebuilding it, which loses the number, the
+        // trail and the approval together.
+        var result = await new UpdateBoqCommandHandler(context, root, TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22 (corrected)",
+                Sections = [],
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Villa 22 (corrected)", boq.ProjectName);
+
+        // Recorded, not silent: the approval still stands, and so does the fact
+        // that the document moved underneath it.
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(BoqApprovalAction.Amended, step.Action);
+        Assert.Equal("Root <admin@jamago.qa>", step.ActorName);
+    }
+
+    [Fact]
+    public async Task An_ordinary_edit_records_nothing()
+    {
+        var (context, boq) = await SeedAsync();
+
+        // Only an amendment after a decision is worth a line in the trail.
+        // Every draft save is not history, it is typing.
+        await new UpdateBoqCommandHandler(
+            context, new FakeCurrentUser("Sara"), TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22 again",
+                Sections = [],
+            },
+            CancellationToken.None);
+
+        Assert.Empty(context.BoqApprovalEvents.ToList());
     }
 
     // ===== The trail =====

@@ -24,7 +24,10 @@ public sealed record UpdateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     public IReadOnlyList<BoqSectionInput> Sections { get; init; } = [];
 }
 
-public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeProvider timeProvider)
+public sealed class UpdateBoqCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUser actor,
+    TimeProvider timeProvider)
     : IRequestHandler<UpdateBoqCommand, ApiResult<BoqDto>>
 {
     public async Task<ApiResult<BoqDto>> Handle(
@@ -44,11 +47,20 @@ public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeP
         // a document nobody approved, so the write is refused rather than
         // silently reverting the quotation to a draft. A rejected one stays open:
         // reworking it is what the reason was given for.
-        if (!BoqWorkflow.IsEditable(boq.Status))
+        //
+        // The super administrator is the exception. Somebody has to be able to
+        // correct a mistake on a document that has already been signed off —
+        // otherwise the only route is to delete it and rebuild it, which loses
+        // the number, the trail and the approval together. It is one account, not
+        // a permission an administrator can hand out, and the amendment is
+        // recorded below.
+        var amending = !BoqWorkflow.IsEditable(boq.Status);
+
+        if (amending && !actor.IsSuperAdmin)
             return ApiResult<BoqDto>.Failure(
                 boq.Status == BoqStatus.Submitted
                     ? "This quotation is waiting for approval and cannot be edited. Ask an approver to reject it if it needs changes."
-                    : "An approved quotation cannot be edited.");
+                    : "An approved quotation can only be edited by the super administrator.");
 
         // The number and who prepared it are set once. Neither is rewritten here:
         // the reference may already be circulating, and authorship is a fact.
@@ -67,7 +79,15 @@ public sealed class UpdateBoqCommandHandler(IApplicationDbContext context, TimeP
         context.BoqSections.RemoveRange(boq.Sections);
         context.BoqSections.AddRange(sections);
 
-        boq.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        // Appended, never in place of the decision: the approval stands, and so
+        // does the fact that the document changed after it. A reader can see
+        // both and judge for themselves.
+        if (amending)
+            BoqWorkflow.Record(context, boq, BoqApprovalAction.Amended, actor, now);
+
+        boq.UpdatedAt = now;
         await context.SaveChangesAsync(cancellationToken);
 
         // Re-read rather than mapping the entity: its Sections navigation still
