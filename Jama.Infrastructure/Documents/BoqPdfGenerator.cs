@@ -65,6 +65,9 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
         // the same logo for the same brand, and the brand field is free text.
         var files = new (string File, string[] Aliases)[]
         {
+            // The house brand, on its own service and supply lines.
+            ("jamago", ["jama go", "jamago", "jama-go"]),
+
             ("hikvision", ["hikvision", "hik"]),
             ("dahua", ["dahua", "dahua technology"]),
             ("uniview", ["uniview", "unv"]),
@@ -894,7 +897,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
         {
             ["Piece"] = "Pcs",
             ["Metre"] = "Mtr",
-            ["Location"] = "Loc",
+            ["Lot"] = "Lot",
         };
 
     private static string Unit(string uom) =>

@@ -81,9 +81,9 @@ public enum UnitOfMeasurement
     Metre,
     Roll,
 
-    /// <summary>A whole location, priced as one lump — the unit for work that
-    /// is quoted per site rather than per item.</summary>
-    Location,
+    /// <summary>A job lot: work or supply priced as one lump rather than per
+    /// item. Written "Lot" on a quotation, which is what the trade calls it.</summary>
+    Lot,
 }
 
 /// <summary>

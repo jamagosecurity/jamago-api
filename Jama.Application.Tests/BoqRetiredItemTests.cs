@@ -46,7 +46,7 @@ public class BoqRetiredItemTests
             ModelNo = "SVC-INST",
             Brand = "Jama Go",
             Type = "Labour",
-            Uom = UnitOfMeasurement.Location,
+            Uom = UnitOfMeasurement.Lot,
             Quantity = 2,
             Resolution = CameraResolution.Unspecified,
             CatalogueRate = 1500m,
@@ -99,7 +99,7 @@ public class BoqRetiredItemTests
         Assert.Equal("SVC-INST", saved.ModelNo);
         Assert.Equal("Jama Go", saved.Brand);
         Assert.Equal("Labour", saved.Type);
-        Assert.Equal(UnitOfMeasurement.Location, saved.Uom);
+        Assert.Equal(UnitOfMeasurement.Lot, saved.Uom);
         Assert.Equal(1500m, saved.UnitRate);
         Assert.Equal(1500m, saved.CatalogueRate);
         Assert.Null(saved.CameraId);
