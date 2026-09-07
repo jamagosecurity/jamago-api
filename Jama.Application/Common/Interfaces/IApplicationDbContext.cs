@@ -24,5 +24,6 @@ public interface IApplicationDbContext
     DbSet<Boq> Boqs { get; }
     DbSet<BoqSection> BoqSections { get; }
     DbSet<BoqLine> BoqLines { get; }
+    DbSet<BoqApprovalEvent> BoqApprovalEvents { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

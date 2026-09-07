@@ -1,3 +1,4 @@
+using Jama.Domain.Enums;
 using System.Globalization;
 using Jama.Domain.Entities;
 
@@ -24,6 +25,22 @@ internal static class BoqMappings
             entity.Total,
             entity.SpecialDiscount,
             entity.GrandTotal,
+            entity.SubmittedAt,
+            entity.ApprovedByName,
+            entity.ApprovedAt,
+            entity.RejectedByName,
+            entity.RejectedAt,
+            entity.RejectionReason,
+            BoqWorkflow.IsEditable(entity.Status),
+            entity.ApprovalEvents.Count(e => e.Action == BoqApprovalAction.Rejected),
+            entity.ApprovalEvents.Count(e => e.Action == BoqApprovalAction.Submitted),
+            // Oldest first: a trail is read as a story, and the story starts at
+            // the beginning.
+            entity.ApprovalEvents
+                .OrderBy(e => e.CreatedAt)
+                .Select(e => new BoqApprovalEventDto(
+                    e.Id, e.Action, e.ActorId, e.ActorName, e.Reason, e.CreatedAt))
+                .ToList(),
             sections.Select((section, index) => ToDto(section, index + 1)).ToList(),
             entity.CreatedAt,
             entity.UpdatedAt);

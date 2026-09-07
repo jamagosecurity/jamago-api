@@ -52,6 +52,25 @@ public sealed record BoqDto(
     decimal SpecialDiscount,
     /// <summary>What is payable: the lines less the discount.</summary>
     decimal GrandTotal,
+    // ===== Approval =====
+    DateTime? SubmittedAt,
+    string? ApprovedByName,
+    DateTime? ApprovedAt,
+    string? RejectedByName,
+    DateTime? RejectedAt,
+    /// <summary>Why the current rejection was given — what a rework starts from.</summary>
+    string? RejectionReason,
+    /// <summary>Whether the lines may still be changed. Sent rather than derived
+    /// on the client so the editor and the server cannot disagree about it.</summary>
+    bool IsEditable,
+    /// <summary>How many times this quotation has been sent back. Read straight
+    /// off the trail, so "approved at the third attempt" is a fact rather than
+    /// something a reader has to count.</summary>
+    int RejectionCount,
+    /// <summary>How many times it has been submitted for approval.</summary>
+    int SubmissionCount,
+    /// <summary>Every step, oldest first. Append-only.</summary>
+    IReadOnlyList<BoqApprovalEventDto> History,
     IReadOnlyList<BoqSectionDto> Sections,
     DateTime CreatedAt,
     DateTime? UpdatedAt);
@@ -68,7 +87,29 @@ public sealed record BoqListItemDto(
     decimal Total,
     decimal SpecialDiscount,
     decimal GrandTotal,
+    DateTime? SubmittedAt,
+    string? ApprovedByName,
+    DateTime? ApprovedAt,
+    string? RejectedByName,
+    DateTime? RejectedAt,
+    string? RejectionReason,
+    int RejectionCount,
+    int SubmissionCount,
     int SectionCount,
     int LineCount,
     string? PreparedByName,
     DateTime CreatedAt);
+
+/// <summary>
+/// One step in a quotation's approval history, as a reader sees it.
+///
+/// The actor's name is the one recorded at the time, not the account's name
+/// today — see BoqApprovalEvent.
+/// </summary>
+public sealed record BoqApprovalEventDto(
+    Guid Id,
+    BoqApprovalAction Action,
+    Guid ActorId,
+    string? ActorName,
+    string? Reason,
+    DateTime At);

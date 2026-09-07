@@ -27,6 +27,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Boq> Boqs => Set<Boq>();
     public DbSet<BoqSection> BoqSections => Set<BoqSection>();
     public DbSet<BoqLine> BoqLines => Set<BoqLine>();
+    public DbSet<BoqApprovalEvent> BoqApprovalEvents => Set<BoqApprovalEvent>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

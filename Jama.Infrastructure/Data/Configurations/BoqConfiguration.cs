@@ -17,6 +17,9 @@ public sealed class BoqConfiguration : IEntityTypeConfiguration<Boq>
         builder.Property(x => x.ContactNumber).HasMaxLength(40);
         builder.Property(x => x.PreparedByName).HasMaxLength(200);
         builder.Property(x => x.Notes).HasMaxLength(2000);
+        builder.Property(x => x.ApprovedByName).HasMaxLength(200);
+        builder.Property(x => x.RejectedByName).HasMaxLength(200);
+        builder.Property(x => x.RejectionReason).HasMaxLength(1000);
 
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.Total).HasPrecision(18, 2);
@@ -27,6 +30,17 @@ public sealed class BoqConfiguration : IEntityTypeConfiguration<Boq>
         // the backstop for two writers allocating a number at the same moment.
         builder.HasIndex(x => x.BoqNumber).IsUnique();
         builder.HasIndex(x => x.PreparedById);
+        // The approval queue and the two admin lists are all "this status,
+        // newest first", which is the whole of what this index is for.
+        builder.HasIndex(x => new { x.Status, x.CreatedAt });
+
+        // Cascade, unlike the soft link a line keeps to its stock item: the trail
+        // is part of the quotation rather than a reference to something else, and
+        // orphan history rows describe a document nobody can open.
+        builder.HasMany(x => x.ApprovalEvents)
+            .WithOne(x => x.Boq)
+            .HasForeignKey(x => x.BoqId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasMany(x => x.Sections)
             .WithOne(x => x.Boq)
@@ -82,5 +96,25 @@ public sealed class BoqLineConfiguration : IEntityTypeConfiguration<BoqLine>
             .WithMany()
             .HasForeignKey(x => x.CameraId)
             .OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+/// <summary>
+/// The approval trail. Append-only in practice — nothing in the application
+/// updates or deletes a row — so there is no concurrency token and no soft
+/// delete here.
+/// </summary>
+public sealed class BoqApprovalEventConfiguration : IEntityTypeConfiguration<BoqApprovalEvent>
+{
+    public void Configure(EntityTypeBuilder<BoqApprovalEvent> builder)
+    {
+        builder.ToTable("BoqApprovalEvents");
+
+        builder.Property(x => x.Action).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(x => x.ActorName).HasMaxLength(200);
+        builder.Property(x => x.Reason).HasMaxLength(1000);
+
+        // Read as "this quotation's trail, oldest first", every time.
+        builder.HasIndex(x => new { x.BoqId, x.CreatedAt });
     }
 }
