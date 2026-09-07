@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using MediatR;
@@ -7,7 +8,7 @@ namespace Jama.Application.Cameras.Queries.GetCamera;
 
 public sealed record GetCameraQuery(Guid Id) : IRequest<ApiResult<CameraDto>>;
 
-public sealed class GetCameraQueryHandler(IApplicationDbContext context)
+public sealed class GetCameraQueryHandler(IApplicationDbContext context, ICurrentUser actor)
     : IRequestHandler<GetCameraQuery, ApiResult<CameraDto>>
 {
     public async Task<ApiResult<CameraDto>> Handle(
@@ -20,8 +21,12 @@ public sealed class GetCameraQueryHandler(IApplicationDbContext context)
             .Select(CameraMappings.Projection)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return camera is null
-            ? ApiResult<CameraDto>.Failure("Camera not found.")
-            : ApiResult<CameraDto>.Success(camera);
+        if (camera is null)
+            return ApiResult<CameraDto>.Failure("Camera not found.");
+
+        // Same rule as the list: the detail of a public catalogue item is public,
+        // what it cost us is not.
+        return ApiResult<CameraDto>.Success(
+            actor.Has(Permissions.CostView) ? camera : CameraMappings.WithoutCost(camera));
     }
 }

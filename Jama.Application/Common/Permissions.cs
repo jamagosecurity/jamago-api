@@ -20,6 +20,16 @@ public static class Permissions
     public const string PanelsManage = "panels.manage";
     public const string VipManage = "vip.manage";
     public const string CameraManage = "camera.manage";
+
+    /// <summary>
+    /// Seeing what stock costs us, and the margin on it.
+    ///
+    /// Separate from <see cref="CameraManage"/> and implied by nothing: managing
+    /// the catalogue and knowing the buying price are different jobs, and this is
+    /// the figure a business least wants on a screen it does not control. Held by
+    /// nobody until it is granted, which is the point.
+    /// </summary>
+    public const string CostView = "camera.cost";
     public const string BoqManage = "boq.manage";
 
     /// <summary>Deciding on a quotation someone else built. Deliberately not
@@ -43,6 +53,7 @@ public static class Permissions
         new(PanelsManage, "Manage control panels", "Can add and edit control panel records."),
         new(VipManage, "Manage VIP clients", "Can create VIP client projects and upload documents to their folders."),
         new(CameraManage, "Manage the stock inventory", "Can add, edit and remove stock items and set their prices. Everyone can read the public catalogue."),
+        new(CostView, "See supplier cost & margin", "Can see what stock costs the business and the margin on it, on the stock screens and — behind a button that closes itself — while building a quotation. Off for everyone until granted, including staff who manage the catalogue."),
         // One grant, two screens: the storage calculator sizes the array for a
         // quotation, so anyone who can build one can size it. Splitting them
         // would let an account make a quotation it cannot check the storage for.

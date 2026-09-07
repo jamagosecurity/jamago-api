@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Entities;
@@ -35,7 +36,10 @@ public sealed record CreateCameraCommand : IRequest<ApiResult<CameraDto>>, ICame
     public string? Notes { get; init; }
 }
 
-public sealed class CreateCameraCommandHandler(IApplicationDbContext context, TimeProvider timeProvider)
+public sealed class CreateCameraCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUser actor,
+    TimeProvider timeProvider)
     : IRequestHandler<CreateCameraCommand, ApiResult<CameraDto>>
 {
     public async Task<ApiResult<CameraDto>> Handle(
@@ -54,7 +58,7 @@ public sealed class CreateCameraCommandHandler(IApplicationDbContext context, Ti
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
         };
 
-        CameraWriter.Apply(camera, request);
+        CameraWriter.Apply(camera, request, actor.Has(Permissions.CostView));
 
         context.Cameras.Add(camera);
         await context.SaveChangesAsync(cancellationToken);

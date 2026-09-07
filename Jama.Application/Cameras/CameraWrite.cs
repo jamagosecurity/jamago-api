@@ -113,7 +113,8 @@ internal static class CameraWriter
     /// Copies a create or update request onto the entity. Normalisation lives
     /// here so both paths trim, blank-to-null and round identically.
     /// </summary>
-    internal static void Apply(Camera entity, ICameraWrite request)
+    internal static void Apply(Camera entity, ICameraWrite request,
+        bool mayWriteCost = true)
     {
         entity.ItemName = request.ItemName?.Trim() ?? string.Empty;
         entity.Brand = CameraRules.NormalizeBrand(request.Brand);
@@ -126,8 +127,18 @@ internal static class CameraWriter
 
         // Rounded to the precision the columns actually hold, so what comes back
         // in the response is what was stored rather than the unrounded input.
-        entity.SupplierCost = Round(request.SupplierCost, 2);
-        entity.Margin = Round(request.Margin, 2);
+        //
+        // Cost and margin are left ALONE for an editor who may not see them.
+        // Their form loaded those boxes blank — the read strips them — so writing
+        // the request back would quietly wipe the figures on every save by a
+        // stock manager without the grant. A field you cannot see is not a field
+        // you can clear.
+        if (mayWriteCost)
+        {
+            entity.SupplierCost = Round(request.SupplierCost, 2);
+            entity.Margin = Round(request.Margin, 2);
+        }
+
         entity.Rate = Round(request.Rate, 2);
         entity.Discount = Round(request.Discount, 2);
         entity.TaxRate = Round(request.TaxRate, 2);

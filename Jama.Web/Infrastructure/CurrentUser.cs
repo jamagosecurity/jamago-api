@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 
 namespace Jama.Web.Infrastructure;
@@ -39,4 +40,26 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
     }
 
     public string? Role => User.FindFirstValue(ClaimTypes.Role);
+
+    /// <summary>
+    /// Read off the token, the same way the endpoint policies read it — so a
+    /// handler and its route gate can never disagree about what the caller holds.
+    ///
+    /// The Admin role satisfies any permission on its own, exactly as every
+    /// policy in PermissionPolicies does. Admins are minted carrying every claim,
+    /// so this changes nothing about who may do what — but a token issued BEFORE
+    /// a permission existed does not carry that permission's claim, and without
+    /// this an administrator signed in across the deployment that added one would
+    /// silently lose the field it guards until they signed in again. That is
+    /// exactly how supplier cost stopped saving.
+    ///
+    /// An anonymous caller has no principal to ask, and holds nothing.
+    /// </summary>
+    public bool Has(string permission)
+    {
+        var user = accessor.HttpContext?.User;
+        if (user is null) return false;
+
+        return user.IsInRole(Roles.Admin) || user.HasClaim(PermissionClaims.Type, permission);
+    }
 }

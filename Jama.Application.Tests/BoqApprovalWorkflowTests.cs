@@ -28,6 +28,10 @@ public class BoqApprovalWorkflowTests
         public Guid UserId { get; } = Guid.NewGuid();
         public string DisplayName => name;
         public string Role => Roles.Staff;
+
+        /// <summary>Not what these tests are about — the endpoint policies decide
+        /// who may call what, and they are pinned in Jama.Web.</summary>
+        public bool Has(string permission) => false;
     }
 
     private static readonly DateTime Now = new(2026, 9, 6, 9, 0, 0, DateTimeKind.Utc);

@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Enums;
@@ -31,7 +32,7 @@ public sealed record GetCamerasQuery : IRequest<ApiResult<PaginatedResult<Camera
     public bool? LowStockOnly { get; init; }
 }
 
-public sealed class GetCamerasQueryHandler(IApplicationDbContext context)
+public sealed class GetCamerasQueryHandler(IApplicationDbContext context, ICurrentUser actor)
     : IRequestHandler<GetCamerasQuery, ApiResult<PaginatedResult<CameraDto>>>
 {
     public async Task<ApiResult<PaginatedResult<CameraDto>>> Handle(
@@ -86,6 +87,12 @@ public sealed class GetCamerasQueryHandler(IApplicationDbContext context)
             .Take(size)
             .Select(CameraMappings.Projection)
             .ToListAsync(cancellationToken);
+
+        // What an item cost us is not part of the public catalogue. Everyone may
+        // read this list — the marketing site prices from it — so the two
+        // commercial fields come off unless the reader has been granted them.
+        if (!actor.Has(Permissions.CostView))
+            items = items.Select(CameraMappings.WithoutCost).ToList();
 
         var totalPages = size == 0 ? 0 : (int)Math.Ceiling(total / (double)size);
 

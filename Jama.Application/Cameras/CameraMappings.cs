@@ -53,6 +53,21 @@ internal static class CameraMappings
             entity.CreatedAt,
             entity.UpdatedAt);
 
+    /// <summary>
+    /// Blanks what the business paid, for a reader not entitled to it.
+    ///
+    /// The catalogue is public — the marketing site prices from it — and the
+    /// same DTO serves that and the stock screens. Supplier cost and margin are
+    /// the two fields on it that are nobody's business but ours, so they are
+    /// removed on the way out rather than the response being trusted to reach
+    /// only the right eyes.
+    ///
+    /// Stripped here, in the one place both the list and the detail read pass
+    /// through, so a new endpoint cannot forget.
+    /// </summary>
+    internal static CameraDto WithoutCost(CameraDto dto) =>
+        dto with { SupplierCost = null, Margin = null };
+
     internal static CameraDto ToDto(Camera entity) =>
         new(
             entity.Id,

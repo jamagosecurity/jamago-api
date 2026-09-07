@@ -34,4 +34,18 @@ public interface ICurrentUser
     /// <summary>Role claim from the token. Used where a handler must distinguish
     /// a client reading their own data from staff reading anyone's.</summary>
     string? Role { get; }
+
+    /// <summary>
+    /// Whether the caller holds a permission, for a rule an endpoint gate cannot
+    /// express — where the permission decides what a response may CONTAIN rather
+    /// than whether the request may be made at all.
+    ///
+    /// Endpoint policies stay the first line. This is for the case where one
+    /// route serves both holders and non-holders, and only some fields are
+    /// theirs to see: the public stock catalogue, which everyone may read, and
+    /// whose supplier cost only some may.
+    ///
+    /// Safe for an anonymous caller, who holds nothing.
+    /// </summary>
+    bool Has(string permission);
 }

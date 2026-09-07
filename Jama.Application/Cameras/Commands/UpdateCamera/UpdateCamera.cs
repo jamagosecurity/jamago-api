@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Enums;
@@ -39,7 +40,10 @@ public sealed record UpdateCameraCommand : IRequest<ApiResult<CameraDto>>, ICame
     public string? Notes { get; init; }
 }
 
-public sealed class UpdateCameraCommandHandler(IApplicationDbContext context, TimeProvider timeProvider)
+public sealed class UpdateCameraCommandHandler(
+    IApplicationDbContext context,
+    ICurrentUser actor,
+    TimeProvider timeProvider)
     : IRequestHandler<UpdateCameraCommand, ApiResult<CameraDto>>
 {
     public async Task<ApiResult<CameraDto>> Handle(
@@ -64,7 +68,7 @@ public sealed class UpdateCameraCommandHandler(IApplicationDbContext context, Ti
         if (await CameraRules.ExistsAsync(context, brand, request.Type, modelNo, camera.Id, cancellationToken))
             return ApiResult<CameraDto>.Failure(CameraRules.DuplicateMessage(brand, request.Type, modelNo));
 
-        CameraWriter.Apply(camera, request);
+        CameraWriter.Apply(camera, request, actor.Has(Permissions.CostView));
         camera.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
 
         await context.SaveChangesAsync(cancellationToken);
