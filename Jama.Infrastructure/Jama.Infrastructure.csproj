@@ -77,7 +77,7 @@
 
     <EmbeddedResource Include="Documents\Assets\jamago-logo-watermark.png" />
     <EmbeddedResource Include="Documents\Assets\jamago-quote-watermark.png" />
-    <EmbeddedResource Include="Documents\Assets\brands\*.png" />
+    <EmbeddedResource Include="Documents\Assets\brands\*.webp" />
 
     <!-- The Arabic face for the bilingual lines on a quotation. Carried in the
          assembly rather than named and hoped for: the server has no Arabic font

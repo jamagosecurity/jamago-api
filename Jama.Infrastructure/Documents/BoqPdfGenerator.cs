@@ -109,7 +109,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
         foreach (var (file, aliases) in files)
         {
-            var bytes = LoadEmbedded($"Jama.Infrastructure.Documents.Assets.brands.{file}.png");
+            var bytes = LoadEmbedded($"Jama.Infrastructure.Documents.Assets.brands.{file}.webp");
             if (bytes.Length == 0) continue;
 
             foreach (var alias in aliases)

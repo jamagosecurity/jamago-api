@@ -46,11 +46,18 @@ public sealed class Cameras : EndpointGroupBase
             .MapGet(GetBrands, "brands")
             .MapGet(GetImage, "images/{imageId:guid}")
             .MapGet(GetById, "{id:guid}")
-            .MapPost(Create, permission: Permissions.CameraManage)
-            .MapPost(UploadImage, "{id:guid}/images", permission: Permissions.CameraManage, allowFileUpload: true)
-            .MapPut(Update, "{id:guid}", permission: Permissions.CameraManage)
-            .MapDelete(DeleteImage, "images/{imageId:guid}", permission: Permissions.CameraManage)
-            .MapDelete(Delete, "{id:guid}", permission: Permissions.CameraManage);
+            // Writing to the catalogue is the super administrator's alone.
+            //
+            // Everything downstream is priced from these rows — every quotation,
+            // every storage sizing, every figure a customer is sent — and a
+            // quantity or a rate changed here moves numbers on documents nobody
+            // is looking at. camera.manage still opens the screens; it no longer
+            // changes what is on them.
+            .MapPost(Create, permission: AuthorizationPolicies.SuperAdmin)
+            .MapPost(UploadImage, "{id:guid}/images", permission: AuthorizationPolicies.SuperAdmin, allowFileUpload: true)
+            .MapPut(Update, "{id:guid}", permission: AuthorizationPolicies.SuperAdmin)
+            .MapDelete(DeleteImage, "images/{imageId:guid}", permission: AuthorizationPolicies.SuperAdmin)
+            .MapDelete(Delete, "{id:guid}", permission: AuthorizationPolicies.SuperAdmin);
     }
 
     public async Task<IResult> GetAll(
