@@ -60,12 +60,49 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     private static Dictionary<string, byte[]> BuildBrandMarks()
     {
+        // Mirrors CAMERA_BRANDS in the Angular client, alias for alias: the
+        // quotation on screen and the quotation in the client's hand have to show
+        // the same logo for the same brand, and the brand field is free text.
         var files = new (string File, string[] Aliases)[]
         {
             ("hikvision", ["hikvision", "hik"]),
             ("dahua", ["dahua", "dahua technology"]),
             ("uniview", ["uniview", "unv"]),
             ("tiandy", ["tiandy"]),
+
+            ("abb", ["abb"]),
+            ("apsys", ["apsys", "apsys networks"]),
+            ("aqara", ["aqara"]),
+            ("aruba", ["aruba", "aruba networks", "hpe aruba"]),
+            ("atnt", ["atnt"]),
+            ("axis", ["axis", "axis communications"]),
+            ("bolein", ["bolein"]),
+            ("bosch", ["bosch"]),
+            ("bose", ["bose"]),
+            ("cisco", ["cisco"]),
+            ("dell", ["dell"]),
+            ("dsppa", ["dsppa"]),
+            ("huawei", ["huawei"]),
+            ("itc", ["itc"]),
+            ("kstar", ["kstar", "k-star", "k star"]),
+            ("lifesmart", ["lifesmart", "life smart"]),
+            ("loxone", ["loxone"]),
+            ("lutron", ["lutron"]),
+            ("netcon", ["netcon", "net con"]),
+            ("norden", ["norden"]),
+            ("orvibo", ["orvibo", "orivibo"]),
+            ("panduit", ["panduit"]),
+            ("pelco", ["pelco"]),
+            ("reolink", ["reolink"]),
+            ("seagate", ["seagate", "seagete"]),
+            ("sonos", ["sonos"]),
+            ("televes", ["televes", "televés"]),
+            ("toshiba", ["toshiba"]),
+            ("tp-link", ["tp-link", "tplink", "tp link"]),
+            ("wd", ["wd", "western digital"]),
+            ("wi-tek", ["wi-tek", "witek", "wi tek"]),
+            ("wisenet", ["wisenet", "hanwha", "hanwha vision"]),
+            ("xgimi", ["xgimi", "gimi"]),
         };
 
         var marks = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
