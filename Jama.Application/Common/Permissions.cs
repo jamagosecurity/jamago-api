@@ -52,7 +52,7 @@ public static class Permissions
         new(ContactView, "Read website enquiries", "Can read messages people send through the contact form on jamago.qa."),
         new(PanelsManage, "Manage control panels", "Can add and edit control panel records."),
         new(VipManage, "Manage VIP clients", "Can create VIP client projects and upload documents to their folders."),
-        new(CameraManage, "Open the stock inventory", "Can open the stock screens and look through the catalogue. Adding, editing and removing stock is the super administrator's alone — everything the business quotes is priced from these rows."),
+        new(CameraManage, "Manage the stock inventory", "Can add, edit and remove stock items and set their selling prices. Give it deliberately: everything the business quotes is priced from these rows. What an item COST is a separate grant."),
         new(CostView, "See supplier cost & margin", "Can see what stock costs the business and the margin on it, on the stock screens and — behind a button that closes itself — while building a quotation. Off for everyone until granted, including staff who manage the catalogue."),
         // One grant, two screens: the storage calculator sizes the array for a
         // quotation, so anyone who can build one can size it. Splitting them
