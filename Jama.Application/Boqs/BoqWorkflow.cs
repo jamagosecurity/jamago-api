@@ -19,14 +19,19 @@ internal static class BoqWorkflow
     /// <summary>
     /// Whether the lines and figures may still be changed.
     ///
-    /// A submitted quotation is somebody's queue item and an approved one has
-    /// been agreed; editing either underneath the person who acted on it would
-    /// make the approval a statement about a document that no longer exists. A
-    /// rejected one is editable on purpose — reworking it is the whole point of
-    /// saying why.
+    /// Everything up to a decision is open: a draft, a quotation waiting in an
+    /// approver's queue, and one that came back rejected. Until somebody has
+    /// answered it, a quotation is still being written, and the person writing it
+    /// may correct a rate or a quantity as many times as the job needs without
+    /// withdrawing it and sending it again.
+    ///
+    /// An APPROVAL is what closes it. That is a statement about a particular set
+    /// of lines, and editing them afterwards would leave the statement attached
+    /// to a document nobody agreed to — so only the super administrator may, and
+    /// the amendment is recorded.
     /// </summary>
     internal static bool IsEditable(BoqStatus status) =>
-        status is BoqStatus.Draft or BoqStatus.Rejected;
+        status is not BoqStatus.Approved;
 
     internal static bool CanSubmit(BoqStatus status) =>
         status is BoqStatus.Draft or BoqStatus.Rejected;

@@ -42,25 +42,21 @@ public sealed class UpdateBoqCommandHandler(
         if (boq is null)
             return ApiResult<BoqDto>.Failure("BOQ not found.");
 
-        // The approval is a statement about a particular set of lines and
-        // figures. Editing them afterwards would leave that statement attached to
-        // a document nobody approved, so the write is refused rather than
-        // silently reverting the quotation to a draft. A rejected one stays open:
-        // reworking it is what the reason was given for.
+        // Only an approval closes a quotation to edits. Up to that point — draft,
+        // waiting in the queue, or come back rejected — whoever is building it
+        // may keep correcting it, as often as the job needs.
         //
-        // The super administrator is the exception. Somebody has to be able to
-        // correct a mistake on a document that has already been signed off —
-        // otherwise the only route is to delete it and rebuild it, which loses
-        // the number, the trail and the approval together. It is one account, not
-        // a permission an administrator can hand out, and the amendment is
-        // recorded below.
+        // The super administrator is the exception to the close. Somebody has to
+        // be able to correct a mistake on a document that has already been signed
+        // off; otherwise the only route is to delete it and rebuild it, which
+        // loses the number, the trail and the approval together. It is one
+        // account, not a permission an administrator can hand out, and the
+        // amendment is recorded below.
         var amending = !BoqWorkflow.IsEditable(boq.Status);
 
         if (amending && !actor.IsSuperAdmin)
             return ApiResult<BoqDto>.Failure(
-                boq.Status == BoqStatus.Submitted
-                    ? "This quotation is waiting for approval and cannot be edited. Ask an approver to reject it if it needs changes."
-                    : "An approved quotation can only be edited by the super administrator.");
+                "An approved quotation can only be edited by the super administrator.");
 
         // The number and who prepared it are set once. Neither is rewritten here:
         // the reference may already be circulating, and authorship is a fact.

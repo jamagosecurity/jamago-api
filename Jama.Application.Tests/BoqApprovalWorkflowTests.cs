@@ -246,16 +246,42 @@ public class BoqApprovalWorkflowTests
     // ===== Editing =====
 
     [Fact]
-    public void A_quotation_is_editable_only_while_nobody_is_holding_it()
+    public void A_quotation_stays_editable_until_it_is_approved()
     {
         Assert.True(BoqWorkflow.IsEditable(BoqStatus.Draft));
+        // Still being written, just waiting on somebody. Whoever built it may
+        // keep correcting it rather than withdrawing and re-sending.
+        Assert.True(BoqWorkflow.IsEditable(BoqStatus.Submitted));
         // Reworking after a rejection is the reason the reason exists.
         Assert.True(BoqWorkflow.IsEditable(BoqStatus.Rejected));
 
-        // Somebody is reviewing it; it must not change underneath them.
-        Assert.False(BoqWorkflow.IsEditable(BoqStatus.Submitted));
-        // And an approval has to stay a statement about what was approved.
+        // An approval has to stay a statement about what was approved.
         Assert.False(BoqWorkflow.IsEditable(BoqStatus.Approved));
+    }
+
+    [Fact]
+    public async Task A_submitted_quotation_may_be_corrected_by_its_author()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Submitted);
+
+        var result = await new UpdateBoqCommandHandler(
+            context, new FakeCurrentUser("Sara"), TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22 (rate corrected)",
+                Sections = [],
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Villa 22 (rate corrected)", boq.ProjectName);
+
+        // It is still in the queue — correcting it is not withdrawing it — and
+        // nothing goes in the trail, because no decision has been taken to
+        // qualify.
+        Assert.Equal(BoqStatus.Submitted, boq.Status);
+        Assert.Empty(context.BoqApprovalEvents.ToList());
     }
 
     [Fact]
