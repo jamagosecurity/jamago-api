@@ -56,7 +56,12 @@ public sealed class InvoicePdfGenerator : IInvoicePdfGenerator
         return buffer.ToArray();
     }
 
-    public byte[] Generate(InvoicePdfModel model) => BuildDocument(model).GeneratePdf();
+    public byte[] Generate(InvoicePdfModel model)
+    {
+        // As above: the fallback face has to be registered before layout.
+        DocumentFonts.EnsureRegistered();
+        return BuildDocument(model).GeneratePdf();
+    }
 
     private static QuestPDF.Infrastructure.IDocument BuildDocument(InvoicePdfModel model)
     {
@@ -67,7 +72,7 @@ public sealed class InvoicePdfGenerator : IInvoicePdfGenerator
                 page.Size(PageSizes.A4);
                 page.Margin(0);
                 page.PageColor(White);
-                page.DefaultTextStyle(x => x.FontSize(10).FontFamily(Fonts.Calibri).FontColor(Ink));
+                page.DefaultTextStyle(x => x.FontSize(10).FontFamily(DocumentFonts.Body).FontColor(Ink));
 
                 page.Foreground().Element(ComposeWatermark);
                 page.Header().Element(c => ComposeHeader(c, model));

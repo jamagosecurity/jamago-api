@@ -80,6 +80,10 @@ public sealed class MoiStoragePdfGenerator : IMoiStoragePdfGenerator
 
     public byte[] Generate(MoiStoragePdfModel model)
     {
+        // The default text style falls back to the embedded Arabic face, which
+        // only resolves once it is registered.
+        DocumentFonts.EnsureRegistered();
+
         return Document.Create(container =>
         {
             container.Page(page => ComposeSheet(page, model, model.Primary, snapshot: null));
@@ -100,7 +104,7 @@ public sealed class MoiStoragePdfGenerator : IMoiStoragePdfGenerator
     {
         page.Size(PageSizes.A4.Landscape());
         page.Margin(22);
-        page.DefaultTextStyle(x => x.FontSize(7).FontColor(Rule).FontFamily(Fonts.Calibri));
+        page.DefaultTextStyle(x => x.FontSize(7).FontColor(Rule).FontFamily(DocumentFonts.Body));
 
         page.Content().Column(column =>
         {

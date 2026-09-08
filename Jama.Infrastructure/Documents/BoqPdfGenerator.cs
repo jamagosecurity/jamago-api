@@ -299,7 +299,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             {
                 page.Size(PageSizes.A4);
                 page.Margin(28);
-                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(Fonts.Calibri));
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
                 // No watermark and no page number: a cover that numbers itself
                 // reads as a form. The letterhead is part of the cover's own
@@ -312,7 +312,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             {
                 page.Size(PageSizes.A4);
                 page.Margin(28);
-                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(Fonts.Calibri));
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
                 page.Background().Element(ComposeWatermark);
                 page.Header().Element(header => ComposeProposalHeader(header, model));
@@ -324,7 +324,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             {
                 page.Size(PageSizes.A4);
                 page.Margin(28);
-                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(Fonts.Calibri));
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
                 page.Background().Element(ComposeWatermark);
                 page.Header().Element(header => ComposeHeader(header, model));

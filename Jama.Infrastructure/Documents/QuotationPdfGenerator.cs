@@ -68,7 +68,7 @@ public sealed class QuotationPdfGenerator : IQuotationPdfGenerator
             {
                 page.Size(PageSizes.A4);
                 page.Margin(28);
-                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(Fonts.Calibri));
+                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
                 page.Header().Element(header => ComposeHeader(header, model));
                 page.Content().PaddingTop(14).Element(content => ComposeContent(content, model));

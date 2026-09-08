@@ -1,5 +1,6 @@
 using System.Reflection;
 using QuestPDF.Drawing;
+using QuestPDF.Helpers;
 
 namespace Jama.Infrastructure.Documents;
 
@@ -18,6 +19,23 @@ internal static class DocumentFonts
     /// <summary>The family name to set on Arabic text. Registered from the
     /// embedded file below, so it resolves on any machine.</summary>
     internal const string Arabic = "Noto Naskh Arabic";
+
+    /// <summary>
+    /// The family chain for body text: the Latin face first, the embedded Arabic
+    /// face behind it. QuestPDF walks the chain per glyph, so a run of Arabic
+    /// inside an otherwise Latin field is drawn from the second family without
+    /// anyone having to know it was there.
+    ///
+    /// Naming the Arabic family on a field only works when the field is KNOWN to
+    /// hold Arabic — a label, a written-out amount. It cannot work for a client
+    /// name or a project title, which are free text and are exactly where Arabic
+    /// turned up: those printed as empty boxes, one per letter, because Calibri
+    /// has no glyph for them and nothing was behind it to ask.
+    ///
+    /// Applied as the DEFAULT style so it covers every field a document has,
+    /// including the ones nobody has thought of yet.
+    /// </summary>
+    internal static readonly string[] Body = [Fonts.Calibri, Arabic];
 
     private static readonly bool Registered = RegisterArabic();
 
