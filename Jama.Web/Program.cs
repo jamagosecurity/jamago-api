@@ -84,7 +84,16 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 // 128 MB multipart limit applies, so a 100 MB file would be buffered in full
 // before the handler's own size check rejected it. The small headroom covers
 // multipart framing around the file itself.
-var maxUploadMb = builder.Configuration.GetValue<int?>($"{FileStorageSettings.SectionName}:MaxFileSizeMb") ?? 25;
+//
+// Sized off the LARGEST upload the app accepts, not just MaxFileSizeMb — this
+// is one gate shared by every upload endpoint, drawings included. A drawing
+// carrying its own DrawingMaxFileSizeMb (150 MB, xrefs are heavy) was still
+// being cut off here at ~27 MB: a real DWG failed at the transport layer,
+// before UploadDrawingFileCommandValidator ever ran, so the caller saw a bare
+// connection failure instead of that validator's actual message.
+var maxUploadMb = Math.Max(
+    builder.Configuration.GetValue<int?>($"{FileStorageSettings.SectionName}:MaxFileSizeMb") ?? 25,
+    builder.Configuration.GetValue<int?>($"{FileStorageSettings.SectionName}:DrawingMaxFileSizeMb") ?? 150);
 var maxUploadBytes = (maxUploadMb + 2) * 1024L * 1024L;
 
 builder.Services.Configure<FormOptions>(options =>

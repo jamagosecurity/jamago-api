@@ -30,6 +30,17 @@ public static class Permissions
     /// nobody until it is granted, which is the point.
     /// </summary>
     public const string CostView = "camera.cost";
+
+    /// <summary>Building and submitting CAD drawings. Deliberately separate from
+    /// <see cref="DrawingApprove"/>, for the same reason boq.manage and
+    /// boq.approve are separate: drafting a drawing and deciding on it are
+    /// different jobs, and one person doing both is how a drawing goes out
+    /// without anyone else having looked at it.</summary>
+    public const string DrawingManage = "drawing.manage";
+
+    /// <summary>Deciding on a drawing someone else drafted. Not implied by
+    /// <see cref="DrawingManage"/>, and grants nothing about editing one.</summary>
+    public const string DrawingApprove = "drawing.approve";
     public const string BoqManage = "boq.manage";
 
     /// <summary>Deciding on a quotation someone else built. Deliberately not
@@ -61,6 +72,8 @@ public static class Permissions
         // The one grant that is about somebody else's work. Held on its own it
         // is enough to open a quotation and decide on it, and nothing else.
         new(BoqApprove, "Approve or reject quotations", "Can open a quotation submitted for approval and approve it, or reject it with a reason. Does not include building or editing quotations."),
+        new(DrawingManage, "Build & submit drawings", "Can upload CAD drawings, attach the plotted PDF, and submit a drawing for approval. Cannot approve one — not even their own."),
+        new(DrawingApprove, "Approve or reject drawings", "Can open a drawing submitted for approval and approve it, or reject it with a reason. Does not include uploading or editing drawings."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();

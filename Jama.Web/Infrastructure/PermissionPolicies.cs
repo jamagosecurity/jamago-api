@@ -44,6 +44,14 @@ public static class PermissionPolicies
                 || context.User.HasClaim(PermissionClaims.Type, Permissions.BoqManage)
                 || context.User.HasClaim(PermissionClaims.Type, Permissions.BoqApprove)));
 
+        // Same shape, for drawings: either grant is enough to open one.
+        builder.AddPolicy(AuthorizationPolicies.DrawingRead, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.IsInRole(Roles.Admin)
+                || context.User.HasClaim(PermissionClaims.Type, Permissions.DrawingManage)
+                || context.User.HasClaim(PermissionClaims.Type, Permissions.DrawingApprove)));
+
         return builder;
     }
 

@@ -44,6 +44,20 @@ public static class FileSignatures
 
         // ISO base media: the brand sits after the four-byte box length.
         [".heic"] = [new("ftyp"u8.ToArray(), Offset: 4)],
+
+        // Every DWG version from R2000 through the current R2018+ format opens
+        // with "AC10" as ASCII, followed by two digits naming the exact version
+        // (AC1015 = 2000, ... AC1032 = 2018+). Checking the shared four bytes
+        // rather than one exact version accepts a drawing saved in any of them
+        // without a version list to keep current as AutoCAD adds new ones.
+        [".dwg"] = [new("AC10"u8.ToArray())],
+
+        // .dxf is deliberately absent. The interchange format almost everyone
+        // actually uses is ASCII text — it opens with a group code and a value
+        // like "0\nSECTION", not a fixed byte sequence — so there is nothing
+        // reliable to check, the same reason .csv has no entry either. The rare
+        // binary DXF variant would need its own signature, but false-rejecting
+        // the ordinary case to catch an uncommon one is the wrong trade.
     };
 
     /// <summary>

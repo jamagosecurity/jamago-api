@@ -53,7 +53,13 @@ public sealed record BoqPdfModel(
     /// <summary>What is payable: <see cref="Total"/> less
     /// <see cref="SpecialDiscount"/>.</summary>
     decimal GrandTotal,
-    IReadOnlyList<BoqPdfSection> Sections);
+    IReadOnlyList<BoqPdfSection> Sections)
+{
+    /// <summary>True for every status but Approved. Stamps a diagonal
+    /// "DRAFT — NOT APPROVED" mark over the document so a pre-approval preview
+    /// can never pass for the real thing if it is forwarded by mistake.</summary>
+    public bool Watermark { get; init; }
+}
 
 public interface IBoqPdfGenerator
 {

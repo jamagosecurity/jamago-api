@@ -13,7 +13,8 @@ public sealed record GetBoqPdfQuery(Guid Id) : IRequest<ApiResult<BoqPdfDto>>;
 public sealed class GetBoqPdfQueryHandler(
     IApplicationDbContext context,
     IBoqPdfGenerator generator,
-    IFileStorage storage)
+    IFileStorage storage,
+    ICurrentUser actor)
     : IRequestHandler<GetBoqPdfQuery, ApiResult<BoqPdfDto>>
 {
     public async Task<ApiResult<BoqPdfDto>> Handle(
@@ -26,8 +27,15 @@ public sealed class GetBoqPdfQueryHandler(
             .ThenInclude(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
-        if (boq is null)
+        if (boq is null || !BoqVisibility.CanSee(boq.Status, boq.PreparedById, actor))
             return ApiResult<BoqPdfDto>.Failure("BOQ not found.");
+
+        // A pure builder gets nothing to download before Approved — see
+        // BoqVisibility.CanDownload for why even the document's own author is
+        // refused here.
+        if (!BoqVisibility.CanDownload(boq.Status, actor))
+            return ApiResult<BoqPdfDto>.Failure(
+                "This quotation has not been approved yet. Only an approver can preview it before then.");
 
         // Description and photo live on the stock item, not on the line — a line
         // copies price and name so an approved quotation cannot be rewritten by
@@ -119,7 +127,10 @@ public sealed class GetBoqPdfQueryHandler(
             boq.Total,
             boq.SpecialDiscount,
             boq.GrandTotal,
-            sections);
+            sections)
+        {
+            Watermark = BoqVisibility.Watermark(boq.Status),
+        };
 
         return ApiResult<BoqPdfDto>.Success(
             new BoqPdfDto(generator.Generate(model), $"{boq.BoqNumber}.pdf"));

@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Enums;
@@ -45,6 +46,11 @@ public sealed class GetBoqsQueryHandler(IApplicationDbContext context, ICurrentU
 
         if (request.Status is { } status)
             query = query.Where(x => x.Status == status);
+
+        // Privacy boundary, not a convenience filter: before Approved, a row is
+        // nobody's business but its author's and whoever can approve it.
+        if (!actor.Has(Permissions.BoqApprove))
+            query = query.Where(x => x.Status == BoqStatus.Approved || x.PreparedById == actor.UserId);
 
         if (request.MineOnly == true)
             query = query.Where(x => x.PreparedById == actor.UserId);

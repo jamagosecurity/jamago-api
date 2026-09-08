@@ -42,6 +42,19 @@
 
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
 
+    <!-- Stamps a watermark onto an already-uploaded drawing PDF. QuestPDF only
+         builds new documents from scratch — it cannot open and mark up one that
+         already exists, which a drawing's plotted PDF always is. -->
+    <PackageReference Include="PdfSharpCore" Version="1.3.67" />
+
+    <!-- PdfSharpCore pulls in SixLabors.ImageSharp 1.0.4, which carries several
+         known high-severity CVEs (decompression-bomb DoS, out-of-bounds read).
+         This code path runs on an attacker-uploadable file — a drawing's PDF —
+         so the vulnerable transitive version is not acceptable here. Pinned
+         directly to force the patched release; NuGet resolves a direct
+         reference over a transitive one. -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+
     <PackageReference Include="QuestPDF" Version="2025.7.1" />
 
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />

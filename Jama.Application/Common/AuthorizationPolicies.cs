@@ -29,4 +29,9 @@ public static class AuthorizationPolicies
     /// not a thing an admin ticks, it is two things that both open the door.
     /// </summary>
     public const string BoqRead = "boq.read";
+
+    /// <summary>Reading drawings, satisfied by EITHER drawing.manage or
+    /// drawing.approve — an approver has to open the document to decide on it.
+    /// Mirrors <see cref="BoqRead"/>.</summary>
+    public const string DrawingRead = "drawing.read";
 }

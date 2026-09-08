@@ -32,6 +32,11 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     private static readonly Color RowAlt = Color.FromHex("#66F2F8FC");
     private static readonly Color Line = Color.FromHex("#E3EBF1");
     private static readonly Color White = Color.FromHex("#FFFFFF");
+    /// <summary>The draft stamp's red, at ~28% alpha (8-digit ARGB hex — the
+    /// same translucency trick <see cref="RowAlt"/> uses, since QuestPDF has no
+    /// runtime opacity API). Strong enough to read clearly on white, faint
+    /// enough that the tables underneath stay legible through it.</summary>
+    private static readonly Color DraftRed = Color.FromHex("#47D1273D");
 
     private static readonly byte[] LogoBytes =
         LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-logo.png");
@@ -301,10 +306,13 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 page.Margin(28);
                 page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
-                // No watermark and no page number: a cover that numbers itself
-                // reads as a form. The letterhead is part of the cover's own
-                // column rather than a page footer, because it follows
-                // "Prepared By:" and must sit directly beneath it.
+                // No brand watermark and no page number: a cover that numbers
+                // itself reads as a form. The letterhead is part of the cover's
+                // own column rather than a page footer, because it follows
+                // "Prepared By:" and must sit directly beneath it. The draft
+                // stamp is the one mark that still belongs here — the cover is
+                // the first thing anyone forwarded this by mistake would see.
+                if (model.Watermark) page.Foreground().Element(ComposeDraftStamp);
                 page.Content().Element(content => ComposeCover(content, model));
             });
 
@@ -315,6 +323,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
                 page.Background().Element(ComposeWatermark);
+                if (model.Watermark) page.Foreground().Element(ComposeDraftStamp);
                 page.Header().Element(header => ComposeProposalHeader(header, model));
                 page.Content().PaddingTop(14).Element(content => ComposeProposal(content, model));
                 page.Footer().Element(footer => ComposeFooter(footer, model));
@@ -327,6 +336,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
                 page.Background().Element(ComposeWatermark);
+                if (model.Watermark) page.Foreground().Element(ComposeDraftStamp);
                 page.Header().Element(header => ComposeHeader(header, model));
                 page.Content().PaddingTop(14).Element(content => ComposeContent(content, model));
                 page.Footer().Element(footer => ComposeFooter(footer, model));
@@ -1059,6 +1069,22 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
         // so 300pt across lands it about 470pt tall — centred on A4 with room
         // to spare at the head and foot.
         container.AlignCenter().AlignMiddle().Width(300).Image(WatermarkBytes).FitWidth();
+    }
+
+    /// <summary>Diagonal "DRAFT — NOT APPROVED" stamp for any document that
+    /// has not cleared approval yet — including the approver's own preview
+    /// copy, since that is the one file a builder can already download and it
+    /// must never look like the finished quotation if it is forwarded by
+    /// mistake. On the FOREGROUND layer, unlike <see cref="ComposeWatermark"/>:
+    /// this has to sit over the tables, not under them, to stay legible.</summary>
+    private static void ComposeDraftStamp(IContainer container)
+    {
+        container.AlignCenter().AlignMiddle().Rotate(-30).Text(text =>
+        {
+            text.AlignCenter();
+            text.Line("DRAFT — NOT APPROVED").FontSize(40).Bold().FontColor(DraftRed);
+            text.Line("مسودة — غير معتمدة").FontSize(22).Bold().FontColor(DraftRed);
+        });
     }
 
     private static void ComposeFooter(IContainer container, BoqPdfModel model)
