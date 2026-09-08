@@ -69,6 +69,7 @@ public sealed class GetBoqsQueryHandler(IApplicationDbContext context, ICurrentU
                 x.ProjectName,
                 x.SiteLocation,
                 x.ClientName,
+                x.ContactNumber,
                 x.IssueDate,
                 x.Status,
                 x.Total,

@@ -30,13 +30,6 @@ public sealed class GetBoqPdfQueryHandler(
         if (boq is null || !BoqVisibility.CanSee(boq.Status, boq.PreparedById, actor))
             return ApiResult<BoqPdfDto>.Failure("BOQ not found.");
 
-        // A pure builder gets nothing to download before Approved — see
-        // BoqVisibility.CanDownload for why even the document's own author is
-        // refused here.
-        if (!BoqVisibility.CanDownload(boq.Status, actor))
-            return ApiResult<BoqPdfDto>.Failure(
-                "This quotation has not been approved yet. Only an approver can preview it before then.");
-
         // Description and photo live on the stock item, not on the line — a line
         // copies price and name so an approved quotation cannot be rewritten by
         // an inventory edit, but the picture is just how the item looks today.

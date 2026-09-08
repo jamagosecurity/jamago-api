@@ -63,6 +63,7 @@ public sealed class GetDrawingsQueryHandler(IApplicationDbContext context, ICurr
                 x.DrawingNumber,
                 x.ProjectName,
                 x.ClientName,
+                x.ContactNumber,
                 x.Status,
                 x.PreparedByName,
                 x.SubmittedAt,

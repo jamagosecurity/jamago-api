@@ -57,6 +57,7 @@ public sealed record DrawingListItemDto(
     string DrawingNumber,
     string ProjectName,
     string? ClientName,
+    string? ContactNumber,
     DrawingStatus Status,
     string? PreparedByName,
     DateTime? SubmittedAt,

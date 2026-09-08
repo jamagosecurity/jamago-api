@@ -30,16 +30,12 @@ public sealed class GetDrawingFileQueryHandler(
         if (file is null || !DrawingVisibility.CanSee(file.Drawing.Status, file.Drawing.PreparedById, actor))
             return ApiResult<DrawingFileContent>.Failure("File not found.");
 
-        if (!DrawingVisibility.CanDownload(file.Drawing.Status, actor))
-            return ApiResult<DrawingFileContent>.Failure(
-                "This drawing has not been approved yet. Only an approver can preview it before then.");
-
         var isPdf = Path.GetExtension(file.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase);
         var needsWatermark = DrawingVisibility.Watermark(file.Drawing.Status);
 
         // A native CAD file (DWG/DXF/ZIP) cannot be stamped, so it stays fully
-        // blocked pre-approval — even for an approver, who reviews the plotted
-        // PDF to decide, not the raw drawing file. No half-measure preview.
+        // blocked pre-approval regardless of who is asking. No half-measure,
+        // unmarked preview of a file that cannot carry the mark.
         if (needsWatermark && !isPdf)
             return ApiResult<DrawingFileContent>.Failure(
                 "Only the plotted PDF can be previewed before approval. The original file becomes available once approved.");

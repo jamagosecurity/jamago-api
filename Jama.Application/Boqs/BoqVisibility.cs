@@ -5,15 +5,13 @@ using Jama.Domain.Enums;
 namespace Jama.Application.Boqs;
 
 /// <summary>
-/// Who may see a quotation, and who may download the finished document, before
-/// it has been decided on.
+/// Who may see a quotation, before it has been decided on.
 ///
-/// The approval workflow used to control editing and who decides, but nothing
-/// about the one output that actually matters: the document leaving the
-/// building. A builder could create a Draft and download the client-ready PDF
-/// immediately — no submission, no approval, nothing in the way. This is the
-/// fix: visibility and download are gated on the same two facts, ownership and
-/// approval, everywhere a quotation is read.
+/// Visibility is the boundary that matters: anyone who can see a row may also
+/// download it, at any status — a plain builder included. What stops an
+/// unapproved quotation passing for a finished one is not a download block
+/// but <see cref="Watermark"/>, which is why that rule stays separate and
+/// unconditional rather than being folded in here.
 /// </summary>
 internal static class BoqVisibility
 {
@@ -31,23 +29,9 @@ internal static class BoqVisibility
         || preparedById == actor.UserId
         || actor.Has(Permissions.BoqApprove);
 
-    /// <summary>
-    /// Whether this account may download the finished PDF.
-    ///
-    /// A pure builder — even the document's own author — gets nothing until
-    /// Approved. That is deliberate, not stricter than intended: if the owner
-    /// could download their own pre-approval copy "just to check formatting",
-    /// that download is the exact file they could send to a client, which
-    /// defeats the reason this exists. Whoever holds the approve grant may
-    /// download at any stage they can see, because they need the real document
-    /// to decide on it — but see BoqVisibility.Watermark for what they get.
-    /// </summary>
-    internal static bool CanDownload(BoqStatus status, ICurrentUser actor) =>
-        status == BoqStatus.Approved || actor.Has(Permissions.BoqApprove);
-
     /// <summary>Whether the PDF served for this status should carry the
-    /// "DRAFT — NOT APPROVED" stamp. Everything before Approved does, including
-    /// the approver's own preview copy: if it is ever forwarded by mistake, it
-    /// is unmistakably unofficial.</summary>
+    /// "DRAFT — NOT APPROVED" stamp. Everything before Approved does. This is
+    /// the whole of what keeps a pre-approval download from passing as the
+    /// finished document — deliberately kept independent of who is asking.</summary>
     internal static bool Watermark(BoqStatus status) => status != BoqStatus.Approved;
 }

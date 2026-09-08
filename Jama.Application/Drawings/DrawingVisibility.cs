@@ -4,9 +4,10 @@ using Jama.Domain.Enums;
 
 namespace Jama.Application.Drawings;
 
-/// <summary>Mirrors BoqVisibility — see there for the reasoning. A drawing's
-/// files carry the same leak as a quotation's PDF: nothing used to stop a
-/// builder downloading a DWG or plotted PDF straight out of a Draft.</summary>
+/// <summary>Mirrors BoqVisibility — see there for the reasoning. Visibility is
+/// the only access boundary; anyone who can see a drawing may download its
+/// files at any status, and Watermark is what keeps a pre-approval PDF from
+/// passing as the finished one.</summary>
 internal static class DrawingVisibility
 {
     internal static bool CanSee(DrawingStatus status, Guid preparedById, ICurrentUser actor) =>
@@ -14,12 +15,9 @@ internal static class DrawingVisibility
         || preparedById == actor.UserId
         || actor.Has(Permissions.DrawingApprove);
 
-    internal static bool CanDownload(DrawingStatus status, ICurrentUser actor) =>
-        status == DrawingStatus.Approved || actor.Has(Permissions.DrawingApprove);
-
     /// <summary>Whether a served PDF should carry the "DRAFT — NOT APPROVED"
-    /// stamp. Only meaningful for the one file type that can be stamped at
-    /// all — see PdfWatermarker; a DWG/DXF/ZIP stays behind the hard block
-    /// in CanDownload with no partial preview.</summary>
+    /// stamp. A DWG/DXF/ZIP can never carry one — see PdfWatermarker — so
+    /// those stay blocked pre-approval regardless of who is asking; there is
+    /// no unmarked copy of a file that cannot be marked.</summary>
     internal static bool Watermark(DrawingStatus status) => status != DrawingStatus.Approved;
 }

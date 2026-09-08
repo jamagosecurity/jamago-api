@@ -48,36 +48,6 @@ public class DrawingVisibilityTests
     }
 
     [Theory]
-    [InlineData(DrawingStatus.Draft)]
-    [InlineData(DrawingStatus.Submitted)]
-    [InlineData(DrawingStatus.Rejected)]
-    public void The_author_cannot_download_their_own_unapproved_drawing(DrawingStatus status)
-    {
-        var actor = new FakeCurrentUser(AuthorId, canApprove: false);
-
-        Assert.False(DrawingVisibility.CanDownload(status, actor));
-    }
-
-    [Theory]
-    [InlineData(DrawingStatus.Draft)]
-    [InlineData(DrawingStatus.Submitted)]
-    [InlineData(DrawingStatus.Rejected)]
-    public void An_approver_can_download_before_approval_to_review_it(DrawingStatus status)
-    {
-        var actor = new FakeCurrentUser(Guid.CreateVersion7(), canApprove: true);
-
-        Assert.True(DrawingVisibility.CanDownload(status, actor));
-    }
-
-    [Fact]
-    public void Anyone_who_can_see_it_can_download_it_once_approved()
-    {
-        var actor = new FakeCurrentUser(AuthorId, canApprove: false);
-
-        Assert.True(DrawingVisibility.CanDownload(DrawingStatus.Approved, actor));
-    }
-
-    [Theory]
     [InlineData(DrawingStatus.Draft, true)]
     [InlineData(DrawingStatus.Submitted, true)]
     [InlineData(DrawingStatus.Rejected, true)]

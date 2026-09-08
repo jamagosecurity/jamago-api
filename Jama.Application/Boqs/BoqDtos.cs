@@ -82,6 +82,7 @@ public sealed record BoqListItemDto(
     string ProjectName,
     string? SiteLocation,
     string? ClientName,
+    string? ContactNumber,
     DateOnly IssueDate,
     BoqStatus Status,
     decimal Total,

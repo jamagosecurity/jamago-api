@@ -8,11 +8,11 @@ namespace Jama.Application.Tests;
 /// <summary>
 /// Before this rule existed, the approval workflow controlled editing and
 /// deciding but nothing about the document itself: any account holding only
-/// boq.manage could create a Draft, download the client-ready PDF, and send it
-/// straight out — no submission, no approval, nothing in the way. These pin
-/// the fix: a Draft is nobody's business but its author's and whoever can
-/// approve it, and nobody without the approve grant may download anything
-/// before Approved, not even the document's own author.
+/// boq.manage could create a Draft and read another builder's just as freely.
+/// CanSee pins the fix: a Draft is nobody's business but its author's and
+/// whoever can approve it. Download stays open to anyone who can see the row,
+/// at any status — see Watermark below for what actually keeps an unapproved
+/// copy from passing as the finished document.
 /// </summary>
 public class BoqVisibilityTests
 {
@@ -62,40 +62,6 @@ public class BoqVisibilityTests
         var actor = new FakeCurrentUser(Guid.CreateVersion7(), canApprove: false);
 
         Assert.True(BoqVisibility.CanSee(BoqStatus.Approved, AuthorId, actor));
-    }
-
-    // ===== CanDownload =====
-
-    [Theory]
-    [InlineData(BoqStatus.Draft)]
-    [InlineData(BoqStatus.Submitted)]
-    [InlineData(BoqStatus.Rejected)]
-    public void The_author_cannot_download_their_own_unapproved_quotation(BoqStatus status)
-    {
-        // The one rule this whole feature exists for: even the person who
-        // built it gets nothing to send a client until it is Approved.
-        var actor = new FakeCurrentUser(AuthorId, canApprove: false);
-
-        Assert.False(BoqVisibility.CanDownload(status, actor));
-    }
-
-    [Theory]
-    [InlineData(BoqStatus.Draft)]
-    [InlineData(BoqStatus.Submitted)]
-    [InlineData(BoqStatus.Rejected)]
-    public void An_approver_can_download_before_approval_to_review_it(BoqStatus status)
-    {
-        var actor = new FakeCurrentUser(Guid.CreateVersion7(), canApprove: true);
-
-        Assert.True(BoqVisibility.CanDownload(status, actor));
-    }
-
-    [Fact]
-    public void Anyone_who_can_see_it_can_download_it_once_approved()
-    {
-        var actor = new FakeCurrentUser(AuthorId, canApprove: false);
-
-        Assert.True(BoqVisibility.CanDownload(BoqStatus.Approved, actor));
     }
 
     // ===== Watermark =====
