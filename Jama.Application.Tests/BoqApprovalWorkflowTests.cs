@@ -98,7 +98,7 @@ public class BoqApprovalWorkflowTests
     private static Task<Common.Models.ApiResult<BoqDto>> ApproveAsync(
         ApplicationDbContext context, Guid id, ICurrentUser actor) =>
         new ApproveBoqCommandHandler(context, actor, Clock)
-            .Handle(new ApproveBoqCommand(id), CancellationToken.None);
+            .Handle(new ApproveBoqCommand { Id = id }, CancellationToken.None);
 
     private static Task<Common.Models.ApiResult<BoqDto>> RejectAsync(
         ApplicationDbContext context, Guid id, ICurrentUser actor, string reason) =>

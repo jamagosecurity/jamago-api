@@ -13,7 +13,17 @@ namespace Jama.Application.Boqs.Commands.ApproveBoq;
 /// separation, and checking it here as well would put the same rule in two
 /// places to drift apart.
 /// </summary>
-public sealed record ApproveBoqCommand(Guid Id) : IRequest<ApiResult<BoqDto>>;
+public sealed record ApproveBoqCommand : IRequest<ApiResult<BoqDto>>
+{
+    /// <summary>Set from the route by the endpoint, so a mismatched body id
+    /// cannot redirect the decision at another quotation.</summary>
+    public Guid Id { get; init; }
+
+    /// <summary>Unlike a rejection's reason, this is never required — an
+    /// approval needs no justification to be valid, so the popup that asks
+    /// for it must never block on an empty box.</summary>
+    public string? Note { get; init; }
+}
 
 public sealed class ApproveBoqCommandHandler(
     IApplicationDbContext context,
@@ -42,9 +52,10 @@ public sealed class ApproveBoqCommandHandler(
                     : "Only a quotation submitted for approval can be approved.");
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
+        var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
 
         BoqWorkflow.Approve(boq, actor, now);
-        BoqWorkflow.Record(context, boq, BoqApprovalAction.Approved, actor, now);
+        BoqWorkflow.Record(context, boq, BoqApprovalAction.Approved, actor, now, note);
         boq.UpdatedAt = now;
 
         await context.SaveChangesAsync(cancellationToken);

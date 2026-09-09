@@ -108,9 +108,14 @@ public sealed class Boqs : EndpointGroupBase
         return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
     }
 
-    public async Task<IResult> Approve(ISender sender, Guid id, CancellationToken cancellationToken)
+    public async Task<IResult> Approve(
+        ISender sender,
+        Guid id,
+        ApproveBoqCommand command,
+        CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new ApproveBoqCommand(id), cancellationToken);
+        // The route id wins over the body, as it does on reject and update.
+        var result = await sender.Send(command with { Id = id }, cancellationToken);
         return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
     }
 
