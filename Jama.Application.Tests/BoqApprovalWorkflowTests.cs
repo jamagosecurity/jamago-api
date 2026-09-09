@@ -354,6 +354,49 @@ public class BoqApprovalWorkflowTests
         Assert.Empty(context.BoqApprovalEvents.ToList());
     }
 
+    [Fact]
+    public async Task Reworking_a_rejected_quotation_is_recorded_as_its_own_step()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Rejected);
+        var author = new FakeCurrentUser("Sara <sara@jamago.qa>");
+
+        // The approver — and anyone else looking at the trail — should be able
+        // to see that a rework happened and who made it, not just that the
+        // quotation eventually came back submitted.
+        await new UpdateBoqCommandHandler(context, author, TimeProvider.System).Handle(
+            new UpdateBoqCommand { Id = boq.Id, ProjectName = "Villa 22 (fixed)", Sections = [] },
+            CancellationToken.None);
+
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(BoqApprovalAction.Revised, step.Action);
+        Assert.Equal("Sara <sara@jamago.qa>", step.ActorName);
+        // It is still Rejected — a rework is not itself a re-submission.
+        Assert.Equal(BoqStatus.Rejected, boq.Status);
+    }
+
+    [Fact]
+    public async Task Every_pass_at_a_rejected_quotation_gets_its_own_timestamped_step()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Rejected);
+        var author = new FakeCurrentUser("Sara <sara@jamago.qa>");
+
+        // Three separate saves before it is ever re-submitted — the question
+        // this answers is "how many times, and when", not just "did it change".
+        for (var i = 1; i <= 3; i++)
+        {
+            await new UpdateBoqCommandHandler(context, author, TimeProvider.System).Handle(
+                new UpdateBoqCommand { Id = boq.Id, ProjectName = $"Villa 22 (pass {i})", Sections = [] },
+                CancellationToken.None);
+        }
+
+        var revisions = context.BoqApprovalEvents
+            .Where(e => e.Action == BoqApprovalAction.Revised)
+            .ToList();
+
+        Assert.Equal(3, revisions.Count);
+        Assert.All(revisions, e => Assert.NotEqual(default, e.CreatedAt));
+    }
+
     // ===== The trail =====
 
     [Fact]

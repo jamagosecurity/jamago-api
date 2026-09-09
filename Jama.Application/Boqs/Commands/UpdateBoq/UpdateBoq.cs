@@ -82,6 +82,12 @@ public sealed class UpdateBoqCommandHandler(
         // both and judge for themselves.
         if (amending)
             BoqWorkflow.Record(context, boq, BoqApprovalAction.Amended, actor, now);
+        // Every save made while reworking a rejection is its own step, not
+        // folded into the eventual re-submission — an approver (or the super
+        // administrator) can see exactly how many passes it took and when
+        // each landed, not just that it came back eventually.
+        else if (boq.Status == BoqStatus.Rejected)
+            BoqWorkflow.Record(context, boq, BoqApprovalAction.Revised, actor, now);
 
         boq.UpdatedAt = now;
         await context.SaveChangesAsync(cancellationToken);

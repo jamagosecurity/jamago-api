@@ -17,6 +17,14 @@ public enum BoqApprovalAction
     Submitted,
     Approved,
     Rejected,
+    /// <summary>Saved while sitting Rejected — whoever built it, reworking it
+    /// before sending it back. Recorded so the approver (and anyone else
+    /// watching) can see exactly how many passes the rework took and when
+    /// each one landed, not just that a rejected quotation eventually came
+    /// back submitted. Distinct from <see cref="Amended"/>: this is the
+    /// ordinary author making an ordinary edit, not the super administrator
+    /// reopening something already decided.</summary>
+    Revised,
     /// <summary>Changed after a decision had been taken on it. Only the super
     /// administrator can do this, and it is recorded rather than silent: an
     /// approval that refers to lines which have since moved must not look
