@@ -1,5 +1,6 @@
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
+using Jama.Domain.Entities;
 using Jama.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +59,19 @@ public sealed class UpdateBoqCommandHandler(
             return ApiResult<BoqDto>.Failure(
                 "An approved quotation can only be edited by the super administrator.");
 
+        // What the quotation held before this save, for the Revised note below —
+        // read separately, AsNoTracking, so it never joins the tracked graph
+        // BoqWriter and the section swap further down depend on staying exactly
+        // Sections-only. Only worth the query when it will actually be used.
+        var wasRejected = boq.Status == BoqStatus.Rejected;
+        var previousItems = wasRejected
+            ? await context.BoqLines
+                .AsNoTracking()
+                .Where(l => l.Section.BoqId == boq.Id)
+                .Select(l => new LineIdentity(l.CameraId, l.ItemName))
+                .ToListAsync(cancellationToken)
+            : null;
+
         // The number and who prepared it are set once. Neither is rewritten here:
         // the reference may already be circulating, and authorship is a fact.
         var (error, sections) = await BoqWriter.BuildAsync(
@@ -84,10 +98,13 @@ public sealed class UpdateBoqCommandHandler(
             BoqWorkflow.Record(context, boq, BoqApprovalAction.Amended, actor, now);
         // Every save made while reworking a rejection is its own step, not
         // folded into the eventual re-submission — an approver (or the super
-        // administrator) can see exactly how many passes it took and when
-        // each landed, not just that it came back eventually.
-        else if (boq.Status == BoqStatus.Rejected)
-            BoqWorkflow.Record(context, boq, BoqApprovalAction.Revised, actor, now);
+        // administrator) can see exactly how many passes it took, when each
+        // landed, and — via the note — which items actually moved, rather than
+        // a bare timestamp that says a save happened.
+        else if (wasRejected)
+            BoqWorkflow.Record(
+                context, boq, BoqApprovalAction.Revised, actor, now,
+                SummarizeItemChanges(previousItems!, sections));
 
         boq.UpdatedAt = now;
         await context.SaveChangesAsync(cancellationToken);
@@ -103,4 +120,69 @@ public sealed class UpdateBoqCommandHandler(
 
         return ApiResult<BoqDto>.Success(BoqMappings.ToDto(saved));
     }
+
+    /// <summary>What a line was, for comparing before and after a rework — just
+    /// enough to tell whether it is the same catalogue item, and what to call it
+    /// if not.</summary>
+    private sealed record LineIdentity(Guid? CameraId, string ItemName);
+
+    /// <summary>
+    /// What actually moved during a rework, in one line for the trail.
+    ///
+    /// Matched by CameraId — the one thing that still identifies "the same
+    /// item" even after a rate or quantity edit — never by name, since two
+    /// different items can share one. A line with no CameraId is a retired
+    /// item carried forward unchanged; it can be neither added nor removed by
+    /// this save; either both snapshots list a retired item deleted, or
+    /// carrying it forward wasn't a choice this save made. Capped so a
+    /// quotation with dozens of lines added at once still fits the column.
+    /// </summary>
+    private static string? SummarizeItemChanges(IReadOnlyList<LineIdentity> before, List<BoqSection> after)
+    {
+        const int MaxNamed = 6;
+
+        var beforeIds = before
+            .Where(l => l.CameraId.HasValue)
+            .Select(l => l.CameraId!.Value)
+            .ToHashSet();
+
+        var afterLines = after.SelectMany(s => s.Lines).ToList();
+        var afterIds = afterLines
+            .Where(l => l.CameraId.HasValue)
+            .Select(l => l.CameraId!.Value)
+            .ToHashSet();
+
+        var added = afterLines
+            .Where(l => l.CameraId.HasValue && !beforeIds.Contains(l.CameraId.Value))
+            .Select(l => l.ItemName)
+            .Distinct()
+            .ToList();
+
+        var removed = before
+            .Where(l => l.CameraId.HasValue && !afterIds.Contains(l.CameraId!.Value))
+            .Select(l => l.ItemName)
+            .Distinct()
+            .ToList();
+
+        if (added.Count == 0 && removed.Count == 0)
+            return null;
+
+        var parts = new List<string>();
+        if (added.Count > 0) parts.Add($"Added {Describe(added, MaxNamed)}");
+        if (removed.Count > 0) parts.Add($"Removed {Describe(removed, MaxNamed)}");
+        var note = string.Join(". ", parts);
+
+        // The column is 1000 chars — capping the item count above keeps this
+        // far under that in the ordinary case, but a handful of catalogue
+        // names near their own length limit could still add up. A truncated
+        // note is still useful; a save that fails because the note was one
+        // character too long is not.
+        const int reasonMaxLength = 1000;
+        return note.Length <= reasonMaxLength ? note : note[..(reasonMaxLength - 1)] + "…";
+    }
+
+    private static string Describe(List<string> names, int max) =>
+        names.Count <= max
+            ? string.Join(", ", names)
+            : string.Join(", ", names.Take(max)) + $", and {names.Count - max} more";
 }

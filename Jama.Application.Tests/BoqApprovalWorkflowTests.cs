@@ -397,6 +397,53 @@ public class BoqApprovalWorkflowTests
         Assert.All(revisions, e => Assert.NotEqual(default, e.CreatedAt));
     }
 
+    [Fact]
+    public async Task Adding_an_item_during_rework_names_it_in_the_trail()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Rejected);
+        var carriedLineId = boq.Sections.Single().Lines.Single().Id;
+
+        var camera = new Camera
+        {
+            Id = Guid.CreateVersion7(),
+            ItemName = "DS-2CD2143G2-I NVR",
+            Brand = "Hikvision",
+            Category = ProductCategory.Storage,
+            Uom = UnitOfMeasurement.Piece,
+            Rate = 950m,
+        };
+        context.Cameras.Add(camera);
+        await context.SaveChangesAsync();
+
+        // The existing line is carried forward unchanged (no CameraId — it
+        // predates the catalogue lookup, same as SeedAsync builds it); the
+        // second line is the item staff actually added during the rework.
+        await new UpdateBoqCommandHandler(
+            context, new FakeCurrentUser("Sara <sara@jamago.qa>"), TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22",
+                Sections =
+                [
+                    new BoqSectionInput
+                    {
+                        Title = BoqSectionTitles.MainCctv,
+                        Lines =
+                        [
+                            new BoqLineInput { Id = carriedLineId, Quantity = 1 },
+                            new BoqLineInput { CameraId = camera.Id, Quantity = 1 },
+                        ],
+                    },
+                ],
+            },
+            CancellationToken.None);
+
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(BoqApprovalAction.Revised, step.Action);
+        Assert.Equal("Added DS-2CD2143G2-I NVR", step.Reason);
+    }
+
     // ===== The trail =====
 
     [Fact]
