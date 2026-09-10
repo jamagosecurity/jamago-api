@@ -66,5 +66,23 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Every BaseEntity.Id is assigned in application code (Guid.CreateVersion7(),
+        // or BaseEntity's own Guid.NewGuid() default) before it ever reaches the
+        // context — the database never generates one. Left on the default
+        // ValueGeneratedOnAdd convention, EF cannot tell "a new row I already
+        // keyed myself" from "an existing row being re-attached" for an entity
+        // that enters tracking by relationship fixup rather than an explicit
+        // Add() — e.g. a new QuotationLine appended to an already-loaded
+        // Quotation's Lines collection during an edit. It guessed the entity was
+        // already in the database and issued an UPDATE instead of an INSERT,
+        // which matched zero rows and threw a concurrency exception on every
+        // edit of a document with line items. ValueGeneratedNever removes the
+        // ambiguity: a set key always means Added when the entity is new.
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                builder.Entity(entityType.ClrType).Property(nameof(BaseEntity.Id)).ValueGeneratedNever();
+        }
     }
 }
