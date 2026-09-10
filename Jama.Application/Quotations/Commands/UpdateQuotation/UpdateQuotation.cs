@@ -26,7 +26,10 @@ public sealed record UpdateQuotationCommand : IRequest<ApiResult<QuotationDto>>,
     public IReadOnlyList<QuotationLineInput> Lines { get; init; } = [];
 }
 
-public sealed class UpdateQuotationCommandHandler(IApplicationDbContext context, TimeProvider timeProvider)
+public sealed class UpdateQuotationCommandHandler(
+    IApplicationDbContext context,
+    TimeProvider timeProvider,
+    IWhatsAppSender whatsAppSender)
     : IRequestHandler<UpdateQuotationCommand, ApiResult<QuotationDto>>
 {
     public async Task<ApiResult<QuotationDto>> Handle(
@@ -40,12 +43,28 @@ public sealed class UpdateQuotationCommandHandler(IApplicationDbContext context,
         if (quotation is null)
             return ApiResult<QuotationDto>.Failure("Quotation not found.");
 
+        // Captured before Apply overwrites it, so the WhatsApp notification
+        // fires once — on the edit that first moves the quote to Sent — rather
+        // than on every subsequent edit of an already-sent quote.
+        var wasSent = quotation.Status == QuotationStatus.Sent;
+
         // The quote number is issued once and never rewritten: it may already be
         // on a document in a customer's inbox.
         QuotationWriter.Apply(quotation, request, timeProvider);
         quotation.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
 
         await context.SaveChangesAsync(cancellationToken);
+
+        if (!wasSent && quotation.Status == QuotationStatus.Sent && !string.IsNullOrWhiteSpace(quotation.CustomerPhone))
+        {
+            await whatsAppSender.SendQuotationSentAsync(
+                quotation.CustomerPhone,
+                quotation.CustomerName,
+                quotation.QuoteNumber,
+                quotation.GrandTotal,
+                quotation.Id,
+                cancellationToken);
+        }
 
         return ApiResult<QuotationDto>.Success(QuotationMappings.ToDto(quotation));
     }
