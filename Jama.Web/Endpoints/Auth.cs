@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Jama.Application.Auth;
 using Jama.Application.Auth.Commands.ChangePassword;
 using Jama.Application.Auth.Commands.Login;
+using Jama.Application.Auth.Commands.RefreshToken;
 using Jama.Application.Auth.Queries.GetCurrentUser;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
@@ -19,6 +20,7 @@ public class Auth : EndpointGroupBase
         app.MapGroup(this)
             .MapPost(Login, "login")
             .MapGet(Me, "me", requireAuthorization: true)
+            .MapPost(Refresh, "refresh", requireAuthorization: true)
             .MapPost(ChangePassword, "change-password", requireAuthorization: true);
     }
 
@@ -93,6 +95,34 @@ public class Auth : EndpointGroupBase
                     "Database unavailable. Check Postgres connection and try again."),
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
+    }
+
+    /// <summary>
+    /// Reissues the caller's token with a fresh 60-minute expiry, so an
+    /// account actively working never hits the hard cutoff mid-task — only
+    /// genuine inactivity does. The client is expected to call this every so
+    /// often while the user is active (see the frontend's idle watch); a
+    /// caller who stops altogether just lets their current token run out.
+    /// </summary>
+    public async Task<Results<Ok<TypedResult<LoginResponse>>, UnauthorizedHttpResult>> Refresh(
+        ISender sender,
+        ClaimsPrincipal user)
+    {
+        var userIdValue = user.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!Guid.TryParse(userIdValue, out var userId))
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var result = await sender.Send(new RefreshTokenCommand { UserId = userId });
+        if (!result.Succeeded)
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        return TypedResults.Ok(result);
     }
 
     /// <summary>Changes the signed-in user's own password. Available to every role.</summary>
