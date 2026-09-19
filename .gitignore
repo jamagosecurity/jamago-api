@@ -15,5 +15,11 @@ publish/
 .tools/
 logs/
 
+# Uploaded content (camera photos, VIP client documents, drawing files) —
+# runtime data written by LocalFileStorage, never source. A handful of these
+# were committed by accident before this rule existed and have since been
+# untracked (kept on disk, just no longer version-controlled).
+Jama.Web/storage/
+
 PRODUCTION-CREDENTIALS.local.txt
 deploy/PRODUCTION-CREDENTIALS.local.txt
