@@ -23,6 +23,12 @@ public sealed record UpdateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     /// <summary>A lump sum off the finished quotation, in QAR.</summary>
     public decimal SpecialDiscount { get; init; }
     public IReadOnlyList<BoqSectionInput> Sections { get; init; } = [];
+
+    /// <summary>Why an already-approved quotation is being changed. Required
+    /// only when it actually is one — nothing on the request itself can say
+    /// that; see UpdateBoqCommandHandler, which is where amending is
+    /// actually known, for the check.</summary>
+    public string? AmendmentNote { get; init; }
 }
 
 public sealed class UpdateBoqCommandHandler(
@@ -59,12 +65,23 @@ public sealed class UpdateBoqCommandHandler(
             return ApiResult<BoqDto>.Failure(
                 "An approved quotation can only be edited by the super administrator.");
 
-        // What the quotation held before this save, for the Revised note below —
-        // read separately, AsNoTracking, so it never joins the tracked graph
-        // BoqWriter and the section swap further down depend on staying exactly
-        // Sections-only. Only worth the query when it will actually be used.
+        // An amendment needs a reason on the record — the same accountability
+        // a rejection already requires, and for the same reason: touching
+        // something everyone already signed off on without saying why is
+        // exactly what this whole rule exists to prevent. Checked here, not
+        // in the validator — only this handler knows the quotation is
+        // actually being amended, since that depends on its current status.
+        var amendmentNote = request.AmendmentNote?.Trim();
+        if (amending && (string.IsNullOrWhiteSpace(amendmentNote) || amendmentNote.Length < 5))
+            return ApiResult<BoqDto>.Failure("Say why this approved quotation is being changed.");
+
+        // What the quotation held before this save, for the Revised/Amended
+        // note below — read separately, AsNoTracking, so it never joins the
+        // tracked graph BoqWriter and the section swap further down depend on
+        // staying exactly Sections-only. Only worth the query when it will
+        // actually be used.
         var wasRejected = boq.Status == BoqStatus.Rejected;
-        var previousItems = wasRejected
+        var previousItems = (wasRejected || amending)
             ? await context.BoqLines
                 .AsNoTracking()
                 .Where(l => l.Section.BoqId == boq.Id)
@@ -95,7 +112,20 @@ public sealed class UpdateBoqCommandHandler(
         // does the fact that the document changed after it. A reader can see
         // both and judge for themselves.
         if (amending)
-            BoqWorkflow.Record(context, boq, BoqApprovalAction.Amended, actor, now);
+        {
+            // The admin's own reason leads; what actually moved item-wise
+            // follows in parentheses when there is any — the same summary
+            // the Revised trail below uses, so "what changed" reads the same
+            // way regardless of which kind of edit caused it.
+            var itemChanges = SummarizeItemChanges(previousItems!, sections);
+            var combined = itemChanges is null ? amendmentNote! : $"{amendmentNote} ({itemChanges})";
+
+            const int reasonMaxLength = 1000;
+            if (combined.Length > reasonMaxLength)
+                combined = combined[..(reasonMaxLength - 1)] + "…";
+
+            BoqWorkflow.Record(context, boq, BoqApprovalAction.Amended, actor, now, combined);
+        }
         // Every save made while reworking a rejection is its own step, not
         // folded into the eventual re-submission — an approver (or the super
         // administrator) can see exactly how many passes it took, when each

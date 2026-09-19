@@ -321,6 +321,7 @@ public class BoqApprovalWorkflowTests
                 Id = boq.Id,
                 ProjectName = "Villa 22 (corrected)",
                 Sections = [],
+                AmendmentNote = "Client's site address had a typo — corrected on request.",
             },
             CancellationToken.None);
 
@@ -328,10 +329,77 @@ public class BoqApprovalWorkflowTests
         Assert.Equal("Villa 22 (corrected)", boq.ProjectName);
 
         // Recorded, not silent: the approval still stands, and so does the fact
-        // that the document moved underneath it.
+        // that the document moved underneath it — including why.
         var step = Assert.Single(context.BoqApprovalEvents.ToList());
         Assert.Equal(BoqApprovalAction.Amended, step.Action);
         Assert.Equal("Root <admin@jamago.qa>", step.ActorName);
+        Assert.Equal("Client's site address had a typo — corrected on request.", step.Reason);
+    }
+
+    [Fact]
+    public async Task Amending_without_saying_why_is_refused()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var root = new FakeCurrentUser("Root <admin@jamago.qa>") { IsSuperAdmin = true };
+
+        // Silently touching something everyone already signed off on is
+        // exactly what requiring a reason exists to prevent — checked here,
+        // in the handler, not left to the modal that asks for it.
+        var result = await new UpdateBoqCommandHandler(context, root, TimeProvider.System).Handle(
+            new UpdateBoqCommand { Id = boq.Id, ProjectName = "Villa 22 (corrected)", Sections = [] },
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Say why this approved quotation is being changed.", result.Errors);
+        Assert.Equal("Villa 22", boq.ProjectName);
+        Assert.Empty(context.BoqApprovalEvents.ToList());
+    }
+
+    [Fact]
+    public async Task An_amendment_names_the_items_it_changed_alongside_the_reason()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var carriedLineId = boq.Sections.Single().Lines.Single().Id;
+        var root = new FakeCurrentUser("Root <admin@jamago.qa>") { IsSuperAdmin = true };
+
+        var camera = new Camera
+        {
+            Id = Guid.CreateVersion7(),
+            ItemName = "APC 42U Server Rack Cabinet",
+            Brand = "APC",
+            Category = ProductCategory.Storage,
+            Uom = UnitOfMeasurement.Piece,
+            Rate = 1200m,
+        };
+        context.Cameras.Add(camera);
+        await context.SaveChangesAsync();
+
+        await new UpdateBoqCommandHandler(context, root, TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22",
+                AmendmentNote = "Client asked for a rack to be added after sign-off.",
+                Sections =
+                [
+                    new BoqSectionInput
+                    {
+                        Title = BoqSectionTitles.MainCctv,
+                        Lines =
+                        [
+                            new BoqLineInput { Id = carriedLineId, Quantity = 1 },
+                            new BoqLineInput { CameraId = camera.Id, Quantity = 1 },
+                        ],
+                    },
+                ],
+            },
+            CancellationToken.None);
+
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(BoqApprovalAction.Amended, step.Action);
+        Assert.Equal(
+            "Client asked for a rack to be added after sign-off. (Added APC 42U Server Rack Cabinet)",
+            step.Reason);
     }
 
     [Fact]
