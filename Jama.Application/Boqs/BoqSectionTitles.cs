@@ -14,7 +14,13 @@ public static class BoqSectionTitles
 {
     public const string MainCctv = "Main CCTV System";
     public const string CameraAccessories = "Camera Accessories";
-    public const string NvrStorage = "NVR & Storage";
+    public const string PrimaryStorage = "Primary Storage";
+
+    /// <summary>A second, separate recording path — its own NVR/server, not a
+    /// spare disk in the primary one. Priced as its own section because it is
+    /// bought as its own hardware.</summary>
+    public const string FailoverStorage = "Failover storage";
+
     public const string VmsServer = "VMS & Server";
     public const string Monitors = "Monitors and Work Stations";
     public const string Switches = "Switch & Components";
@@ -33,7 +39,8 @@ public static class BoqSectionTitles
     [
         MainCctv,
         CameraAccessories,
-        NvrStorage,
+        PrimaryStorage,
+        FailoverStorage,
         VmsServer,
         Monitors,
         Switches,
