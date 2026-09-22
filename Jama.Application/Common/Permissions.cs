@@ -48,6 +48,15 @@ public static class Permissions
     /// different jobs, and one person doing both is the thing this separates.</summary>
     public const string BoqApprove = "boq.approve";
 
+    /// <summary>Changing a quotation that has already been approved — price,
+    /// discount, or which items are on it. Previously only the super
+    /// administrator could do this at all; this grant lets an admin hand the
+    /// same ability to a specific account (e.g. a manager who has to correct
+    /// a signed-off quotation) without making them the root account. Still
+    /// requires <see cref="BoqManage"/> to reach the editor, and still needs a
+    /// reason on every amendment — see UpdateBoqCommandHandler.</summary>
+    public const string BoqAmend = "boq.amend";
+
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
@@ -72,6 +81,7 @@ public static class Permissions
         // The one grant that is about somebody else's work. Held on its own it
         // is enough to open a quotation and decide on it, and nothing else.
         new(BoqApprove, "Approve or reject quotations", "Can open a quotation submitted for approval and approve it, or reject it with a reason. Does not include building or editing quotations."),
+        new(BoqAmend, "Change an approved quotation", "Can edit a quotation after it has been approved — price, discount, or the items on it — same as the super administrator can. Every change still needs a reason, recorded on the quotation's history. Needs \"Build quotations\" too, to reach the editor at all."),
         new(DrawingManage, "Build & submit drawings", "Can upload CAD drawings, attach the plotted PDF, and submit a drawing for approval. Cannot approve one — not even their own."),
         new(DrawingApprove, "Approve or reject drawings", "Can open a drawing submitted for approval and approve it, or reject it with a reason. Does not include uploading or editing drawings."),
     ];

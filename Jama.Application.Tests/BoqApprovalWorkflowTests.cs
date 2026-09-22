@@ -29,9 +29,12 @@ public class BoqApprovalWorkflowTests
         public string DisplayName => name;
         public string Role => Roles.Staff;
 
-        /// <summary>Not what these tests are about — the endpoint policies decide
-        /// who may call what, and they are pinned in Jama.Web.</summary>
-        public bool Has(string permission) => false;
+        /// <summary>Mostly not what these tests are about — the endpoint policies
+        /// decide who may call what, and they are pinned in Jama.Web. Settable per
+        /// test for the one rule that does live in the handler: BoqAmend.</summary>
+        public HashSet<string> Granted { get; init; } = [];
+
+        public bool Has(string permission) => Granted.Contains(permission);
 
         /// <summary>Set per test — the amendment rule turns on it.</summary>
         public bool IsSuperAdmin { get; init; }
@@ -301,9 +304,35 @@ public class BoqApprovalWorkflowTests
 
         Assert.False(result.Succeeded);
         Assert.Contains(
-            "An approved quotation can only be edited by the super administrator.",
+            "An approved quotation can only be edited by the super administrator or someone granted that permission.",
             result.Errors);
         Assert.Equal("Villa 22", boq.ProjectName);
+    }
+
+    [Fact]
+    public async Task A_staff_member_granted_BoqAmend_may_amend_an_approved_quotation_without_being_super_admin()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var manager = new FakeCurrentUser("Fatima") { Granted = [Permissions.BoqAmend] };
+
+        // The grant is what an admin hands out instead of the root account
+        // itself — same rule, same requirement to say why, different actor.
+        var result = await new UpdateBoqCommandHandler(context, manager, TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22 (corrected)",
+                Sections = [],
+                AmendmentNote = "Manager corrected the discount after the client called.",
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Villa 22 (corrected)", boq.ProjectName);
+
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(BoqApprovalAction.Amended, step.Action);
+        Assert.Equal("Fatima", step.ActorName);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Entities;
@@ -53,17 +54,18 @@ public sealed class UpdateBoqCommandHandler(
         // waiting in the queue, or come back rejected — whoever is building it
         // may keep correcting it, as often as the job needs.
         //
-        // The super administrator is the exception to the close. Somebody has to
-        // be able to correct a mistake on a document that has already been signed
-        // off; otherwise the only route is to delete it and rebuild it, which
-        // loses the number, the trail and the approval together. It is one
-        // account, not a permission an administrator can hand out, and the
-        // amendment is recorded below.
+        // The super administrator and anyone holding BoqAmend are the exception
+        // to the close. Somebody has to be able to correct a mistake on a
+        // document that has already been signed off; otherwise the only route
+        // is to delete it and rebuild it, which loses the number, the trail and
+        // the approval together. BoqAmend lets an admin extend that ability to
+        // a specific account instead of it being the root account alone, and
+        // the amendment is recorded below either way.
         var amending = !BoqWorkflow.IsEditable(boq.Status);
 
-        if (amending && !actor.IsSuperAdmin)
+        if (amending && !actor.IsSuperAdmin && !actor.Has(Permissions.BoqAmend))
             return ApiResult<BoqDto>.Failure(
-                "An approved quotation can only be edited by the super administrator.");
+                "An approved quotation can only be edited by the super administrator or someone granted that permission.");
 
         // An amendment needs a reason on the record — the same accountability
         // a rejection already requires, and for the same reason: touching
