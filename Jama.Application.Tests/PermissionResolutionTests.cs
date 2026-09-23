@@ -63,6 +63,20 @@ public sealed class PermissionResolutionTests
     }
 
     [Fact]
+    public void Amending_an_approved_quotation_implies_being_able_to_build_one()
+    {
+        // Ticking only "Change an approved quotation" is the natural thing an
+        // admin does for "let them fix the price after sign-off" — but the
+        // update endpoint is gated on BoqManage at the route, before
+        // UpdateBoqCommandHandler ever asks about BoqAmend. Without this, that
+        // account 403'd the moment it tried, same shape as the DIA case above.
+        var effective = Permissions.EffectiveFor(Roles.Staff, [Permissions.BoqAmend]);
+
+        Assert.Contains(Permissions.BoqManage, effective);
+        Assert.Contains(Permissions.BoqAmend, effective);
+    }
+
+    [Fact]
     public void Unknown_permission_keys_are_discarded()
     {
         var effective = Permissions.EffectiveFor(Roles.Staff, ["not.a.real.permission"]);
