@@ -9,6 +9,7 @@ using Jama.Application.Boqs.Queries.GetBoq;
 using Jama.Application.Boqs.Queries.GetBoqPdf;
 using Jama.Application.Boqs.Queries.GetBoqNotifications;
 using Jama.Application.Boqs.Queries.GetBoqs;
+using Jama.Application.Boqs.Queries.GetContractPdf;
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Web.Infrastructure;
@@ -47,6 +48,7 @@ public sealed class Boqs : EndpointGroupBase
             .MapGet(GetNotifications, "notifications", permission: AuthorizationPolicies.BoqRead)
             .MapPost(SeenNotifications, "notifications/seen", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetPdf, "{id:guid}/pdf", permission: AuthorizationPolicies.BoqRead)
+            .MapGet(GetContractPdf, "{id:guid}/contract", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetById, "{id:guid}", permission: AuthorizationPolicies.BoqRead)
             .MapPost(Create, permission: Permissions.BoqManage)
             .MapPut(Update, "{id:guid}", permission: Permissions.BoqManage)
@@ -139,6 +141,15 @@ public sealed class Boqs : EndpointGroupBase
     public async Task<IResult> GetPdf(ISender sender, Guid id, CancellationToken cancellationToken)
     {
         var result = await sender.Send(new GetBoqPdfQuery(id), cancellationToken);
+        if (!result.Succeeded || result.Data is null)
+            return Results.NotFound(ApiResult<string>.Failure(result.Errors));
+
+        return Results.File(result.Data.Content, "application/pdf", result.Data.FileName);
+    }
+
+    public async Task<IResult> GetContractPdf(ISender sender, Guid id, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetContractPdfQuery(id), cancellationToken);
         if (!result.Succeeded || result.Data is null)
             return Results.NotFound(ApiResult<string>.Failure(result.Errors));
 
