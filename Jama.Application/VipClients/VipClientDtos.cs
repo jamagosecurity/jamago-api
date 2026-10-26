@@ -44,3 +44,7 @@ public sealed record VipClientDetailDto(
 /// endpoint, so the admin and client routes enforce the same rule.
 /// </summary>
 public sealed record VipDocumentContent(Stream Content, string FileName, string ContentType);
+
+/// <summary>Body for "download selected" — the ids must belong to the folder
+/// named in the route; the handler ignores any that do not.</summary>
+public sealed record DownloadVipFolderDocumentsRequest(IReadOnlyList<Guid> DocumentIds);

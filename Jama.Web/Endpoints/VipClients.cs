@@ -1,11 +1,13 @@
 using Jama.Application.Common;
 using Jama.Application.Common.Models;
+using Jama.Application.VipClients;
 using Jama.Application.VipClients.Commands.CreateVipClient;
 using Jama.Application.VipClients.Commands.DeleteVipClient;
 using Jama.Application.VipClients.Commands.DeleteVipDocument;
 using Jama.Application.VipClients.Commands.UpdateVipClient;
 using Jama.Application.VipClients.Commands.UploadVipDocument;
 using Jama.Application.VipClients.Queries.DownloadVipDocument;
+using Jama.Application.VipClients.Queries.DownloadVipFolderDocuments;
 using Jama.Application.VipClients.Queries.GetMyVipProject;
 using Jama.Application.VipClients.Queries.GetVipClient;
 using Jama.Application.VipClients.Queries.GetVipClients;
@@ -39,6 +41,9 @@ public sealed class VipClients : EndpointGroupBase
             // only authentication here and decides access inside the handler.
             .MapPost(Upload, "folders/{folderId:guid}/documents", permission: Permissions.VipManage, allowFileUpload: true)
             .MapGet(Download, "documents/{documentId:guid}/download", requireAuthorization: true)
+            // Zipped. Same reachability as the single-document download above.
+            .MapGet(DownloadFolderAll, "folders/{folderId:guid}/download-all", requireAuthorization: true)
+            .MapPost(DownloadFolderSelected, "folders/{folderId:guid}/download-selected", requireAuthorization: true)
             .MapDelete(DeleteDocument, "documents/{documentId:guid}", permission: Permissions.VipManage);
     }
 
@@ -117,6 +122,30 @@ public sealed class VipClients : EndpointGroupBase
 
         // Streamed rather than buffered: a 25 MB upload should not be read into
         // memory just to be written straight back out.
+        return Results.File(result.Data.Content, result.Data.ContentType, result.Data.FileName);
+    }
+
+    public async Task<IResult> DownloadFolderAll(ISender sender, Guid folderId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new DownloadVipFolderDocumentsQuery(folderId, null), cancellationToken);
+        if (!result.Succeeded || result.Data is null)
+            return Results.NotFound(ApiResult<string>.Failure(result.Errors));
+
+        return Results.File(result.Data.Content, result.Data.ContentType, result.Data.FileName);
+    }
+
+    public async Task<IResult> DownloadFolderSelected(
+        ISender sender,
+        Guid folderId,
+        DownloadVipFolderDocumentsRequest body,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(
+            new DownloadVipFolderDocumentsQuery(folderId, body.DocumentIds),
+            cancellationToken);
+        if (!result.Succeeded || result.Data is null)
+            return Results.NotFound(ApiResult<string>.Failure(result.Errors));
+
         return Results.File(result.Data.Content, result.Data.ContentType, result.Data.FileName);
     }
 
