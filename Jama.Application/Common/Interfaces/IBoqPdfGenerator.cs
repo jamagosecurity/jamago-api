@@ -34,6 +34,16 @@ public sealed record BoqPdfSection(
     decimal Subtotal,
     IReadOnlyList<BoqPdfLine> Lines);
 
+/// <summary>Which language(s) the terms letter prints in. English is the
+/// default everywhere this is chosen — Arabic only ever prints because
+/// someone deliberately asked for it.</summary>
+public enum BoqTermsLanguage
+{
+    English,
+    Arabic,
+    Both,
+}
+
 public sealed record BoqPdfModel(
     string BoqNumber,
     string ProjectName,
@@ -59,9 +69,42 @@ public sealed record BoqPdfModel(
     /// "DRAFT — NOT APPROVED" mark over the document so a pre-approval preview
     /// can never pass for the real thing if it is forwarded by mistake.</summary>
     public bool Watermark { get; init; }
+
+    /// <summary>Whether to print the commercial-offer letter (page 2 — offer
+    /// validity, payment terms, delivery, scope, warranty). On by default;
+    /// some clients already have these terms agreed elsewhere and just want
+    /// the cover and the priced items. Page numbers adjust themselves either
+    /// way since QuestPDF counts whatever pages actually render.</summary>
+    public bool IncludeTermsPage { get; init; } = true;
+
+    /// <summary>Replaces the standard numbered terms (offer validity, payment
+    /// split, delivery, scope, warranty) with this quotation's own wording —
+    /// e.g. a 30% advance instead of the usual 50%. Null prints the standard
+    /// terms. Has no effect when <see cref="IncludeTermsPage"/> is false.</summary>
+    public string? TermsOverride { get; init; }
+
+    /// <summary>The Arabic counterpart to <see cref="TermsOverride"/> — typed
+    /// independently by staff, never derived from the English. Null prints
+    /// the standard Arabic wording when Arabic is requested at all.</summary>
+    public string? TermsOverrideAr { get; init; }
+
+    /// <summary>Which language the terms letter prints in. Defaults to
+    /// English regardless of whether Arabic wording exists — Arabic only
+    /// ever prints because the download specifically asked for it.</summary>
+    public BoqTermsLanguage TermsLanguage { get; init; } = BoqTermsLanguage.English;
 }
 
 public interface IBoqPdfGenerator
 {
     byte[] Generate(BoqPdfModel model);
+
+    /// <summary>The standard terms page, as plain text — the single source
+    /// the editor pre-fills its "Terms &amp; Conditions" box with, so what
+    /// staff see to edit is exactly what would otherwise print. Never drifts
+    /// from the PDF because both read the same data.</summary>
+    string DefaultTermsText();
+
+    /// <summary>The Arabic counterpart to <see cref="DefaultTermsText"/> —
+    /// same role, same round-trip guarantee, for the Arabic box.</summary>
+    string DefaultTermsTextArabic();
 }

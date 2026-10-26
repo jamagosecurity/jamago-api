@@ -31,6 +31,22 @@ public class Boq : BaseEntity
     public BoqStatus Status { get; set; } = BoqStatus.Draft;
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// Overrides the PDF's standard terms-and-conditions page (payment split,
+    /// delivery timeline, warranty, and so on) for this quotation only. Null
+    /// means print the standard wording — most quotations never touch this;
+    /// it exists for the project whose deal genuinely differs, e.g. a 30%
+    /// advance instead of the usual 50%.
+    /// </summary>
+    public string? TermsAndConditions { get; set; }
+
+    /// <summary>The Arabic counterpart to <see cref="TermsAndConditions"/> —
+    /// typed by staff, never machine-translated, so it is held as its own
+    /// column rather than derived. Null means print the standard Arabic
+    /// wording when Arabic is requested at all; whether either language, or
+    /// both, actually prints is chosen per download, not stored here.</summary>
+    public string? TermsAndConditionsAr { get; set; }
+
     /// <summary>The staff account that put it together, for the document footer
     /// and so an administrator can see who to ask about it.</summary>
     public Guid PreparedById { get; set; }

@@ -20,6 +20,8 @@ internal static class BoqMappings
             entity.IssueDate,
             entity.Status,
             entity.Notes,
+            entity.TermsAndConditions,
+            entity.TermsAndConditionsAr,
             entity.PreparedById,
             entity.PreparedByName,
             entity.Total,

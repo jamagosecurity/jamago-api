@@ -156,6 +156,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     private const string CompanyName = "Jama Go Security Equipment";
     private const string CompanyShort = "Jama Go";
+    private const string CompanyShortAr = "شركة جاما جو";
     private const string CompanyTagline = "A trusted partner to customers and suppliers";
     private const string CompanyAddress =
         "Unit 41, Zone 56, Street 340, Building No. 349, Al Ain Complex, Salwa Road";
@@ -250,6 +251,112 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
         "Any variation in quantity or design suggested by the client or by MOI-SSD will be calculated " +
         "as a variation and invoiced separately.";
 
+    /// <summary>The Arabic counterpart to <see cref="Terms"/> — same six
+    /// clauses, same order, so a reader can follow the numbering across
+    /// either language. Held separately rather than translated on the fly:
+    /// commercial wording is proofread once here, not machine-translated on
+    /// every download.</summary>
+    private static readonly Term[] TermsAr =
+    [
+        new("صلاحية العرض وتغيّر الأسعار",
+            "هذه الأسعار سارية لأي عقد أو أمر شراء يصبح نافذاً خلال فترة سريان هذا العرض.",
+            [
+                "قد تخضع الأسعار للمراجعة بعد تاريخ انتهاء الصلاحية المذكور.",
+                $"في حال أي تغيير في الكمية، تحتفظ {CompanyShortAr} بحقها في مراجعة الأسعار ومدة التسليم.",
+                "جميع أسعار الوحدات بالريال القطري، وشاملة للرسوم الجمركية والنقل وأي رسوم أخرى داخل قطر، ولا تسري إلا على الكميات المذكورة.",
+            ])
+        {
+            Emphasis = $"هذا العرض سارٍ لمدة {ValidityDays} يوماً من تاريخ هذا العرض.",
+            Numbered = true,
+        },
+
+        new("شروط الدفع", null,
+            [
+                "دفعة مقدمة 50% عند استلام أمر الشراء، و40% عند التسليم، والـ10% المتبقية عند إتمام المشروع.",
+            ]),
+
+        new("تسليم المواد", null,
+            [
+                "تسليم المواد: خلال 3 إلى 6 أيام بعد التأكيد الرسمي والدفعة المقدمة.",
+                "إجراءات توثيق واعتماد وزارة الداخلية: من 4 إلى 8 أسابيع.",
+                "إنجاز المشروع: خلال 8 إلى 12 أسبوعاً.",
+            ]),
+
+        new("نطاق العمل", null,
+            [
+                "توريد المواد المذكورة في أوصاف البنود.",
+            ]),
+
+        new("خارج نطاق العمل", null,
+            [
+                "أعمال التركيب، ومد الكابلات الكهربائية وكابلات الألياف الضوئية، وكابلات النحاس الخاصة بالكاميرات.",
+                "تطريف الكابلات من الطرفين، وتوسيم الكاميرات وتركيبها، وتوثيق وزارة الداخلية، وتسليم المشروع النهائي.",
+                "أي عمل غير مذكور ضمن نطاق العمل.",
+            ]),
+
+        new("الضمان", null,
+            [
+                "الكاميرات وجهاز التسجيل (NVR) — سنتان.",
+                "باقي المعدات — سنة واحدة.",
+                "الضمان لا يغطي الأضرار المادية، ونلتزم بالضمان القياسي للشركة المصنّعة ضد عيوب التصنيع فقط.",
+            ]),
+    ];
+
+    private const string WarrantyVoidAr =
+        "يسقط هذا الضمان في حال تعرض الجهاز للتلف نتيجة الإهمال أو سوء الاستخدام أو تدخل أطراف أخرى " +
+        "أو حادث أو حريق أو فيضان أو صاعقة أو تذبذب أو انقطاع في التيار الكهربائي أو أي أحداث أخرى، " +
+        "أو في حال عدم تشغيله وفق تعليمات التشغيل والتركيب.";
+
+    private const string VariationNoteAr =
+        "أي تغيير في الكمية أو التصميم يطلبه العميل أو تطلبه إدارة الأنظمة الأمنية بوزارة الداخلية " +
+        "سيُحتسب كتغيير إضافي ويُفوتر بشكل منفصل.";
+
+    /// <inheritdoc/>
+    public string DefaultTermsText()
+    {
+        var lines = new List<string>();
+        var number = 0;
+
+        foreach (var term in Terms)
+        {
+            if (lines.Count > 0) lines.Add("");
+            lines.Add($"{++number}. {term.Heading}");
+            if (!string.IsNullOrWhiteSpace(term.Body)) lines.Add(term.Body);
+            if (!string.IsNullOrWhiteSpace(term.Emphasis)) lines.Add(term.Emphasis);
+            lines.AddRange(term.Bullets.Select(b => $"- {b}"));
+        }
+
+        lines.Add("");
+        lines.Add(WarrantyVoid);
+        lines.Add("");
+        lines.Add(VariationNote);
+
+        return string.Join('\n', lines);
+    }
+
+    /// <inheritdoc/>
+    public string DefaultTermsTextArabic()
+    {
+        var lines = new List<string>();
+        var number = 0;
+
+        foreach (var term in TermsAr)
+        {
+            if (lines.Count > 0) lines.Add("");
+            lines.Add($"{++number}. {term.Heading}");
+            if (!string.IsNullOrWhiteSpace(term.Body)) lines.Add(term.Body);
+            if (!string.IsNullOrWhiteSpace(term.Emphasis)) lines.Add(term.Emphasis);
+            lines.AddRange(term.Bullets.Select(b => $"- {b}"));
+        }
+
+        lines.Add("");
+        lines.Add(WarrantyVoidAr);
+        lines.Add("");
+        lines.Add(VariationNoteAr);
+
+        return string.Join('\n', lines);
+    }
+
     /// <summary>Matches an email inside a display name, capturing only the part
     /// before the "@".</summary>
     private static readonly Regex EmbeddedEmail =
@@ -298,8 +405,12 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
         {
             // Three page definitions, in the order a client reads them: the cover
             // that says who this is for, the letter that states the terms, then the
-            // priced tables the letter introduces. Page numbering runs across all
-            // three, so the tables open at "Page 3 of n" rather than restarting.
+            // priced tables the letter introduces. The terms letter is skippable
+            // (IncludeTermsPage) for a client who already has terms agreed
+            // elsewhere; page numbering runs across whichever pages actually
+            // render, via QuestPDF's own CurrentPageNumber/TotalPages, so the
+            // tables open at "Page 2 of 2" instead of "3 of 3" without any
+            // renumbering code here.
             container.Page(page =>
             {
                 page.Size(PageSizes.A4);
@@ -316,18 +427,19 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 page.Content().Element(content => ComposeCover(content, model));
             });
 
-            container.Page(page =>
-            {
-                page.Size(PageSizes.A4);
-                page.Margin(28);
-                page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
+            if (model.IncludeTermsPage)
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(28);
+                    page.DefaultTextStyle(x => x.FontSize(9).FontColor(Ink).FontFamily(DocumentFonts.Body));
 
-                page.Background().Element(ComposeWatermark);
-                if (model.Watermark) page.Foreground().Element(ComposeDraftStamp);
-                page.Header().Element(header => ComposeProposalHeader(header, model));
-                page.Content().PaddingTop(14).Element(content => ComposeProposal(content, model));
-                page.Footer().Element(footer => ComposeFooter(footer, model));
-            });
+                    page.Background().Element(ComposeWatermark);
+                    if (model.Watermark) page.Foreground().Element(ComposeDraftStamp);
+                    page.Header().Element(header => ComposeProposalHeader(header, model));
+                    page.Content().PaddingTop(14).Element(content => ComposeProposal(content, model));
+                    page.Footer().Element(footer => ComposeFooter(footer, model));
+                });
 
             container.Page(page =>
             {
@@ -543,23 +655,161 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     "of work set out below.")
                 .FontSize(9).FontColor(InkSoft).LineHeight(1.35f);
 
-            var number = 0;
-            foreach (var term in Terms)
-                column.Item().PaddingTop(10).Element(x => ComposeTerm(x, ++number, term));
+            // English and Arabic are independent blocks, not columns beside
+            // each other: the terms text is long freeform prose once someone
+            // has typed their own wording, and two such blocks side by side
+            // would each be squeezed into half the page width. Both prints
+            // as English in full, then Arabic in full, exactly like reading
+            // two separate letters — QuestPDF spills onto an extra page on
+            // its own if the combined text runs long.
+            if (model.TermsLanguage != BoqTermsLanguage.Arabic)
+                column.Item().Element(x => ComposeTermsEnglish(x, model));
 
-            column.Item().PaddingTop(12).Border(1).BorderColor(PanelBorder).Padding(9).Column(inner =>
+            if (model.TermsLanguage == BoqTermsLanguage.Both)
             {
-                inner.Item().Text(WarrantyVoid)
-                    .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
-                inner.Item().PaddingTop(6).Text(VariationNote)
-                    .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
-            });
+                column.Item().PaddingTop(16).ContentFromRightToLeft().AlignRight()
+                    .Text("الشروط والأحكام")
+                    .FontFamily(DocumentFonts.Arabic).FontSize(10.5f).Bold().FontColor(Brand);
+                column.Item().PaddingTop(3).PaddingBottom(2).Height(1).Background(PanelBorder);
+            }
+
+            if (model.TermsLanguage != BoqTermsLanguage.English)
+                column.Item().Element(x => ComposeTermsArabic(x, model));
 
             column.Item().PaddingTop(14).Text("Yours faithfully,")
                 .FontSize(9).FontColor(InkSoft);
             column.Item().PaddingTop(3).Text(PreparedBy(model.PreparedByName) ?? CompanyName)
                 .FontSize(9.5f).Bold().FontColor(Ink);
             column.Item().Text(CompanyName).FontSize(8.5f).FontColor(Muted);
+        });
+    }
+
+    /// <summary>The English terms block — this quotation's own wording if it
+    /// has any, otherwise the standard six clauses. Split out of
+    /// <c>ComposeProposal</c> so "Both" can call it and the Arabic block in
+    /// sequence without duplicating the standard-vs-override branch.</summary>
+    private static void ComposeTermsEnglish(IContainer container, BoqPdfModel model)
+    {
+        container.Column(column =>
+        {
+            if (string.IsNullOrWhiteSpace(model.TermsOverride))
+            {
+                var number = 0;
+                foreach (var term in Terms)
+                    column.Item().PaddingTop(10).Element(x => ComposeTerm(x, ++number, term));
+
+                column.Item().PaddingTop(12).Border(1).BorderColor(PanelBorder).Padding(9).Column(inner =>
+                {
+                    inner.Item().Text(WarrantyVoid)
+                        .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
+                    inner.Item().PaddingTop(6).Text(VariationNote)
+                        .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
+                });
+            }
+            else
+            {
+                // This quotation's own wording, typed by staff over the
+                // pre-filled default — a 30% advance instead of the usual
+                // 50%, say. Light formatting only: "1. " headings go bold,
+                // "- " lines get a bullet, everything else is a paragraph.
+                // There is no further structure to trust once someone has
+                // been free to edit the text.
+                column.Item().PaddingTop(10).Element(x => ComposeFreeformTerms(x, model.TermsOverride));
+            }
+        });
+    }
+
+    /// <summary>The Arabic mirror of <see cref="ComposeTermsEnglish"/> — same
+    /// standard-vs-override branch, reading <see
+    /// cref="BoqPdfModel.TermsOverrideAr"/> and falling back to <see
+    /// cref="TermsAr"/> instead of their English counterparts.</summary>
+    private static void ComposeTermsArabic(IContainer container, BoqPdfModel model)
+    {
+        container.Column(column =>
+        {
+            if (string.IsNullOrWhiteSpace(model.TermsOverrideAr))
+            {
+                var number = 0;
+                foreach (var term in TermsAr)
+                    column.Item().PaddingTop(10).Element(x => ComposeTermArabic(x, ++number, term));
+
+                column.Item().PaddingTop(12).Border(1).BorderColor(PanelBorder).Padding(9).Column(inner =>
+                {
+                    inner.Item().ContentFromRightToLeft().AlignRight().Text(WarrantyVoidAr)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(7.8f).FontColor(Muted).LineHeight(1.5f);
+                    inner.Item().PaddingTop(6).ContentFromRightToLeft().AlignRight().Text(VariationNoteAr)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(7.8f).FontColor(Muted).LineHeight(1.5f);
+                });
+            }
+            else
+            {
+                column.Item().PaddingTop(10).Element(x => ComposeFreeformTermsArabic(x, model.TermsOverrideAr));
+            }
+        });
+    }
+
+    /// <summary>A numbered heading, e.g. "2. Terms of Payment" — <see
+    /// cref="DefaultTermsText"/>'s own format, so the pre-filled default
+    /// round-trips through an edit and still renders with its headings bold.</summary>
+    private static readonly Regex NumberedHeading = new(@"^\d+\.\s+\S", RegexOptions.Compiled);
+
+    /// <summary>Renders whatever staff typed over the pre-filled default terms
+    /// text — no structure to trust beyond two conventions carried over from
+    /// <see cref="DefaultTermsText"/>: a line starting "N. " is a heading, one
+    /// starting "- " is a bullet. Everything else is a plain paragraph, and a
+    /// blank line is just spacing.</summary>
+    private static void ComposeFreeformTerms(IContainer container, string text)
+    {
+        container.Column(column =>
+        {
+            foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0) continue;
+
+                if (NumberedHeading.IsMatch(line))
+                    column.Item().PaddingTop(8).Text(line)
+                        .FontSize(9.5f).Bold().FontColor(BrandStrong);
+                else if (line.StartsWith("- ", StringComparison.Ordinal))
+                    column.Item().PaddingTop(3).PaddingLeft(16).Row(row =>
+                    {
+                        row.ConstantItem(14).Text("•").FontSize(8.6f).FontColor(Accent);
+                        row.RelativeItem().Text(line[2..].Trim())
+                            .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                    });
+                else
+                    column.Item().PaddingTop(3).PaddingLeft(16).Text(line)
+                        .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+            }
+        });
+    }
+
+    /// <summary>The Arabic mirror of <see cref="ComposeFreeformTerms"/> — same
+    /// two conventions ("N. " heading, "- " bullet), same paragraph fallback,
+    /// laid out right-to-left with the Arabic font instead.</summary>
+    private static void ComposeFreeformTermsArabic(IContainer container, string text)
+    {
+        container.Column(column =>
+        {
+            foreach (var raw in text.Replace("\r\n", "\n").Split('\n'))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0) continue;
+
+                if (NumberedHeading.IsMatch(line))
+                    column.Item().PaddingTop(8).ContentFromRightToLeft().AlignRight().Text(line)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(BrandStrong);
+                else if (line.StartsWith("- ", StringComparison.Ordinal))
+                    column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().Row(row =>
+                    {
+                        row.RelativeItem().AlignRight().Text(line[2..].Trim())
+                            .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
+                        row.ConstantItem(14).AlignRight().Text("•").FontSize(8.6f).FontColor(Accent);
+                    });
+                else
+                    column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().AlignRight().Text(line)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
+            }
         });
     }
 
@@ -612,6 +862,44 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                         .FontColor(term.Numbered ? InkSoft : Accent);
                     row.RelativeItem().Text(bullet)
                         .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                });
+            }
+        });
+    }
+
+    /// <summary>The Arabic mirror of <see cref="ComposeTerm"/> — same shape
+    /// (heading, optional body, optional emphasis, bullets), read from a
+    /// separate <see cref="Term"/> instance rather than translating the
+    /// English one, laid out right-to-left with the Arabic font.</summary>
+    private static void ComposeTermArabic(IContainer container, int number, Term term)
+    {
+        container.Column(column =>
+        {
+            column.Item().ContentFromRightToLeft().AlignRight().Text($"{number}.  {term.Heading}")
+                .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(BrandStrong);
+
+            if (!string.IsNullOrWhiteSpace(term.Body))
+                column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().AlignRight()
+                    .Text(term.Body)
+                    .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
+
+            if (!string.IsNullOrWhiteSpace(term.Emphasis))
+                column.Item().PaddingTop(5).PaddingRight(16).ContentFromRightToLeft().AlignRight()
+                    .Text(term.Emphasis)
+                    .FontFamily(DocumentFonts.Arabic).FontSize(8.8f).Bold().FontColor(Ink).LineHeight(1.5f);
+
+            var item = 0;
+            foreach (var bullet in term.Bullets)
+            {
+                var marker = term.Numbered ? $"{++item}." : "•";
+
+                column.Item().PaddingTop(3).PaddingRight(term.Numbered ? 28 : 16)
+                    .ContentFromRightToLeft().Row(row =>
+                {
+                    row.RelativeItem().AlignRight().Text(bullet)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
+                    row.ConstantItem(14).AlignRight().Text(marker).FontSize(8.6f)
+                        .FontColor(term.Numbered ? InkSoft : Accent);
                 });
             }
         });

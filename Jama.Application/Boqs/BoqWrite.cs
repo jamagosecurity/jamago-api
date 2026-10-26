@@ -61,6 +61,15 @@ public interface IBoqWrite
     DateOnly? IssueDate { get; }
     string? Notes { get; }
 
+    /// <summary>Overrides the PDF's standard terms page for this quotation
+    /// only. Null keeps the standard wording.</summary>
+    string? TermsAndConditions { get; }
+
+    /// <summary>The Arabic counterpart, typed independently — never derived
+    /// from <see cref="TermsAndConditions"/>. Null keeps the standard Arabic
+    /// wording when Arabic printing is chosen at all.</summary>
+    string? TermsAndConditionsAr { get; }
+
     /// <summary>A lump sum off the finished quotation, in QAR. Zero when none was
     /// agreed, which is the ordinary case.</summary>
     decimal SpecialDiscount { get; }
@@ -73,6 +82,7 @@ internal static class BoqWriteRules
     internal const int NameMaxLength = 200;
     internal const int ContactMaxLength = 40;
     internal const int NotesMaxLength = 2000;
+    internal const int TermsAndConditionsMaxLength = 4000;
     internal const int MaxSections = 40;
     internal const int MaxLinesPerSection = 200;
     internal const decimal QuantityMax = 1_000_000m;
@@ -91,6 +101,8 @@ internal static class BoqWriteRules
         validator.RuleFor(x => x.ContactNumber).MaximumLength(ContactMaxLength)
             .WithMessage($"Contact number must be {ContactMaxLength} characters or fewer.");
         validator.RuleFor(x => x.Notes).MaximumLength(NotesMaxLength);
+        validator.RuleFor(x => x.TermsAndConditions).MaximumLength(TermsAndConditionsMaxLength);
+        validator.RuleFor(x => x.TermsAndConditionsAr).MaximumLength(TermsAndConditionsMaxLength);
 
         // Only the bounds here. Whether the discount fits inside the quotation is
         // settled by the writer, which is where the line rates are known — they
@@ -226,6 +238,8 @@ internal static class BoqWriter
         boq.ContactNumber = Clean(request.ContactNumber);
         boq.IssueDate = request.IssueDate ?? DateOnly.FromDateTime(now);
         boq.Notes = Clean(request.Notes);
+        boq.TermsAndConditions = Clean(request.TermsAndConditions);
+        boq.TermsAndConditionsAr = Clean(request.TermsAndConditionsAr);
 
         var sections = new List<BoqSection>();
         var sectionOrder = 0;

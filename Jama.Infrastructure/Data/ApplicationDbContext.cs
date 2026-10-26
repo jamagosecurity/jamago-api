@@ -31,6 +31,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Drawing> Drawings => Set<Drawing>();
     public DbSet<DrawingFile> DrawingFiles => Set<DrawingFile>();
     public DbSet<DrawingApprovalEvent> DrawingApprovalEvents => Set<DrawingApprovalEvent>();
+    public DbSet<ClientRegistration> ClientRegistrations => Set<ClientRegistration>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

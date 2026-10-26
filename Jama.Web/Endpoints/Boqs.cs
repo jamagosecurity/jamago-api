@@ -10,7 +10,9 @@ using Jama.Application.Boqs.Queries.GetBoqPdf;
 using Jama.Application.Boqs.Queries.GetBoqNotifications;
 using Jama.Application.Boqs.Queries.GetBoqs;
 using Jama.Application.Boqs.Queries.GetContractPdf;
+using Jama.Application.Boqs.Queries.GetDefaultTerms;
 using Jama.Application.Common;
+using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Web.Infrastructure;
 using MediatR;
@@ -47,6 +49,7 @@ public sealed class Boqs : EndpointGroupBase
             // clear of "{id:guid}".
             .MapGet(GetNotifications, "notifications", permission: AuthorizationPolicies.BoqRead)
             .MapPost(SeenNotifications, "notifications/seen", permission: AuthorizationPolicies.BoqRead)
+            .MapGet(GetDefaultTerms, "default-terms", permission: Permissions.BoqManage)
             .MapGet(GetPdf, "{id:guid}/pdf", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetContractPdf, "{id:guid}/contract", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetById, "{id:guid}", permission: AuthorizationPolicies.BoqRead)
@@ -71,6 +74,9 @@ public sealed class Boqs : EndpointGroupBase
         var result = await sender.Send(new GetBoqQuery(id), cancellationToken);
         return result.Succeeded ? Results.Ok(result) : Results.NotFound(result);
     }
+
+    public async Task<IResult> GetDefaultTerms(ISender sender, CancellationToken cancellationToken) =>
+        Results.Ok(await sender.Send(new GetDefaultTermsQuery(), cancellationToken));
 
     public async Task<IResult> Create(
         ISender sender,
@@ -138,9 +144,18 @@ public sealed class Boqs : EndpointGroupBase
         return result.Succeeded ? Results.Ok(result) : Results.NotFound(result);
     }
 
-    public async Task<IResult> GetPdf(ISender sender, Guid id, CancellationToken cancellationToken)
+    public async Task<IResult> GetPdf(
+        ISender sender, Guid id, bool? includeTermsPage, string? termsLanguage,
+        CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new GetBoqPdfQuery(id), cancellationToken);
+        // Missing query param means "not specified", not "false" — the default
+        // stays ON, same as before this option existed.
+        var language = Enum.TryParse<BoqTermsLanguage>(termsLanguage, ignoreCase: true, out var parsed)
+            ? parsed
+            : BoqTermsLanguage.English;
+
+        var result = await sender.Send(
+            new GetBoqPdfQuery(id, includeTermsPage ?? true, language), cancellationToken);
         if (!result.Succeeded || result.Data is null)
             return Results.NotFound(ApiResult<string>.Failure(result.Errors));
 

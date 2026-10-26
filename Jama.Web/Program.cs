@@ -77,6 +77,7 @@ builder.Services
 builder.Services.AddAuthorizationBuilder()
     .AddPermissionPolicies()
     .AddSuperAdminPolicy(builder.Configuration);
+builder.Services.AddJamaRateLimiting(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -158,6 +159,7 @@ app.MapScalarApiReference(options =>
 // calls into cross-site requests against the self-signed dev certificate.
 
 app.UseCors("JamGoCors");
+app.UseRateLimiter();
 app.UseMiddleware<ValidationExceptionMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();

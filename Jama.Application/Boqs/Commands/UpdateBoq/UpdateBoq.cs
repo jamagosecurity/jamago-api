@@ -20,6 +20,8 @@ public sealed record UpdateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
     public string? ContactNumber { get; init; }
     public DateOnly? IssueDate { get; init; }
     public string? Notes { get; init; }
+    public string? TermsAndConditions { get; init; }
+    public string? TermsAndConditionsAr { get; init; }
 
     /// <summary>A lump sum off the finished quotation, in QAR.</summary>
     public decimal SpecialDiscount { get; init; }
@@ -67,15 +69,7 @@ public sealed class UpdateBoqCommandHandler(
             return ApiResult<BoqDto>.Failure(
                 "An approved quotation can only be edited by the super administrator or someone granted that permission.");
 
-        // An amendment needs a reason on the record — the same accountability
-        // a rejection already requires, and for the same reason: touching
-        // something everyone already signed off on without saying why is
-        // exactly what this whole rule exists to prevent. Checked here, not
-        // in the validator — only this handler knows the quotation is
-        // actually being amended, since that depends on its current status.
         var amendmentNote = request.AmendmentNote?.Trim();
-        if (amending && (string.IsNullOrWhiteSpace(amendmentNote) || amendmentNote.Length < 5))
-            return ApiResult<BoqDto>.Failure("Say why this approved quotation is being changed.");
 
         // What the quotation held before this save, for the Revised/Amended
         // note below — read separately, AsNoTracking, so it never joins the
@@ -91,6 +85,15 @@ public sealed class UpdateBoqCommandHandler(
                 .ToListAsync(cancellationToken)
             : null;
 
+        // Read before BuildAsync overwrites them, for the same reason as
+        // previousItems above — "what changed" has to be judged against what
+        // was there a moment ago. Everything BuildAsync assigns onto boq
+        // directly, so it is gone the instant that call returns.
+        var before = new BoqSnapshot(
+            boq.ProjectName, boq.SiteLocation, boq.ClientName, boq.ContactNumber,
+            boq.Notes, boq.TermsAndConditions, boq.TermsAndConditionsAr,
+            boq.SpecialDiscount, boq.GrandTotal);
+
         // The number and who prepared it are set once. Neither is rewritten here:
         // the reference may already be circulating, and authorship is a fact.
         var (error, sections) = await BoqWriter.BuildAsync(
@@ -98,6 +101,22 @@ public sealed class UpdateBoqCommandHandler(
 
         if (error is not null)
             return ApiResult<BoqDto>.Failure(error);
+
+        // An amendment needs a reason on the record — the same accountability
+        // a rejection already requires, and for the same reason: touching
+        // something everyone already signed off on without saying why is
+        // exactly what this whole rule exists to prevent. One exception: a
+        // wording-only fix to the terms page changes nothing a client is
+        // actually paying for, and explains itself — see isTermsOnlyChange.
+        var itemChanges = amending ? SummarizeItemChanges(previousItems!, sections) : null;
+        var termsChanged =
+            !string.Equals(before.TermsAndConditions, boq.TermsAndConditions, StringComparison.Ordinal)
+            || !string.Equals(before.TermsAndConditionsAr, boq.TermsAndConditionsAr, StringComparison.Ordinal);
+        var isTermsOnlyChange = termsChanged && itemChanges is null && IsElseUnchanged(before, boq);
+
+        if (amending && !isTermsOnlyChange
+            && (string.IsNullOrWhiteSpace(amendmentNote) || amendmentNote.Length < 5))
+            return ApiResult<BoqDto>.Failure("Say why this approved quotation is being changed.");
 
         // Old rows out, new rows in — both through the DbSet, never by mutating
         // boq.Sections. Clearing a tracked collection left EF reconciling
@@ -115,12 +134,26 @@ public sealed class UpdateBoqCommandHandler(
         // both and judge for themselves.
         if (amending)
         {
-            // The admin's own reason leads; what actually moved item-wise
-            // follows in parentheses when there is any — the same summary
-            // the Revised trail below uses, so "what changed" reads the same
-            // way regardless of which kind of edit caused it.
-            var itemChanges = SummarizeItemChanges(previousItems!, sections);
-            var combined = itemChanges is null ? amendmentNote! : $"{amendmentNote} ({itemChanges})";
+            // The admin's own reason leads; what actually moved — item-wise,
+            // and now terms-wise — follows in parentheses when there is any,
+            // the same way the Revised trail below summarises a rework. The
+            // point is the same one item changes already made: an admin
+            // should not have to type out in the reason what the system can
+            // see for itself just by comparing before and after.
+            //
+            // Terms-only is the one case with no human reason at all —
+            // isTermsOnlyChange is what let it skip the requirement above —
+            // so the auto note stands in as the whole reason rather than a
+            // parenthetical after it.
+            var autoNotes = new List<string>(2);
+            if (itemChanges is not null) autoNotes.Add(itemChanges);
+            if (termsChanged) autoNotes.Add("Terms & Conditions updated");
+
+            var combined = isTermsOnlyChange
+                ? "Terms & Conditions updated."
+                : autoNotes.Count == 0
+                    ? amendmentNote!
+                    : $"{amendmentNote} ({string.Join("; ", autoNotes)})";
 
             const int reasonMaxLength = 1000;
             if (combined.Length > reasonMaxLength)
@@ -157,6 +190,36 @@ public sealed class UpdateBoqCommandHandler(
     /// enough to tell whether it is the same catalogue item, and what to call it
     /// if not.</summary>
     private sealed record LineIdentity(Guid? CameraId, string ItemName);
+
+    /// <summary>Everything BuildAsync overwrites on the tracked entity,
+    /// captured just before it does — the only way to know afterwards
+    /// whether a field actually moved. GrandTotal stands in for every way a
+    /// line could change without being added or removed (a different rate,
+    /// a different quantity, a different discount): whichever one happened,
+    /// the total says so without this having to know which.</summary>
+    private sealed record BoqSnapshot(
+        string ProjectName,
+        string? SiteLocation,
+        string? ClientName,
+        string? ContactNumber,
+        string? Notes,
+        string? TermsAndConditions,
+        string? TermsAndConditionsAr,
+        decimal SpecialDiscount,
+        decimal GrandTotal);
+
+    /// <summary>Whether anything BUT the terms page moved. Terms-only is the
+    /// one amendment that needs no reason typed in — worth being strict
+    /// about, so this checks every field the snapshot holds rather than
+    /// just the ones that seemed likely to change.</summary>
+    private static bool IsElseUnchanged(BoqSnapshot before, Boq after) =>
+        before.ProjectName == after.ProjectName
+        && before.SiteLocation == after.SiteLocation
+        && before.ClientName == after.ClientName
+        && before.ContactNumber == after.ContactNumber
+        && before.Notes == after.Notes
+        && before.SpecialDiscount == after.SpecialDiscount
+        && before.GrandTotal == after.GrandTotal;
 
     /// <summary>
     /// What actually moved during a rework, in one line for the trail.

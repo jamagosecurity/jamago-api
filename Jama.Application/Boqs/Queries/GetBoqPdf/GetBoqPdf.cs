@@ -8,7 +8,16 @@ namespace Jama.Application.Boqs.Queries.GetBoqPdf;
 
 public sealed record BoqPdfDto(byte[] Content, string FileName);
 
-public sealed record GetBoqPdfQuery(Guid Id) : IRequest<ApiResult<BoqPdfDto>>;
+/// <summary>Downloads the quotation PDF. <paramref name="IncludeTermsPage"/>
+/// defaults true — some clients already have the standard terms agreed
+/// elsewhere and just want the cover and the priced items. <paramref
+/// name="TermsLanguage"/> defaults to English regardless of whether this
+/// quotation has Arabic terms typed in — Arabic only ever prints because the
+/// download specifically asked for it.</summary>
+public sealed record GetBoqPdfQuery(
+    Guid Id,
+    bool IncludeTermsPage = true,
+    BoqTermsLanguage TermsLanguage = BoqTermsLanguage.English) : IRequest<ApiResult<BoqPdfDto>>;
 
 public sealed class GetBoqPdfQueryHandler(
     IApplicationDbContext context,
@@ -123,6 +132,10 @@ public sealed class GetBoqPdfQueryHandler(
             sections)
         {
             Watermark = BoqVisibility.Watermark(boq.Status),
+            IncludeTermsPage = request.IncludeTermsPage,
+            TermsOverride = boq.TermsAndConditions,
+            TermsOverrideAr = boq.TermsAndConditionsAr,
+            TermsLanguage = request.TermsLanguage,
         };
 
         return ApiResult<BoqPdfDto>.Success(

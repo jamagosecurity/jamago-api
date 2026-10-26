@@ -81,10 +81,14 @@ public static class EndpointRouteBuilderExtensions
         string? roles = null,
         bool requireAuthorization = false,
         string? permission = null,
-        bool allowFileUpload = false)
+        bool allowFileUpload = false,
+        string? rateLimitPolicy = null)
     {
         var route = builder.MapPost(pattern, handler);
         route.Protect(roles, requireAuthorization, permission);
+
+        if (rateLimitPolicy is not null)
+            route.RequireRateLimiting(rateLimitPolicy);
 
         // Minimal APIs attach antiforgery metadata to any endpoint taking an
         // IFormFile, which then demands a token this API never issues. CSRF does

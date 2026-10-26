@@ -1,5 +1,6 @@
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
+using Jama.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,9 +35,31 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, TypedResult<Log
             .Include(u => u.Permissions)
             .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
-        if (user is null || !user.IsActive || !_passwordHasher.Verify(user, request.Password!))
+        if (user is null || !_passwordHasher.Verify(user, request.Password!))
         {
             return TypedResult<LoginResponse>.Failure("Invalid email or password.");
+        }
+
+        if (!user.IsActive)
+        {
+            // Only reached with the right password, so saying WHY the account
+            // is off tells nobody anything they could not already find out —
+            // and "invalid password" to a client who registered yesterday, typed
+            // it correctly, and is simply waiting on us, reads as a broken site.
+            var registrationStatus = await _context.ClientRegistrations
+                .Where(r => r.AdminUserId == user.Id)
+                .Select(r => (ClientRegistrationStatus?)r.Status)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            return TypedResult<LoginResponse>.Failure(registrationStatus switch
+            {
+                ClientRegistrationStatus.Pending =>
+                    "Your registration is waiting for approval. You'll be able to sign in once the Jama Go team accepts it.",
+                ClientRegistrationStatus.Rejected =>
+                    "Your registration was not approved. Please contact Jama Go for details.",
+                // A deactivated staff or VIP account: unchanged, deliberately vague.
+                _ => "Invalid email or password.",
+            });
         }
 
         return TypedResult<LoginResponse>.Success(_tokenGenerator.Generate(user));

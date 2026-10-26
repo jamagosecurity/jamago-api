@@ -28,5 +28,6 @@ public interface IApplicationDbContext
     DbSet<Drawing> Drawings { get; }
     DbSet<DrawingFile> DrawingFiles { get; }
     DbSet<DrawingApprovalEvent> DrawingApprovalEvents { get; }
+    DbSet<ClientRegistration> ClientRegistrations { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

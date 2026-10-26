@@ -45,6 +45,12 @@ public sealed record BoqDto(
     DateOnly IssueDate,
     BoqStatus Status,
     string? Notes,
+    /// <summary>Overrides the PDF's standard terms page for this quotation
+    /// only. Null means the standard wording prints.</summary>
+    string? TermsAndConditions,
+    /// <summary>The Arabic counterpart, typed independently. Null means the
+    /// standard Arabic wording prints when Arabic is requested at all.</summary>
+    string? TermsAndConditionsAr,
     Guid PreparedById,
     string? PreparedByName,
     /// <summary>Sum of the lines, before the discount.</summary>

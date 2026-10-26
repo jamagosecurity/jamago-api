@@ -380,7 +380,15 @@ public class BoqApprovalWorkflowTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("Say why this approved quotation is being changed.", result.Errors);
-        Assert.Equal("Villa 22", boq.ProjectName);
+
+        // Not boq.ProjectName directly: the write already ran BuildAsync
+        // against the tracked entity before this refusal, since knowing
+        // whether the change was terms-only means comparing before and
+        // after. Nothing reached SaveChangesAsync, so the database — a
+        // fresh, untracked read of it — is the only thing that can actually
+        // confirm nothing was persisted.
+        var saved = await context.Boqs.AsNoTracking().FirstAsync(x => x.Id == boq.Id);
+        Assert.Equal("Villa 22", saved.ProjectName);
         Assert.Empty(context.BoqApprovalEvents.ToList());
     }
 
@@ -428,6 +436,126 @@ public class BoqApprovalWorkflowTests
         Assert.Equal(BoqApprovalAction.Amended, step.Action);
         Assert.Equal(
             "Client asked for a rack to be added after sign-off. (Added APC 42U Server Rack Cabinet)",
+            step.Reason);
+    }
+
+    [Fact]
+    public async Task Amending_only_the_terms_and_conditions_needs_no_reason_at_all()
+    {
+        // Everything else — project name, the one line, its quantity —
+        // stays exactly as seeded, so the only thing IsElseUnchanged has to
+        // find unchanged is genuinely everything.
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var carriedLineId = boq.Sections.Single().Lines.Single().Id;
+        var root = new FakeCurrentUser("Root <admin@jamago.qa>") { IsSuperAdmin = true };
+
+        var result = await new UpdateBoqCommandHandler(context, root, TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22",
+                TermsAndConditions = "30% advance payment with the LPO, 60% upon delivery, 10% upon completion.",
+                Sections =
+                [
+                    new BoqSectionInput
+                    {
+                        Title = BoqSectionTitles.MainCctv,
+                        Lines = [new BoqLineInput { Id = carriedLineId, Quantity = 1 }],
+                    },
+                ],
+            },
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(BoqApprovalAction.Amended, step.Action);
+        Assert.Equal("Terms & Conditions updated.", step.Reason);
+    }
+
+    [Fact]
+    public async Task A_terms_change_alongside_an_item_change_still_needs_a_reason()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var root = new FakeCurrentUser("Root <admin@jamago.qa>") { IsSuperAdmin = true };
+
+        var camera = new Camera
+        {
+            Id = Guid.CreateVersion7(),
+            ItemName = "APC 42U Server Rack Cabinet",
+            Brand = "APC",
+            Category = ProductCategory.Storage,
+            Uom = UnitOfMeasurement.Piece,
+            Rate = 1200m,
+        };
+        context.Cameras.Add(camera);
+        await context.SaveChangesAsync();
+
+        var result = await new UpdateBoqCommandHandler(context, root, TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22",
+                TermsAndConditions = "30% advance payment with the LPO, 60% upon delivery, 10% upon completion.",
+                Sections =
+                [
+                    new BoqSectionInput
+                    {
+                        Title = BoqSectionTitles.MainCctv,
+                        Lines = [new BoqLineInput { CameraId = camera.Id, Quantity = 1 }],
+                    },
+                ],
+            },
+            CancellationToken.None);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("Say why this approved quotation is being changed.", result.Errors);
+    }
+
+    [Fact]
+    public async Task An_amendment_notes_a_terms_and_conditions_change_alongside_an_item_change_and_the_reason()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var carriedLineId = boq.Sections.Single().Lines.Single().Id;
+        var root = new FakeCurrentUser("Root <admin@jamago.qa>") { IsSuperAdmin = true };
+
+        var camera = new Camera
+        {
+            Id = Guid.CreateVersion7(),
+            ItemName = "APC 42U Server Rack Cabinet",
+            Brand = "APC",
+            Category = ProductCategory.Storage,
+            Uom = UnitOfMeasurement.Piece,
+            Rate = 1200m,
+        };
+        context.Cameras.Add(camera);
+        await context.SaveChangesAsync();
+
+        await new UpdateBoqCommandHandler(context, root, TimeProvider.System).Handle(
+            new UpdateBoqCommand
+            {
+                Id = boq.Id,
+                ProjectName = "Villa 22",
+                AmendmentNote = "Client renegotiated the advance payment after sign-off.",
+                TermsAndConditions = "30% advance payment with the LPO, 60% upon delivery, 10% upon completion.",
+                Sections =
+                [
+                    new BoqSectionInput
+                    {
+                        Title = BoqSectionTitles.MainCctv,
+                        Lines =
+                        [
+                            new BoqLineInput { Id = carriedLineId, Quantity = 1 },
+                            new BoqLineInput { CameraId = camera.Id, Quantity = 1 },
+                        ],
+                    },
+                ],
+            },
+            CancellationToken.None);
+
+        var step = Assert.Single(context.BoqApprovalEvents.ToList());
+        Assert.Equal(
+            "Client renegotiated the advance payment after sign-off. "
+                + "(Added APC 42U Server Rack Cabinet; Terms & Conditions updated)",
             step.Reason);
     }
 

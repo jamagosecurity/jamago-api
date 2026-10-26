@@ -35,18 +35,12 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
     private const string CompanyNameAr = "شركة جاما جو للمعدات الأمنية";
     private const string CompanyPhone1 = "+974 4001 3599";
     private const string CompanyPhone2 = "+974 3064 4006";
-    private const string CompanyEmail = "info@jamaelectronics.com";
+    private const string CompanyEmail = "info@jamago.com";
     private const string CompanyAddress =
         "Showroom, Unit 41, Building 349, St 340, Zone 56, Al Ain Complex, Salwa Road";
 
     private static readonly byte[] LogoBytes =
         LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-logo.png");
-
-    /// <summary>The authorised stamp, same asset and same graceful-degrade
-    /// rule as <see cref="MoiStoragePdfGenerator"/>: absent on disk, the page
-    /// prints without it rather than failing.</summary>
-    private static readonly byte[] StampBytes =
-        LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-stamp.png");
 
     private static byte[] LoadEmbedded(string name)
     {
@@ -115,11 +109,8 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                         col.Item().AlignCenter().Text(CompanyNameAr)
                             .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(InkSoft);
 
-                        if (StampBytes.Length > 0)
-                            col.Item().PaddingTop(10).AlignCenter().Width(150).Image(StampBytes);
-                        else
-                            col.Item().PaddingTop(50).AlignCenter()
-                                .Width(160).BorderBottom(1).BorderColor(Line);
+                        col.Item().PaddingTop(50).AlignCenter()
+                            .Width(160).BorderBottom(1).BorderColor(Line);
                     });
                 });
             }));

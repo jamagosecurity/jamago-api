@@ -71,6 +71,8 @@ public class BoqRetiredItemTests
         public DateOnly? IssueDate => null;
         public BoqStatus Status => BoqStatus.Draft;
         public string? Notes => null;
+        public string? TermsAndConditions => null;
+        public string? TermsAndConditionsAr => null;
         public decimal SpecialDiscount => 0m;
     }
 
