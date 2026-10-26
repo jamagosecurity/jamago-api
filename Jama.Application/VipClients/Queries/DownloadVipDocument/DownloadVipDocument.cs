@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
@@ -42,7 +43,14 @@ public sealed class DownloadVipDocumentQueryHandler(
         if (content is null)
             return ApiResult<VipDocumentContent>.Failure("The stored file is missing.");
 
+        // Transparent either way: a compressed upload (see
+        // UploadVipDocumentCommandHandler) is unwrapped here so the client
+        // always gets back exactly the bytes they sent, never the gzip form.
+        var download = document.IsCompressed
+            ? new GZipStream(content, CompressionMode.Decompress)
+            : content;
+
         return ApiResult<VipDocumentContent>.Success(
-            new VipDocumentContent(content, document.FileName, document.ContentType));
+            new VipDocumentContent(download, document.FileName, document.ContentType));
     }
 }

@@ -1528,6 +1528,9 @@ namespace Jama.Infrastructure.Data.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<bool>("IsCompressed")
+                        .HasColumnType("boolean");
+
                     b.Property<long>("SizeBytes")
                         .HasColumnType("bigint");
 

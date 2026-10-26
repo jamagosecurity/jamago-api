@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
@@ -59,6 +60,22 @@ public sealed class UploadVipDocumentCommandHandler(
             ? Rewind(request.Content)
             : new PrefixedStream(header.AsMemory(0, headerLength), request.Content);
 
+        // Read the whole file in rather than streaming it straight to storage:
+        // deciding whether compression helps needs both sizes up front, and the
+        // validator has already capped this at MAX_UPLOAD_MB.
+        using var originalBuffer = new MemoryStream();
+        await content.CopyToAsync(originalBuffer, cancellationToken);
+        var originalBytes = originalBuffer.GetBuffer().AsMemory(0, (int)originalBuffer.Length);
+
+        // Compressed only when it actually shrinks the file by a margin worth
+        // the CPU cost. An already-compressed format (JPEG, PDF, ZIP, DOCX...)
+        // comes back larger or barely smaller after a second gzip pass; a
+        // legacy binary document or a CSV typically shrinks a lot. Trying it
+        // and keeping whichever is smaller means no file type needs hardcoding.
+        var compressed = await GzipAsync(originalBytes, cancellationToken);
+        var isCompressed = compressed.Length < originalBytes.Length * 0.9;
+        var stored = isCompressed ? compressed : originalBytes.ToArray();
+
         // Key is built entirely from server-side ids — the uploaded name never
         // reaches the filesystem, so it cannot escape the storage root or
         // collide with another client's file.
@@ -72,9 +89,12 @@ public sealed class UploadVipDocumentCommandHandler(
             "vip",
             folder.VipClientId.ToString(),
             folder.Id.ToString(),
-            $"{documentId}{extension}");
+            $"{documentId}{extension}{(isCompressed ? ".gz" : "")}");
 
-        await storage.SaveAsync(content, storageKey, cancellationToken);
+        await using (var storedStream = new MemoryStream(stored, writable: false))
+        {
+            await storage.SaveAsync(storedStream, storageKey, cancellationToken);
+        }
 
         var document = new VipClientDocument
         {
@@ -85,7 +105,10 @@ public sealed class UploadVipDocumentCommandHandler(
             ContentType = string.IsNullOrWhiteSpace(request.ContentType)
                 ? "application/octet-stream"
                 : request.ContentType,
-            SizeBytes = request.SizeBytes,
+            // The original size — what the client downloads back — not how
+            // many bytes sit on disk.
+            SizeBytes = originalBytes.Length,
+            IsCompressed = isCompressed,
             UploadedById = currentUser.UserId,
         };
 
@@ -130,6 +153,17 @@ public sealed class UploadVipDocumentCommandHandler(
     {
         content.Seek(0, SeekOrigin.Begin);
         return content;
+    }
+
+    private static async Task<byte[]> GzipAsync(ReadOnlyMemory<byte> content, CancellationToken cancellationToken)
+    {
+        var output = new MemoryStream();
+        await using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            await gzip.WriteAsync(content, cancellationToken);
+        }
+
+        return output.ToArray();
     }
 
     /// <summary>
