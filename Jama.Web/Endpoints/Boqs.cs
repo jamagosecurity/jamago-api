@@ -5,11 +5,13 @@ using Jama.Application.Boqs.Commands.RejectBoq;
 using Jama.Application.Boqs.Commands.SeenBoqNotifications;
 using Jama.Application.Boqs.Commands.SubmitBoq;
 using Jama.Application.Boqs.Commands.UpdateBoq;
+using Jama.Application.Boqs.Commands.UpdateBoqContractText;
 using Jama.Application.Boqs.Queries.GetBoq;
 using Jama.Application.Boqs.Queries.GetBoqPdf;
 using Jama.Application.Boqs.Queries.GetBoqNotifications;
 using Jama.Application.Boqs.Queries.GetBoqs;
 using Jama.Application.Boqs.Queries.GetContractPdf;
+using Jama.Application.Boqs.Queries.GetDefaultContractText;
 using Jama.Application.Boqs.Queries.GetDefaultTerms;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
@@ -52,6 +54,8 @@ public sealed class Boqs : EndpointGroupBase
             .MapGet(GetDefaultTerms, "default-terms", permission: Permissions.BoqManage)
             .MapGet(GetPdf, "{id:guid}/pdf", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetContractPdf, "{id:guid}/contract", permission: AuthorizationPolicies.BoqRead)
+            .MapGet(GetDefaultContractText, "{id:guid}/default-contract-text", permission: AuthorizationPolicies.BoqRead)
+            .MapPut(UpdateContractText, "{id:guid}/contract-text", permission: Permissions.BoqManage)
             .MapGet(GetById, "{id:guid}", permission: AuthorizationPolicies.BoqRead)
             .MapPost(Create, permission: Permissions.BoqManage)
             .MapPut(Update, "{id:guid}", permission: Permissions.BoqManage)
@@ -170,4 +174,23 @@ public sealed class Boqs : EndpointGroupBase
 
         return Results.File(result.Data.Content, "application/pdf", result.Data.FileName);
     }
+
+    public async Task<IResult> GetDefaultContractText(ISender sender, Guid id, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetDefaultContractTextQuery(id), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    public async Task<IResult> UpdateContractText(
+        ISender sender,
+        Guid id,
+        UpdateContractTextRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(
+            new UpdateBoqContractTextCommand(id, request.ContractText), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
+    }
 }
+
+public sealed record UpdateContractTextRequest(string? ContractText);

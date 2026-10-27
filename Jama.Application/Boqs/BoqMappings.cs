@@ -45,7 +45,9 @@ internal static class BoqMappings
                 .ToList(),
             sections.Select((section, index) => ToDto(section, index + 1)).ToList(),
             entity.CreatedAt,
-            entity.UpdatedAt);
+            entity.UpdatedAt,
+            entity.RevisionNumber,
+            entity.ContractText);
     }
 
     private static BoqSectionDto ToDto(BoqSection section, int number)

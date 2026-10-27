@@ -19,6 +19,7 @@ public sealed class BoqConfiguration : IEntityTypeConfiguration<Boq>
         builder.Property(x => x.Notes).HasMaxLength(2000);
         builder.Property(x => x.TermsAndConditions).HasMaxLength(4000);
         builder.Property(x => x.TermsAndConditionsAr).HasMaxLength(4000);
+        builder.Property(x => x.ContractText).HasMaxLength(12000);
         builder.Property(x => x.ApprovedByName).HasMaxLength(200);
         builder.Property(x => x.RejectedByName).HasMaxLength(200);
         builder.Property(x => x.RejectionReason).HasMaxLength(1000);

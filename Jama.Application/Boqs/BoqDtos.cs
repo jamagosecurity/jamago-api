@@ -79,7 +79,14 @@ public sealed record BoqDto(
     IReadOnlyList<BoqApprovalEventDto> History,
     IReadOnlyList<BoqSectionDto> Sections,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    /// <summary>Starts at 1, increments on every amendment after approval —
+    /// see Boq.RevisionNumber.</summary>
+    int RevisionNumber,
+    /// <summary>The signed contract's own wording, typed by staff over the
+    /// pre-filled default. Null means the contract screen has never been
+    /// saved for this quotation.</summary>
+    string? ContractText);
 
 /// <summary>Row shape for the list — sections and lines are not shown there.</summary>
 public sealed record BoqListItemDto(

@@ -30,6 +30,11 @@ public class GetContractPdfTests
         public byte[] Generate(ContractPdfModel model) => [1, 2, 3];
     }
 
+    private sealed class FakeContractTextTemplate : IContractTextTemplate
+    {
+        public string BuildDefault(ContractTextModel model) => "default contract text";
+    }
+
     private static ApplicationDbContext NewContext() =>
         new(new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase($"contract-pdf-{Guid.NewGuid()}")
@@ -71,7 +76,7 @@ public class GetContractPdfTests
         var actor = new FakeCurrentUser(boq.PreparedById);
 
         var result = await new GetContractPdfQueryHandler(
-            context, new FakeContractPdfGenerator(), actor).Handle(
+            context, new FakeContractPdfGenerator(), new FakeContractTextTemplate(), actor).Handle(
             new GetContractPdfQuery(boq.Id), CancellationToken.None);
 
         Assert.False(result.Succeeded);
@@ -86,11 +91,11 @@ public class GetContractPdfTests
         var actor = new FakeCurrentUser(boq.PreparedById);
 
         var result = await new GetContractPdfQueryHandler(
-            context, new FakeContractPdfGenerator(), actor).Handle(
+            context, new FakeContractPdfGenerator(), new FakeContractTextTemplate(), actor).Handle(
             new GetContractPdfQuery(boq.Id), CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal("JMG-00037 Contract.pdf", result.Data!.FileName);
+        Assert.Equal("JMG-00037 Rev1 Contract.pdf", result.Data!.FileName);
         Assert.NotEmpty(result.Data.Content);
     }
 
@@ -104,7 +109,7 @@ public class GetContractPdfTests
         var stranger = new FakeCurrentUser(Guid.CreateVersion7());
 
         var result = await new GetContractPdfQueryHandler(
-            context, new FakeContractPdfGenerator(), stranger).Handle(
+            context, new FakeContractPdfGenerator(), new FakeContractTextTemplate(), stranger).Handle(
             new GetContractPdfQuery(boq.Id), CancellationToken.None);
 
         Assert.False(result.Succeeded);

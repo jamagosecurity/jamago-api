@@ -105,4 +105,20 @@ public class Boq : BaseEntity
 
     /// <summary>Every approval step, oldest first. Append-only.</summary>
     public ICollection<BoqApprovalEvent> ApprovalEvents { get; set; } = [];
+
+    /// <summary>
+    /// Starts at 1 and increments each time an already-approved quotation is
+    /// amended — see UpdateBoqCommandHandler. Printed on the contract so a
+    /// copy reprinted after a correction says which version of the agreement
+    /// it reflects, the way a drawing's revision block does.
+    /// </summary>
+    public int RevisionNumber { get; set; } = 1;
+
+    /// <summary>
+    /// The signed contract's own wording, typed by staff over the pre-filled
+    /// default — see GetDefaultContractTextQuery. Null means nobody has
+    /// opened the contract screen for this quotation yet, in which case the
+    /// PDF falls back to generating the same default on the spot.
+    /// </summary>
+    public string? ContractText { get; set; }
 }

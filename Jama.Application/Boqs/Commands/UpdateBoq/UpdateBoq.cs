@@ -160,6 +160,13 @@ public sealed class UpdateBoqCommandHandler(
                 combined = combined[..(reasonMaxLength - 1)] + "…";
 
             BoqWorkflow.Record(context, boq, BoqApprovalAction.Amended, actor, now, combined);
+
+            // Rev 1 is the quotation as first approved; every amendment after
+            // that is a new revision of the same agreement — what the
+            // contract's own revision line reflects. A terms-only edit still
+            // counts: the signed document changed, even if the priced items
+            // did not.
+            boq.RevisionNumber += 1;
         }
         // Every save made while reworking a rejection is its own step, not
         // folded into the eventual re-submission — an approver (or the super

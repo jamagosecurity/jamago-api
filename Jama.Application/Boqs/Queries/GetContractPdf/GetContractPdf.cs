@@ -13,6 +13,7 @@ public sealed record GetContractPdfQuery(Guid Id) : IRequest<ApiResult<ContractP
 public sealed class GetContractPdfQueryHandler(
     IApplicationDbContext context,
     IContractPdfGenerator generator,
+    IContractTextTemplate textTemplate,
     ICurrentUser actor)
     : IRequestHandler<GetContractPdfQuery, ApiResult<ContractPdfDto>>
 {
@@ -34,16 +35,24 @@ public sealed class GetContractPdfQueryHandler(
             return ApiResult<ContractPdfDto>.Failure(
                 "A contract can only be generated once this quotation is approved.");
 
-        var model = new ContractPdfModel(
+        // Staff's own wording if the contract screen was ever saved for this
+        // quotation, otherwise the same default that screen pre-fills with —
+        // see GetDefaultContractTextQueryHandler, which builds it the
+        // identical way so the two never drift apart.
+        var body = boq.ContractText ?? textTemplate.BuildDefault(new ContractTextModel(
             boq.BoqNumber,
+            boq.RevisionNumber,
             boq.ApprovedAt!.Value,
             boq.ProjectName,
             boq.SiteLocation,
             boq.ClientName,
-            boq.ContactNumber,
-            boq.GrandTotal);
+            boq.GrandTotal));
+
+        var model = new ContractPdfModel(boq.BoqNumber, boq.RevisionNumber, boq.ApprovedAt!.Value, body);
 
         return ApiResult<ContractPdfDto>.Success(
-            new ContractPdfDto(generator.Generate(model), $"{boq.BoqNumber} Contract.pdf"));
+            new ContractPdfDto(
+                generator.Generate(model),
+                $"{boq.BoqNumber} Rev{boq.RevisionNumber} Contract.pdf"));
     }
 }
