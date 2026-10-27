@@ -45,6 +45,12 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
     private static readonly byte[] LogoBytes =
         LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-logo.png");
 
+    /// <summary>The same pre-faded ~10% lockup BoqPdfGenerator watermarks
+    /// every quotation page with — a signed contract is exactly the kind of
+    /// document that benefits from the same quiet mark of authenticity.</summary>
+    private static readonly byte[] WatermarkBytes =
+        LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-quote-watermark.png");
+
     private static byte[] LoadEmbedded(string name)
     {
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(name);
@@ -78,6 +84,7 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                 page.DefaultTextStyle(x => x.FontSize(9.5f).FontColor(Ink).FontFamily(DocumentFonts.Arabic));
 
                 page.Header().Element(header => ComposeHeader(header, model));
+                page.Background().Element(ComposeWatermark);
                 page.Content().PaddingTop(10).Column(content =>
                 {
                     var first = true;
@@ -102,6 +109,17 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                 page.Footer().Element(ComposeFooter);
             });
         }).GeneratePdf();
+    }
+
+    /// <summary>A faint centred lockup behind every page, same as
+    /// BoqPdfGenerator.ComposeWatermark — pre-faded in the asset itself since
+    /// QuestPDF has no opacity element. Background layer, so it never
+    /// displaces content: the text lays out exactly as it would without it.</summary>
+    private static void ComposeWatermark(IContainer container)
+    {
+        if (WatermarkBytes.Length == 0) return;
+
+        container.AlignCenter().AlignMiddle().Width(300).Image(WatermarkBytes).FitWidth();
     }
 
     // ===== Letterhead =====
@@ -184,9 +202,13 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                     var bulletText = BulletLine.Replace(line, "").Trim();
                     column.Item().PaddingTop(3).ContentFromRightToLeft().Row(row =>
                     {
+                        // Bold throughout, not just the headings — Noto Naskh
+                        // Arabic reads thin at body size in Regular, and a
+                        // legal document's running text needs to be legible
+                        // at a glance, not just technically present.
                         row.RelativeItem().AlignRight().Text(bulletText)
                             .FontFamily(DocumentFonts.Arabic).FontSize(9.5f)
-                            .FontColor(InkSoft).LineHeight(1.5f);
+                            .Bold().FontColor(Ink).LineHeight(1.5f);
                         row.ConstantItem(12).AlignRight().Text("•")
                             .FontSize(9.5f).FontColor(Accent);
                     });
@@ -195,7 +217,7 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
 
                 column.Item().PaddingTop(3).ContentFromRightToLeft().AlignRight()
                     .Text(line).FontFamily(DocumentFonts.Arabic).FontSize(9.5f)
-                    .FontColor(InkSoft).LineHeight(1.55f);
+                    .Bold().FontColor(Ink).LineHeight(1.55f);
             }
         });
     }
