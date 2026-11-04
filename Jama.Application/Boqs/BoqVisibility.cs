@@ -20,14 +20,18 @@ internal static class BoqVisibility
     ///
     /// Approved is public to anyone who can read the module. Before that, a
     /// quotation is visible only to whoever built it, whoever may approve it,
-    /// or an administrator — not to every other builder browsing the list. A
-    /// half-finished quotation nobody chose to submit yet is nobody else's
-    /// business.
+    /// whoever holds boq.viewAll, or an administrator — not to every other
+    /// builder browsing the list by default. A half-finished quotation
+    /// nobody chose to submit yet is nobody else's business UNLESS an admin
+    /// has explicitly granted a account oversight of the whole team's
+    /// quotations via boq.viewAll — see Permissions.BoqViewAll for why that
+    /// is its own grant rather than folded into boq.approve.
     /// </summary>
     internal static bool CanSee(BoqStatus status, Guid preparedById, ICurrentUser actor) =>
         status == BoqStatus.Approved
         || preparedById == actor.UserId
-        || actor.Has(Permissions.BoqApprove);
+        || actor.Has(Permissions.BoqApprove)
+        || actor.Has(Permissions.BoqViewAll);
 
     /// <summary>Whether the PDF served for this status should carry the
     /// "DRAFT — NOT APPROVED" stamp. Everything before Approved does. This is

@@ -58,6 +58,18 @@ public static class Permissions
     /// amendment — see UpdateBoqCommandHandler.</summary>
     public const string BoqAmend = "boq.amend";
 
+    /// <summary>
+    /// Seeing every quotation, not just the holder's own plus whatever is
+    /// Approved — see BoqVisibility.CanSee. Without this, a plain
+    /// boq.manage account can only browse their own drafts and submissions;
+    /// a coordinator or team lead who needs oversight of the whole team's
+    /// quotations, but is not the one approving them, previously had no
+    /// grant that gave them that without also handing them boq.approve's
+    /// power to decide on one. Read-only: implies nothing about building,
+    /// approving, or amending.
+    /// </summary>
+    public const string BoqViewAll = "boq.viewAll";
+
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
@@ -83,6 +95,7 @@ public static class Permissions
         // is enough to open a quotation and decide on it, and nothing else.
         new(BoqApprove, "Approve or reject quotations", "Can open a quotation submitted for approval and approve it, or reject it with a reason. Does not include building or editing quotations."),
         new(BoqAmend, "Change an approved quotation", "Can edit a quotation after it has been approved — price, discount, or the items on it — same as the super administrator can. Every change still needs a reason, recorded on the quotation's history. Includes \"Build quotations & size storage\" automatically, since that's what opens the editor."),
+        new(BoqViewAll, "View all quotations", "Oversight: can browse every quotation in the system, whoever built it and whatever its status — not just their own plus the ones already approved. Read-only: does not include building, approving, or amending."),
         new(DrawingManage, "Build & submit drawings", "Can upload CAD drawings, attach the plotted PDF, and submit a drawing for approval. Cannot approve one — not even their own."),
         new(DrawingApprove, "Approve or reject drawings", "Can open a drawing submitted for approval and approve it, or reject it with a reason. Does not include uploading or editing drawings."),
     ];

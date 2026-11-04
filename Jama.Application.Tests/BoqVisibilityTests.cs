@@ -1,3 +1,4 @@
+using System.Linq;
 using Jama.Application.Boqs;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
@@ -16,14 +17,20 @@ namespace Jama.Application.Tests;
 /// </summary>
 public class BoqVisibilityTests
 {
-    private sealed class FakeCurrentUser(Guid userId, bool canApprove) : ICurrentUser
+    private sealed class FakeCurrentUser(Guid userId, params string[] granted) : ICurrentUser
     {
         public Guid UserId { get; } = userId;
         public string DisplayName => "Test User";
         public string Role => Roles.Staff;
-        public bool Has(string permission) => canApprove && permission == Permissions.BoqApprove;
+        public bool Has(string permission) => granted.Contains(permission);
         public bool IsSuperAdmin => false;
     }
+
+    /// <summary>Shorthand matching the old canApprove: true/false tests —
+    /// grants boq.approve only.</summary>
+    private static FakeCurrentUser Approver(Guid userId) => new(userId, Permissions.BoqApprove);
+
+    private static FakeCurrentUser PlainBuilder(Guid userId) => new(userId);
 
     private static readonly Guid AuthorId = Guid.CreateVersion7();
 
@@ -32,7 +39,7 @@ public class BoqVisibilityTests
     [Fact]
     public void The_author_can_see_their_own_draft()
     {
-        var actor = new FakeCurrentUser(AuthorId, canApprove: false);
+        var actor = PlainBuilder(AuthorId);
 
         Assert.True(BoqVisibility.CanSee(BoqStatus.Draft, AuthorId, actor));
     }
@@ -40,7 +47,7 @@ public class BoqVisibilityTests
     [Fact]
     public void A_different_builder_cannot_see_someone_elses_draft()
     {
-        var actor = new FakeCurrentUser(Guid.CreateVersion7(), canApprove: false);
+        var actor = PlainBuilder(Guid.CreateVersion7());
 
         Assert.False(BoqVisibility.CanSee(BoqStatus.Draft, AuthorId, actor));
     }
@@ -51,7 +58,7 @@ public class BoqVisibilityTests
     [InlineData(BoqStatus.Rejected)]
     public void An_approver_can_see_anyones_unapproved_quotation(BoqStatus status)
     {
-        var actor = new FakeCurrentUser(Guid.CreateVersion7(), canApprove: true);
+        var actor = Approver(Guid.CreateVersion7());
 
         Assert.True(BoqVisibility.CanSee(status, AuthorId, actor));
     }
@@ -59,9 +66,22 @@ public class BoqVisibilityTests
     [Fact]
     public void Anyone_can_see_an_approved_quotation()
     {
-        var actor = new FakeCurrentUser(Guid.CreateVersion7(), canApprove: false);
+        var actor = PlainBuilder(Guid.CreateVersion7());
 
         Assert.True(BoqVisibility.CanSee(BoqStatus.Approved, AuthorId, actor));
+    }
+
+    [Theory]
+    [InlineData(BoqStatus.Draft)]
+    [InlineData(BoqStatus.Submitted)]
+    [InlineData(BoqStatus.Rejected)]
+    public void BoqViewAll_opens_anyones_unapproved_quotation_without_approve(BoqStatus status)
+    {
+        // The whole point of the grant: oversight for someone who is not the
+        // one deciding on it — see Permissions.BoqViewAll.
+        var actor = new FakeCurrentUser(Guid.CreateVersion7(), Permissions.BoqViewAll);
+
+        Assert.True(BoqVisibility.CanSee(status, AuthorId, actor));
     }
 
     // ===== Watermark =====

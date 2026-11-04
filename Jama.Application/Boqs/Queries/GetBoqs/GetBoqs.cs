@@ -48,8 +48,11 @@ public sealed class GetBoqsQueryHandler(IApplicationDbContext context, ICurrentU
             query = query.Where(x => x.Status == status);
 
         // Privacy boundary, not a convenience filter: before Approved, a row is
-        // nobody's business but its author's and whoever can approve it.
-        if (!actor.Has(Permissions.BoqApprove))
+        // nobody's business but its author's, whoever can approve it, or
+        // whoever holds boq.viewAll — see BoqVisibility.CanSee, which this
+        // mirrors for the list query (a per-row method call does not
+        // translate to SQL, so the same rule is expressed inline here).
+        if (!actor.Has(Permissions.BoqApprove) && !actor.Has(Permissions.BoqViewAll))
             query = query.Where(x => x.Status == BoqStatus.Approved || x.PreparedById == actor.UserId);
 
         if (request.MineOnly == true)
