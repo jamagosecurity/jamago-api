@@ -118,7 +118,7 @@ internal static class BoqWriteRules
             .WithMessage($"Discount must be {DiscountMax:N2} or less.");
 
         validator.RuleFor(x => x.RevisionNumber)
-            .InclusiveBetween(1, 999).WithMessage("Revision must be a whole number from 1 to 999.")
+            .InclusiveBetween(0, 999).WithMessage("Revision must be a whole number from 0 to 999.")
             .When(x => x.RevisionNumber.HasValue);
 
         validator.RuleFor(x => x.Sections)

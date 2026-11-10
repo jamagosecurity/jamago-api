@@ -47,16 +47,21 @@ public sealed class GetNonMoiJobBillByTokenQueryHandler(IApplicationDbContext co
     }
 }
 
-/// <summary>The company mailboxes a bill can be sent from: key and address only, never a password. Listed here rather
-/// than through the Company mail screen because the person closing a deal may not be allowed to read the mailboxes.</summary>
-public sealed record GetBillMailboxesQuery : IRequest<ApiResult<IReadOnlyList<BillMailboxDto>>>;
+/// <summary>How a bill can be sent from this server: the company mailboxes (key and address only, never a password) and whether
+/// WhatsApp is set up. Listed here rather than through the Company mail screen because the person sending a bill may not be
+/// allowed to read the mailboxes — and so the page can offer only what will actually work, instead of letting someone tick
+/// WhatsApp and be refused.</summary>
+public sealed record GetBillMailboxesQuery : IRequest<ApiResult<BillSendOptionsDto>>;
 
 public sealed record BillMailboxDto(string Key, string Address);
 
-public sealed class GetBillMailboxesQueryHandler(IOptions<MailSettings> options)
-    : IRequestHandler<GetBillMailboxesQuery, ApiResult<IReadOnlyList<BillMailboxDto>>>
+public sealed record BillSendOptionsDto(IReadOnlyList<BillMailboxDto> Mailboxes, bool WhatsAppAvailable);
+
+public sealed class GetBillMailboxesQueryHandler(IOptions<MailSettings> options, IOptions<TwilioSettings> twilio)
+    : IRequestHandler<GetBillMailboxesQuery, ApiResult<BillSendOptionsDto>>
 {
-    public Task<ApiResult<IReadOnlyList<BillMailboxDto>>> Handle(GetBillMailboxesQuery request, CancellationToken cancellationToken) =>
-        Task.FromResult(ApiResult<IReadOnlyList<BillMailboxDto>>.Success(
-            options.Value.Accounts.Where(a => a.IsConfigured).Select(a => new BillMailboxDto(a.Key, a.Address)).ToList()));
+    public Task<ApiResult<BillSendOptionsDto>> Handle(GetBillMailboxesQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult(ApiResult<BillSendOptionsDto>.Success(new BillSendOptionsDto(
+            options.Value.Accounts.Where(a => a.IsConfigured).Select(a => new BillMailboxDto(a.Key, a.Address)).ToList(),
+            twilio.Value.IsConfigured)));
 }

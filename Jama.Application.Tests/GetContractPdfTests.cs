@@ -101,7 +101,7 @@ public class GetContractPdfTests
             new GetContractPdfQuery(boq.Id), CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal("JMG-00037 Rev1 Contract.pdf", result.Data!.FileName);
+        Assert.Equal("JMG-00037 Rev0 Contract.pdf", result.Data!.FileName);
         Assert.NotEmpty(result.Data.Content);
     }
 

@@ -29,7 +29,7 @@ public sealed class NonMoiJobs : EndpointGroupBase
             .MapPost(Complete, "{id:guid}/complete", AppRoles.Technician)
             .MapPost(Close, "{id:guid}/close", permission: Permissions.NonMoiJobManage)
             .MapGet(GetBill, "{id:guid}/bill", permission: Permissions.NonMoiJobManage)
-            .MapGet(GetMailboxes, "mailboxes", permission: Permissions.NonMoiJobManage)
+            .MapGet(GetMailboxes, "send-options", permission: Permissions.NonMoiJobManage)
             .MapGet(GetAwaitingClose, "awaiting-close", permission: Permissions.NonMoiJobManage)
             // The client's own link: no sign-in, but the unguessable token in it is the key.
             .MapGet(GetBillByToken, "bill/{token}")

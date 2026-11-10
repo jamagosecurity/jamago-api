@@ -70,9 +70,9 @@ public sealed record BoqPdfModel(
     /// can never pass for the real thing if it is forwarded by mistake.</summary>
     public bool Watermark { get; init; }
 
-    /// <summary>1 is the ordinary case and prints nothing; any other number prints beside the quotation number as
+    /// <summary>0 is the first issue and prints nothing; any other number prints beside the quotation number as
     /// "Rev N", so a reader can tell a reissued quotation from the first one.</summary>
-    public int RevisionNumber { get; init; } = 1;
+    public int RevisionNumber { get; init; } = 0;
 
     /// <summary>Whether to print the commercial-offer letter (page 2 — offer
     /// validity, payment terms, delivery, scope, warranty). On by default;

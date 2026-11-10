@@ -397,9 +397,9 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             ? ((long)value).ToString(CultureInfo.InvariantCulture)
             : value.ToString("0.##", CultureInfo.InvariantCulture);
 
-    /// <summary>"JMG-00004" for the first issue; "JMG-00004 · Rev 2" once the revision is anything but 1.</summary>
+    /// <summary>"JMG-00004" for the first issue (revision 0); "JMG-00004 · Rev 1", "Rev 2"… after.</summary>
     private static string NumberWithRevision(BoqPdfModel model) =>
-        model.RevisionNumber > 1 || model.RevisionNumber < 1
+        model.RevisionNumber > 0
             ? $"{model.BoqNumber}  ·  Rev {model.RevisionNumber}"
             : model.BoqNumber;
 

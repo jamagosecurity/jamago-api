@@ -278,7 +278,7 @@ public class NonMoiJobClosingTests
         var token = (await context.NonMoiJobs.SingleAsync()).BillToken!;
 
         Assert.True((await byToken.Handle(new GetNonMoiJobBillByTokenQuery(token), default)).Succeeded);
-        Assert.False((await byToken.Handle(new GetNonMoiJobBillByTokenQuery(token[..^1] + "0"), default)).Succeeded);
+        Assert.False((await byToken.Handle(new GetNonMoiJobBillByTokenQuery(token[..^1] + (token[^1] == '0' ? "1" : "0")), default)).Succeeded);
         Assert.False((await byToken.Handle(new GetNonMoiJobBillByTokenQuery("abc"), default)).Succeeded);
         Assert.False((await byToken.Handle(new GetNonMoiJobBillByTokenQuery(""), default)).Succeeded);
     }
@@ -470,5 +470,18 @@ public class NonMoiJobClosingTests
 
         await held.Items[0](CancellationToken.None);                               // when the worker gets to it, they go out
         Assert.Equal(2, mail.All.Count);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_page_is_told_whether_whatsapp_is_available_and_which_mailboxes_can_send(bool configured)
+    {
+        var result = await new GetBillMailboxesQueryHandler(Mail(), Twilio(configured)).Handle(new GetBillMailboxesQuery(), default);
+
+        Assert.Equal(configured, result.Data!.WhatsAppAvailable);
+        var box = Assert.Single(result.Data.Mailboxes);
+        Assert.Equal("info", box.Key);
+        Assert.Equal("info@jamago.qa", box.Address);
     }
 }

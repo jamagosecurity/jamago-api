@@ -44,7 +44,7 @@ public sealed class CreateBoqCommandHandler(
             PreparedById = actor.UserId,
             PreparedByName = actor.DisplayName,
             CreatedAt = now,
-            RevisionNumber = request.RevisionNumber ?? 1,
+            RevisionNumber = request.RevisionNumber ?? 0,
         };
 
         var (error, sections) = await BoqWriter.BuildAsync(

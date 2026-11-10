@@ -107,12 +107,12 @@ public class Boq : BaseEntity
     public ICollection<BoqApprovalEvent> ApprovalEvents { get; set; } = [];
 
     /// <summary>
-    /// Starts at 1 and increments each time an already-approved quotation is
+    /// Starts at 0 (first issue, nothing printed) and increments each time an already-approved quotation is
     /// amended — see UpdateBoqCommandHandler. Printed on the contract so a
     /// copy reprinted after a correction says which version of the agreement
     /// it reflects, the way a drawing's revision block does.
     /// </summary>
-    public int RevisionNumber { get; set; } = 1;
+    public int RevisionNumber { get; set; } = 0;
 
     /// <summary>
     /// The signed contract's own wording, typed by staff over the pre-filled

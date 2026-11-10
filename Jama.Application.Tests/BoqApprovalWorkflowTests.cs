@@ -759,13 +759,13 @@ public class BoqApprovalWorkflowTests
     public async Task A_quotation_starts_at_revision_1_and_an_edit_that_leaves_it_alone_keeps_it()
     {
         var (context, boq) = await SeedAsync(BoqStatus.Draft);
-        Assert.Equal(1, boq.RevisionNumber);
+        Assert.Equal(0, boq.RevisionNumber);
 
         var result = await new UpdateBoqCommandHandler(context, new FakeCurrentUser("Sara"), TimeProvider.System)
             .Handle(Edit(boq.Id, null), CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(1, boq.RevisionNumber);
+        Assert.Equal(0, boq.RevisionNumber);
     }
 
     [Fact]
@@ -788,10 +788,10 @@ public class BoqApprovalWorkflowTests
 
         // The page always sends the box's current value; unchanged means "I did not touch it".
         var result = await new UpdateBoqCommandHandler(context, manager, TimeProvider.System)
-            .Handle(Edit(boq.Id, 1, "Corrected the discount."), CancellationToken.None);
+            .Handle(Edit(boq.Id, 0, "Corrected the discount."), CancellationToken.None);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(2, boq.RevisionNumber);
+        Assert.Equal(1, boq.RevisionNumber);
     }
 
     [Fact]
@@ -808,9 +808,9 @@ public class BoqApprovalWorkflowTests
     }
 
     [Theory]
-    [InlineData(1, true)]
+    [InlineData(0, true)]
     [InlineData(999, true)]
-    [InlineData(0, false)]
+    [InlineData(-1, false)]
     [InlineData(-2, false)]
     [InlineData(1000, false)]
     public void The_revision_must_be_a_whole_number_from_1_to_999(int revision, bool valid)
