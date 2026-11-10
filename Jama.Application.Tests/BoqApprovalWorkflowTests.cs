@@ -1,3 +1,4 @@
+using Jama.Application.Boqs.Commands.CreateBoq;
 using Jama.Application.Boqs.Commands.ApproveBoq;
 using Jama.Application.Boqs.Commands.RejectBoq;
 using Jama.Application.Boqs.Commands.SubmitBoq;
@@ -747,5 +748,80 @@ public class BoqApprovalWorkflowTests
             });
 
         Assert.True(result.IsValid);
+    }
+
+    // ===== Revision box =====
+
+    private static UpdateBoqCommand Edit(Guid id, int? revision, string? note = null) =>
+        new() { Id = id, ProjectName = "Villa 22", Sections = [], RevisionNumber = revision, AmendmentNote = note };
+
+    [Fact]
+    public async Task A_quotation_starts_at_revision_1_and_an_edit_that_leaves_it_alone_keeps_it()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Draft);
+        Assert.Equal(1, boq.RevisionNumber);
+
+        var result = await new UpdateBoqCommandHandler(context, new FakeCurrentUser("Sara"), TimeProvider.System)
+            .Handle(Edit(boq.Id, null), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(1, boq.RevisionNumber);
+    }
+
+    [Fact]
+    public async Task Typing_a_revision_on_a_draft_sets_it()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Draft);
+
+        var result = await new UpdateBoqCommandHandler(context, new FakeCurrentUser("Sara"), TimeProvider.System)
+            .Handle(Edit(boq.Id, 3), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(3, boq.RevisionNumber);
+    }
+
+    [Fact]
+    public async Task Amending_an_approved_quotation_still_adds_one_when_the_box_is_left_alone()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var manager = new FakeCurrentUser("Fatima") { Granted = [Permissions.BoqAmend] };
+
+        // The page always sends the box's current value; unchanged means "I did not touch it".
+        var result = await new UpdateBoqCommandHandler(context, manager, TimeProvider.System)
+            .Handle(Edit(boq.Id, 1, "Corrected the discount."), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, boq.RevisionNumber);
+    }
+
+    [Fact]
+    public async Task Amending_with_a_revision_typed_in_wins_over_the_automatic_one()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var manager = new FakeCurrentUser("Fatima") { Granted = [Permissions.BoqAmend] };
+
+        var result = await new UpdateBoqCommandHandler(context, manager, TimeProvider.System)
+            .Handle(Edit(boq.Id, 5, "Re-issued after the site visit."), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(5, boq.RevisionNumber);
+    }
+
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(999, true)]
+    [InlineData(0, false)]
+    [InlineData(-2, false)]
+    [InlineData(1000, false)]
+    public void The_revision_must_be_a_whole_number_from_1_to_999(int revision, bool valid)
+    {
+        var result = new CreateBoqCommandValidator().Validate(new CreateBoqCommand
+        {
+            ProjectName = "Villa 22",
+            RevisionNumber = revision,
+            Sections = [new BoqSectionInput { Title = BoqSectionTitles.MainCctv, Lines = [new BoqLineInput { CameraId = Guid.NewGuid(), Quantity = 1 }] }],
+        });
+
+        Assert.Equal(valid, !result.Errors.Any(e => e.PropertyName == nameof(CreateBoqCommand.RevisionNumber)));
     }
 }

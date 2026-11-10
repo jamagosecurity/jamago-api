@@ -25,6 +25,7 @@ public sealed record UpdateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
 
     /// <summary>A lump sum off the finished quotation, in QAR.</summary>
     public decimal SpecialDiscount { get; init; }
+    public int? RevisionNumber { get; init; }
     public IReadOnlyList<BoqSectionInput> Sections { get; init; } = [];
 
     /// <summary>Why an already-approved quotation is being changed. Required
@@ -166,7 +167,12 @@ public sealed class UpdateBoqCommandHandler(
             // contract's own revision line reflects. A terms-only edit still
             // counts: the signed document changed, even if the priced items
             // did not.
-            boq.RevisionNumber += 1;
+            //
+            // If the person typed a revision of their own in the same save, theirs wins; the automatic +1 is
+            // only for when they left the box alone.
+            boq.RevisionNumber = request.RevisionNumber is { } typed && typed != boq.RevisionNumber
+                ? typed
+                : boq.RevisionNumber + 1;
         }
         // Every save made while reworking a rejection is its own step, not
         // folded into the eventual re-submission — an approver (or the super
@@ -177,6 +183,10 @@ public sealed class UpdateBoqCommandHandler(
             BoqWorkflow.Record(
                 context, boq, BoqApprovalAction.Revised, actor, now,
                 SummarizeItemChanges(previousItems!, sections));
+
+        // Before approval there is no amendment to count, so the box simply says what it says.
+        if (!amending && request.RevisionNumber is { } revision)
+            boq.RevisionNumber = revision;
 
         boq.UpdatedAt = now;
         await context.SaveChangesAsync(cancellationToken);

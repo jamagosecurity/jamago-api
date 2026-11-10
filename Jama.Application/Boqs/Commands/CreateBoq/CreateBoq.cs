@@ -19,6 +19,7 @@ public sealed record CreateBoqCommand : IRequest<ApiResult<BoqDto>>, IBoqWrite
 
     /// <summary>A lump sum off the finished quotation, in QAR.</summary>
     public decimal SpecialDiscount { get; init; }
+    public int? RevisionNumber { get; init; }
     public IReadOnlyList<BoqSectionInput> Sections { get; init; } = [];
 }
 
@@ -43,6 +44,7 @@ public sealed class CreateBoqCommandHandler(
             PreparedById = actor.UserId,
             PreparedByName = actor.DisplayName,
             CreatedAt = now,
+            RevisionNumber = request.RevisionNumber ?? 1,
         };
 
         var (error, sections) = await BoqWriter.BuildAsync(

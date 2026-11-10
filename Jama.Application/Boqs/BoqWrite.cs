@@ -74,6 +74,10 @@ public interface IBoqWrite
     /// agreed, which is the ordinary case.</summary>
     decimal SpecialDiscount { get; }
 
+    /// <summary>The revision shown on the quotation. Null leaves it alone (new quotations start at 1). 1 is the
+    /// ordinary case and prints nothing; any other number prints on the quotation PDF as "Rev N".</summary>
+    int? RevisionNumber => null;
+
     IReadOnlyList<BoqSectionInput> Sections { get; }
 }
 
@@ -112,6 +116,10 @@ internal static class BoqWriteRules
             .GreaterThanOrEqualTo(0m).WithMessage("Discount cannot be negative.")
             .LessThanOrEqualTo(DiscountMax)
             .WithMessage($"Discount must be {DiscountMax:N2} or less.");
+
+        validator.RuleFor(x => x.RevisionNumber)
+            .InclusiveBetween(1, 999).WithMessage("Revision must be a whole number from 1 to 999.")
+            .When(x => x.RevisionNumber.HasValue);
 
         validator.RuleFor(x => x.Sections)
             .NotEmpty().WithMessage("Add at least one section.")

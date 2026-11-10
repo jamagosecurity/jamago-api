@@ -397,6 +397,12 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             ? ((long)value).ToString(CultureInfo.InvariantCulture)
             : value.ToString("0.##", CultureInfo.InvariantCulture);
 
+    /// <summary>"JMG-00004" for the first issue; "JMG-00004 · Rev 2" once the revision is anything but 1.</summary>
+    private static string NumberWithRevision(BoqPdfModel model) =>
+        model.RevisionNumber > 1 || model.RevisionNumber < 1
+            ? $"{model.BoqNumber}  ·  Rev {model.RevisionNumber}"
+            : model.BoqNumber;
+
     public byte[] Generate(BoqPdfModel model)
     {
         DocumentFonts.EnsureRegistered();
@@ -493,7 +499,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             column.Item().PaddingTop(52).AlignCenter().Text(text =>
             {
                 text.Span("Ref No: ").FontSize(11).FontColor(InkSoft);
-                text.Span(model.BoqNumber).FontSize(11).Bold().FontColor(Ink);
+                text.Span(NumberWithRevision(model)).FontSize(11).Bold().FontColor(Ink);
             });
 
             // Boxed rather than merely bold: the rule around it is what makes
@@ -625,7 +631,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             column.Item().PaddingTop(6).Text(text =>
             {
                 text.Span("Ref No: ").FontSize(9).FontColor(InkSoft);
-                text.Span(model.BoqNumber).FontSize(9).Bold().FontColor(Ink);
+                text.Span(NumberWithRevision(model)).FontSize(9).Bold().FontColor(Ink);
             });
 
             column.Item().PaddingTop(8).Height(2).Background(Brand);
@@ -925,7 +931,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     right.Item().PaddingTop(3).Text(text =>
                     {
                         text.Span("Quotation no  ").FontSize(9).FontColor(Muted);
-                        text.Span(model.BoqNumber).FontSize(12).Bold().FontColor(Ink);
+                        text.Span(NumberWithRevision(model)).FontSize(12).Bold().FontColor(Ink);
                     });
                 });
             });
@@ -1382,7 +1388,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             column.Item().PaddingBottom(5).Height(1).Background(Line);
             column.Item().Row(row =>
             {
-                row.RelativeItem().Text($"Jama Go Security Equipment · Doha, Qatar · {model.BoqNumber}")
+                row.RelativeItem().Text($"Jama Go Security Equipment · Doha, Qatar · {NumberWithRevision(model)}")
                     .FontSize(7.5f).FontColor(Muted);
 
                 row.RelativeItem().AlignRight().Text(text =>

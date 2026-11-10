@@ -132,6 +132,7 @@ public sealed class GetBoqPdfQueryHandler(
             sections)
         {
             Watermark = BoqVisibility.Watermark(boq.Status),
+            RevisionNumber = boq.RevisionNumber,
             IncludeTermsPage = request.IncludeTermsPage,
             TermsOverride = boq.TermsAndConditions,
             TermsOverrideAr = boq.TermsAndConditionsAr,
