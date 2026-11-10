@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.Configure<AdminSeedSettings>(config.GetSection(AdminSeedSettings.SectionName));
         services.Configure<FileStorageSettings>(config.GetSection(FileStorageSettings.SectionName));
         services.Configure<TwilioSettings>(config.GetSection(TwilioSettings.SectionName));
+        services.Configure<MailSettings>(config.GetSection(MailSettings.SectionName));
 
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseNpgsql(config.GetConnectionString("DefaultConnection")));
@@ -44,6 +45,8 @@ public static class DependencyInjection
         services.AddSingleton<IPdfWatermarker, PdfWatermarker>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IWhatsAppSender, TwilioWhatsAppSender>();
+        services.AddHostedService<Jama.Infrastructure.Mail.MailSyncService>();
+        services.AddSingleton<IMailSender, Jama.Infrastructure.Mail.MailSender>();
 
         return services;
     }

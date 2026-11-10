@@ -27,7 +27,13 @@ public class GetContractPdfTests
 
     private sealed class FakeContractPdfGenerator : IContractPdfGenerator
     {
-        public byte[] Generate(ContractPdfModel model) => [1, 2, 3];
+        public ContractPdfModel? Last { get; private set; }
+
+        public byte[] Generate(ContractPdfModel model)
+        {
+            Last = model;
+            return [1, 2, 3];
+        }
     }
 
     private sealed class FakeContractTextTemplate : IContractTextTemplate
@@ -114,5 +120,52 @@ public class GetContractPdfTests
 
         Assert.False(result.Succeeded);
         Assert.Contains("BOQ not found.", result.Errors);
+    }
+
+    [Fact]
+    public async Task The_contract_carries_the_project_name_and_the_quotations_prices()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        boq.SpecialDiscount = 46_097m;
+        boq.Sections.Add(new BoqSection
+        {
+            Id = Guid.CreateVersion7(), BoqId = boq.Id, Title = "Main CCTV System", SortOrder = 1,
+            Lines =
+            [
+                new BoqLine { Id = Guid.CreateVersion7(), ItemName = "NVR 32-Channel", Brand = "Hikvision", ModelNo = "DS-7732", Quantity = 2, UnitRate = 3_900m, LineTotal = 7_800m, SortOrder = 1 },
+                new BoqLine { Id = Guid.CreateVersion7(), ItemName = "Cable roll", Quantity = 10, UnitRate = 150m, LineTotal = 1_500m, SortOrder = 2 },
+            ],
+        });
+        await context.SaveChangesAsync();
+        var generator = new FakeContractPdfGenerator();
+
+        var result = await new GetContractPdfQueryHandler(
+            context, generator, new FakeContractTextTemplate(), new FakeCurrentUser(boq.PreparedById)).Handle(
+            new GetContractPdfQuery(boq.Id), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        var model = generator.Last!;
+        Assert.Equal("Villa 22", model.ProjectName);
+        var prices = Assert.IsType<ContractPriceSchedule>(model.Prices);
+        var section = Assert.Single(prices.Sections);
+        Assert.Equal("Main CCTV System", section.Title);
+        Assert.Equal(2, section.Lines.Count);
+        Assert.Equal("1.1", section.Lines[0].Number);
+        Assert.Equal(9_300m, section.Subtotal);
+        Assert.Equal(46_097m, prices.SpecialDiscount);
+        Assert.Equal(2_246_097m, prices.GrandTotal);
+    }
+
+    [Fact]
+    public async Task A_quotation_with_no_lines_gets_a_contract_without_a_price_schedule()
+    {
+        var (context, boq) = await SeedAsync(BoqStatus.Approved);
+        var generator = new FakeContractPdfGenerator();
+
+        await new GetContractPdfQueryHandler(
+            context, generator, new FakeContractTextTemplate(), new FakeCurrentUser(boq.PreparedById)).Handle(
+            new GetContractPdfQuery(boq.Id), CancellationToken.None);
+
+        Assert.Null(generator.Last!.Prices);
     }
 }

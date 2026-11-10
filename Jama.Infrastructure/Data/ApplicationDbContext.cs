@@ -32,6 +32,15 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<DrawingFile> DrawingFiles => Set<DrawingFile>();
     public DbSet<DrawingApprovalEvent> DrawingApprovalEvents => Set<DrawingApprovalEvent>();
     public DbSet<ClientRegistration> ClientRegistrations => Set<ClientRegistration>();
+    public DbSet<MaintenanceRequest> MaintenanceRequests => Set<MaintenanceRequest>();
+    public DbSet<MaintenanceRequestLine> MaintenanceRequestLines => Set<MaintenanceRequestLine>();
+    public DbSet<MaintenanceCatalogueItem> MaintenanceCatalogueItems => Set<MaintenanceCatalogueItem>();
+    public DbSet<MaintenanceCatalogueImage> MaintenanceCatalogueImages => Set<MaintenanceCatalogueImage>();
+    public DbSet<NonMoiJob> NonMoiJobs => Set<NonMoiJob>();
+    public DbSet<NonMoiJobLine> NonMoiJobLines => Set<NonMoiJobLine>();
+    public DbSet<MailMessage> MailMessages => Set<MailMessage>();
+    public DbSet<MailAccountState> MailAccountStates => Set<MailAccountState>();
+    public DbSet<MailSendLog> MailSendLogs => Set<MailSendLog>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

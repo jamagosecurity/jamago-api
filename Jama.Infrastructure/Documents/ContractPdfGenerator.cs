@@ -25,14 +25,17 @@ namespace Jama.Infrastructure.Documents;
 /// </summary>
 public sealed class ContractPdfGenerator : IContractPdfGenerator
 {
-    private static readonly Color Ink = Color.FromHex("#0F2846");
-    private static readonly Color InkSoft = Color.FromHex("#3E5872");
-    private static readonly Color Muted = Color.FromHex("#7C93A6");
-    private static readonly Color Line = Color.FromHex("#E3EBF1");
+    // One rule for the whole document: all running text is black, and every heading, table header and the
+    // footer band use the same single blue. Nothing else is coloured.
+    private static readonly Color Ink = Color.FromHex("#000000");
+    private static readonly Color Blue = Color.FromHex("#1B4F9C");
+    private static readonly Color Line = Color.FromHex("#C9D6EA");
+    private static readonly Color SectionBg = Color.FromHex("#EAF0FA");
     private static readonly Color White = Color.FromHex("#FFFFFF");
-    private static readonly Color FooterBg = Color.FromHex("#0F2846");
-    private static readonly Color Brand = Color.FromHex("#2594D2");
-    private static readonly Color Accent = Color.FromHex("#F6993D");
+    private static readonly Color FooterBg = Blue;
+    private static readonly Color Brand = Blue;
+    private static readonly Color Accent = Blue;
+    private static readonly Color InkSoft = Ink;
 
     private const string CompanyName = "JAMA GO SECURITY EQUIPMENTS";
     private const string CompanyNameAr = "شركة جاما جو للمعدات الأمنية";
@@ -69,6 +72,14 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
     /// than a plain paragraph.</summary>
     private static readonly Regex BulletLine = new(@"^-\s+", RegexOptions.Compiled);
 
+    /// <summary>One instalment line of the payment clause, exactly as the default wording writes it:
+    /// "- الدفعة الأولى 20% بمبلغ 449,219.40 ريال قطري: دفعة مقدمة عند توقيع العقد."
+    /// Groups: name, percent, amount, when it falls due. Anything staff reword so this no longer matches
+    /// simply prints as ordinary bullets — the table is a nicer view of the text, never a replacement for it.</summary>
+    private static readonly Regex PaymentRow = new(
+        @"^-\s+(الدفعة\s+\S+)\s+(\d+(?:[.,]\d+)?)\s*%\s+بمبلغ\s+([\d,]+(?:\.\d+)?)\s+ريال\s+قطري\s*[:：]\s*(.+?)\.?$",
+        RegexOptions.Compiled);
+
     public byte[] Generate(ContractPdfModel model)
     {
         DocumentFonts.EnsureRegistered();
@@ -80,7 +91,11 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
             container.Page(page =>
             {
                 page.Size(PageSizes.A4);
-                page.Margin(28);
+                // Generous, even margins: 15 mm at the sides, a little less above and below, so the
+                // text never crowds the paper edge when the document is printed or bound.
+                page.MarginHorizontal(44);
+                page.MarginTop(30);
+                page.MarginBottom(24);
                 page.DefaultTextStyle(x => x.FontSize(9.5f).FontColor(Ink).FontFamily(DocumentFonts.Arabic));
 
                 page.Header().Element(header => ComposeHeader(header, model));
@@ -95,13 +110,29 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                         // body of the agreement, right-aligned like the rest.
                         if (first)
                         {
-                            content.Item().AlignCenter().Text(paragraph)
-                                .FontSize(13).Bold().FontColor(Ink);
+                            content.Item().PaddingTop(4).Column(title =>
+                            {
+                                // The title is the first thing read: large, heavy, blue, with a thick rule under it.
+                                title.Item().AlignCenter().Text(paragraph)
+                                    .FontSize(24).ExtraBold().FontColor(Blue);
+                                title.Item().PaddingTop(6).AlignCenter().Width(150).Height(3).Background(Blue);
+                                if (!string.IsNullOrWhiteSpace(model.ProjectName))
+                                    title.Item().PaddingTop(10).AlignCenter().Text(model.ProjectName.Trim())
+                                        .FontSize(15).Bold().FontColor(Ink);
+                            });
                             first = false;
                             continue;
                         }
 
                         content.Item().PaddingTop(10).Element(x => ComposeParagraph(x, paragraph));
+                    }
+
+                    // The price schedule starts on a fresh page, so the amounts read as one block rather than
+                    // being split from their heading by the end of a clause.
+                    if (model.Prices is { Sections.Count: > 0 } prices)
+                    {
+                        content.Item().PageBreak();
+                        content.Item().Element(x => ComposePrices(x, prices));
                     }
 
                     content.Item().PaddingTop(28).Element(x => ComposeSignatures(x));
@@ -153,12 +184,12 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
 
     private static void ComposeFooter(IContainer container)
     {
-        container.Background(FooterBg).PaddingVertical(8).PaddingHorizontal(16).Row(row =>
+        container.PaddingTop(6).Background(FooterBg).PaddingVertical(9).PaddingHorizontal(16).Row(row =>
         {
             row.RelativeItem().Text($"{CompanyPhone1}   {CompanyPhone2}")
-                .FontSize(7.5f).FontColor(White);
-            row.RelativeItem().AlignCenter().Text(CompanyEmail).FontSize(7.5f).FontColor(White);
-            row.RelativeItem().AlignRight().Text(CompanyAddress).FontSize(7).FontColor(White);
+                .FontSize(8).Bold().FontColor(White);
+            row.RelativeItem().AlignCenter().Text(CompanyEmail).FontSize(8).Bold().FontColor(White);
+            row.RelativeItem().AlignRight().Text(CompanyAddress).FontSize(7.5f).FontColor(White);
         });
     }
 
@@ -182,8 +213,29 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
 
         container.Column(column =>
         {
-            foreach (var line in lines)
+            for (var index = 0; index < lines.Count; index++)
             {
+                var line = lines[index];
+
+                // Two or more payment lines in a row read as a schedule, so they print as a table.
+                if (PaymentRow.IsMatch(line))
+                {
+                    var run = new List<Match>();
+                    var next = index;
+                    while (next < lines.Count && PaymentRow.Match(lines[next]) is { Success: true } match)
+                    {
+                        run.Add(match);
+                        next++;
+                    }
+
+                    if (run.Count >= 2)
+                    {
+                        column.Item().PaddingTop(8).Element(x => ComposePaymentTable(x, run));
+                        index = next - 1;
+                        continue;
+                    }
+                }
+
                 if (ClauseHeading.IsMatch(line))
                 {
                     // A heading carries its own rule underneath, the same way
@@ -191,9 +243,9 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                     // the one visual cue that says "new clause starts here"
                     // without staff having to add spacing by hand.
                     column.Item().PaddingTop(6).ContentFromRightToLeft().AlignRight()
-                        .Text(line).FontFamily(DocumentFonts.Arabic).FontSize(11)
-                        .Bold().FontColor(Brand);
-                    column.Item().PaddingTop(2).Height(1).Background(Line);
+                        .Text(line).FontFamily(DocumentFonts.Arabic).FontSize(12)
+                        .Bold().FontColor(Blue);
+                    column.Item().PaddingTop(2).Height(1.5f).Background(Blue);
                     continue;
                 }
 
@@ -222,6 +274,197 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
         });
     }
 
+    // ===== Payment schedule table =====
+
+    /// <summary>The instalments as a table: payment, percentage, amount, when it falls due — then a total row
+    /// that sums the amounts so a reader can see at a glance that the four add up to the contract value.</summary>
+    private static void ComposePaymentTable(IContainer container, IReadOnlyList<Match> rows)
+    {
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        decimal? amountSum = 0, percentSum = 0;
+        foreach (var row in rows)
+        {
+            if (decimal.TryParse(row.Groups[3].Value.Replace(",", ""), System.Globalization.NumberStyles.Number, invariant, out var amount))
+                amountSum += amount;
+            else
+                amountSum = null;
+            if (decimal.TryParse(row.Groups[2].Value.Replace(",", "."), System.Globalization.NumberStyles.Number, invariant, out var percent))
+                percentSum += percent;
+            else
+                percentSum = null;
+        }
+
+        // Right-to-left, like the clause around it: the first column (the instalment's name) sits on the right.
+        container.ContentFromRightToLeft().Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.ConstantColumn(78);    // الدفعة
+                columns.ConstantColumn(46);    // النسبة
+                columns.ConstantColumn(96);    // المبلغ
+                columns.RelativeColumn(1);     // موعد الاستحقاق
+            });
+
+            table.Header(header =>
+            {
+                PaymentHeader(header.Cell(), "الدفعة");
+                PaymentHeader(header.Cell(), "النسبة");
+                PaymentHeader(header.Cell(), "المبلغ (ريال قطري)");
+                PaymentHeader(header.Cell(), "موعد الاستحقاق");
+            });
+
+            foreach (var row in rows)
+            {
+                PaymentCell(table.Cell()).AlignRight().Text(row.Groups[1].Value).Bold();
+                PaymentCell(table.Cell()).AlignCenter().Text($"{row.Groups[2].Value}%").Bold();
+                PaymentCell(table.Cell()).AlignCenter().Text(row.Groups[3].Value).Bold();
+                PaymentCell(table.Cell()).AlignRight().Text(row.Groups[4].Value.Trim()).LineHeight(1.5f);
+            }
+
+            if (amountSum is { } total && percentSum is { } percentTotal)
+            {
+                table.Cell().Background(SectionBg).BorderTop(1).BorderColor(Blue).PaddingVertical(6).PaddingHorizontal(6)
+                    .AlignRight().Text("الإجمالي").Bold().FontColor(Blue);
+                table.Cell().Background(SectionBg).BorderTop(1).BorderColor(Blue).PaddingVertical(6).PaddingHorizontal(6)
+                    .AlignCenter().Text($"{percentTotal.ToString("0.##", invariant)}%").Bold().FontColor(Blue);
+                table.Cell().Background(SectionBg).BorderTop(1).BorderColor(Blue).PaddingVertical(6).PaddingHorizontal(6)
+                    .AlignCenter().Text(total.ToString("N2", invariant)).Bold().FontColor(Blue);
+                table.Cell().Background(SectionBg).BorderTop(1).BorderColor(Blue).PaddingVertical(6).PaddingHorizontal(6)
+                    .Text(string.Empty);
+            }
+        });
+    }
+
+    private static void PaymentHeader(IContainer cell, string text) =>
+        cell.Background(Blue).PaddingVertical(6).PaddingHorizontal(6).AlignCenter()
+            .Text(text).FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(White);
+
+    private static IContainer PaymentCell(IContainer cell) =>
+        cell.BorderBottom(0.75f).BorderColor(Line).PaddingVertical(6).PaddingHorizontal(6)
+            .DefaultTextStyle(x => x.FontFamily(DocumentFonts.Arabic).FontSize(9.5f).FontColor(Ink));
+
+    // ===== Price schedule =====
+
+    private static string Money(decimal value) => value.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string Qty(decimal value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The quotation's amounts, printed inside the contract: a table per section, then the totals.</summary>
+    private static void ComposePrices(IContainer container, ContractPriceSchedule prices)
+    {
+        container.Column(column =>
+        {
+            column.Item().Column(heading =>
+            {
+                heading.Item().AlignCenter().Text("جدول الكميات والأسعار")
+                    .FontFamily(DocumentFonts.Arabic).FontSize(17).ExtraBold().FontColor(Blue);
+                heading.Item().AlignCenter().Text("Bill of quantities & prices")
+                    .FontSize(10).Bold().FontColor(Ink);
+                heading.Item().PaddingTop(6).Height(3).Background(Blue);
+            });
+
+            foreach (var section in prices.Sections)
+                column.Item().PaddingTop(14).Element(x => ComposePriceSection(x, section));
+
+            column.Item().PaddingTop(16).Element(x => ComposePriceTotals(x, prices));
+        });
+    }
+
+    private static void ComposePriceSection(IContainer container, BoqPdfSection section)
+    {
+        container.Column(column =>
+        {
+            column.Item().Background(SectionBg).PaddingVertical(6).PaddingHorizontal(8)
+                .Text($"{section.Number}.  {section.Title}").FontSize(10.5f).Bold().FontColor(Blue);
+
+            column.Item().Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.ConstantColumn(32);    // no.
+                    columns.RelativeColumn(1);     // description
+                    columns.ConstantColumn(36);    // unit
+                    columns.ConstantColumn(36);    // qty
+                    columns.ConstantColumn(66);    // unit price
+                    columns.ConstantColumn(76);    // total
+                });
+
+                table.Header(header =>
+                {
+                    PriceHeader(header.Cell(), "م", "No.");
+                    PriceHeader(header.Cell(), "البيان", "Description");
+                    PriceHeader(header.Cell(), "الوحدة", "Unit");
+                    PriceHeader(header.Cell(), "الكمية", "Qty");
+                    PriceHeader(header.Cell(), "سعر الوحدة", "Unit price");
+                    PriceHeader(header.Cell(), "الإجمالي", "Total");
+                });
+
+                foreach (var line in section.Lines)
+                {
+                    PriceCell(table.Cell()).Text(line.Number).FontSize(9);
+                    PriceCell(table.Cell()).Column(cell =>
+                    {
+                        cell.Item().Text(line.ItemName).FontSize(9.5f).Bold();
+                        var detail = string.Join("  ·  ", new[] { line.Brand, line.Type, line.ModelNo }
+                            .Where(v => !string.IsNullOrWhiteSpace(v)));
+                        if (detail.Length > 0)
+                            cell.Item().PaddingTop(1).Text(detail).FontSize(8);
+                    });
+                    PriceCell(table.Cell()).AlignCenter().Text(line.Uom).FontSize(9);
+                    PriceCell(table.Cell()).AlignCenter().Text(Qty(line.Quantity)).FontSize(9);
+                    PriceCell(table.Cell()).AlignRight().Text(Money(line.UnitRate)).FontSize(9);
+                    PriceCell(table.Cell()).AlignRight().Text(Money(line.LineTotal)).FontSize(9.5f).Bold();
+                }
+
+                // The section's own total, under its column of line totals.
+                table.Cell().ColumnSpan(5).BorderTop(1).BorderColor(Blue).PaddingVertical(5).PaddingHorizontal(5)
+                    .AlignRight().Text("Section total / إجمالي القسم").FontSize(9).Bold().FontColor(Blue);
+                table.Cell().BorderTop(1).BorderColor(Blue).PaddingVertical(5).PaddingHorizontal(5)
+                    .AlignRight().Text(Money(section.Subtotal)).FontSize(9.5f).Bold().FontColor(Blue);
+            });
+        });
+    }
+
+    /// <summary>A blue header cell, Arabic over English, white text.</summary>
+    private static void PriceHeader(IContainer cell, string arabic, string english)
+    {
+        cell.Background(Blue).PaddingVertical(5).PaddingHorizontal(4).Column(inner =>
+        {
+            inner.Item().AlignCenter().Text(arabic).FontFamily(DocumentFonts.Arabic)
+                .FontSize(8.5f).Bold().FontColor(White);
+            inner.Item().AlignCenter().Text(english).FontSize(7.5f).Bold().FontColor(White);
+        });
+    }
+
+    /// <summary>A body cell: black text, a hairline under it, even padding.</summary>
+    private static IContainer PriceCell(IContainer cell) =>
+        cell.BorderBottom(0.75f).BorderColor(Line).PaddingVertical(5).PaddingHorizontal(5).DefaultTextStyle(x => x.FontColor(Ink));
+
+    private static void ComposePriceTotals(IContainer container, ContractPriceSchedule prices)
+    {
+        container.AlignRight().Width(250).Column(column =>
+        {
+            TotalRow(column, "الإجمالي / Total", Money(prices.Total), false);
+            if (prices.SpecialDiscount > 0)
+                TotalRow(column, "الخصم / Discount", "-" + Money(prices.SpecialDiscount), false);
+
+            column.Item().PaddingTop(4).Background(Blue).PaddingVertical(8).PaddingHorizontal(10).Row(row =>
+            {
+                row.RelativeItem().Text("المبلغ المستحق / Amount payable (QAR)").FontSize(9.5f).Bold().FontColor(White);
+                row.AutoItem().Text(Money(prices.GrandTotal)).FontSize(12).ExtraBold().FontColor(White);
+            });
+        });
+    }
+
+    private static void TotalRow(ColumnDescriptor column, string label, string value, bool strong)
+    {
+        column.Item().BorderBottom(0.75f).BorderColor(Line).PaddingVertical(5).PaddingHorizontal(10).Row(row =>
+        {
+            row.RelativeItem().Text(label).FontSize(9.5f).FontColor(Ink);
+            row.AutoItem().Text(value).FontSize(9.5f).Bold().FontColor(Ink);
+        });
+    }
+
     // ===== Signatures =====
 
     private static void ComposeSignatures(IContainer container)
@@ -229,7 +472,7 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
         container.Column(col =>
         {
             col.Item().AlignCenter().Text("توقيعات الأطراف")
-                .FontFamily(DocumentFonts.Arabic).FontSize(11).Bold().FontColor(Ink);
+                .FontFamily(DocumentFonts.Arabic).FontSize(12).Bold().FontColor(Blue);
 
             // The second party sits left and the first sits right — RTL
             // convention places whichever is named first (الطرف الأول) on
@@ -240,8 +483,7 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                 {
                     inner.Item().AlignCenter().Text("الطرف الثاني (مالك العقار)")
                         .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(InkSoft);
-                    inner.Item().PaddingTop(45).AlignCenter().Width(160)
-                        .BorderBottom(1).BorderColor(Line);
+                    inner.Item().PaddingTop(45).AlignCenter().Width(160).Height(1).Background(Ink);
                 });
 
                 row.RelativeItem().Column(inner =>
@@ -250,8 +492,7 @@ public sealed class ContractPdfGenerator : IContractPdfGenerator
                         .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(InkSoft);
                     inner.Item().AlignCenter().Text(CompanyNameAr)
                         .FontFamily(DocumentFonts.Arabic).FontSize(9).FontColor(InkSoft);
-                    inner.Item().PaddingTop(45).AlignCenter().Width(160)
-                        .BorderBottom(1).BorderColor(Line);
+                    inner.Item().PaddingTop(45).AlignCenter().Width(160).Height(1).Background(Ink);
                 });
             });
         });

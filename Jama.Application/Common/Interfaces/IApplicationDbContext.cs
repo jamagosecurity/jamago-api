@@ -29,5 +29,14 @@ public interface IApplicationDbContext
     DbSet<DrawingFile> DrawingFiles { get; }
     DbSet<DrawingApprovalEvent> DrawingApprovalEvents { get; }
     DbSet<ClientRegistration> ClientRegistrations { get; }
+    DbSet<MaintenanceRequest> MaintenanceRequests { get; }
+    DbSet<MaintenanceRequestLine> MaintenanceRequestLines { get; }
+    DbSet<MaintenanceCatalogueItem> MaintenanceCatalogueItems { get; }
+    DbSet<MaintenanceCatalogueImage> MaintenanceCatalogueImages { get; }
+    DbSet<NonMoiJob> NonMoiJobs { get; }
+    DbSet<NonMoiJobLine> NonMoiJobLines { get; }
+    DbSet<MailMessage> MailMessages { get; }
+    DbSet<MailAccountState> MailAccountStates { get; }
+    DbSet<MailSendLog> MailSendLogs { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

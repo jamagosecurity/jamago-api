@@ -70,6 +70,22 @@ public static class Permissions
     /// </summary>
     public const string BoqViewAll = "boq.viewAll";
 
+    /// <summary>Managing maintenance tickets — power, cabling, camera, NVR,
+    /// and software service callouts. One grant covers the whole lifecycle
+    /// (assign, resolve, cancel): unlike a quotation, there is no separate
+    /// decision to approve, so building and deciding are not different jobs
+    /// here the way boq.manage/boq.approve are split.</summary>
+    public const string MaintenanceManage = "maintenance.manage";
+
+    /// <summary>Issuing Non-MOI jobs to technicians and seeing their status and amount. Split out of
+    /// <see cref="MaintenanceManage"/> so a coordinator can hand out jobs without also getting the
+    /// whole ticket queue. Anyone who already holds maintenance.manage keeps this — see <see cref="Expand"/>.</summary>
+    public const string NonMoiJobManage = "nonmoijob.manage";
+
+    /// <summary>Reading the company mailboxes in the Company mail screen. Read-only: sending, replying and
+    /// forwarding stay with administrators, because mail goes out in a mailbox owner's name.</summary>
+    public const string MailRead = "mail.read";
+
     /// <summary>Every permission that may be granted, with display copy for the admin UI.</summary>
     public static readonly IReadOnlyList<PermissionDefinition> All =
     [
@@ -98,6 +114,9 @@ public static class Permissions
         new(BoqViewAll, "View all quotations", "Oversight: can browse every quotation in the system, whoever built it and whatever its status — not just their own plus the ones already approved. Read-only: does not include building, approving, or amending."),
         new(DrawingManage, "Build & submit drawings", "Can upload CAD drawings, attach the plotted PDF, and submit a drawing for approval. Cannot approve one — not even their own."),
         new(DrawingApprove, "Approve or reject drawings", "Can open a drawing submitted for approval and approve it, or reject it with a reason. Does not include uploading or editing drawings."),
+        new(MaintenanceManage, "Manage maintenance tickets", "Can see every maintenance ticket, assign one to themself or another staff member, resolve it with notes, or cancel it. Also needed to log a ticket on a client's behalf — a client can always log their own."),
+        new(NonMoiJobManage, "Issue Non-MOI jobs", "Can hand a Non-MOI job to one technician, edit or delete it, and see which are done and for how much. Does not include the maintenance ticket queue or the price list."),
+        new(MailRead, "Read company mail", "Can open the Company mail screen and read every company mailbox, incoming and outgoing. Read-only: cannot send, reply or forward — that stays with administrators."),
     ];
 
     private static readonly HashSet<string> Known = All.Select(p => p.Key).ToHashSet();
@@ -127,6 +146,13 @@ public static class Permissions
         // quotation" — the natural thing to tick for "let them fix the price
         // after sign-off" — produced an account that 403s the moment it tries,
         // never reaching the amend check at all.
+        // Handling maintenance used to be what let someone issue Non-MOI jobs. Keep that true, so splitting
+        // the grant out does not take access away from anyone who already had it.
+        if (effective.Contains(MaintenanceManage))
+        {
+            effective.Add(NonMoiJobManage);
+        }
+
         if (effective.Contains(BoqAmend))
         {
             effective.Add(BoqManage);

@@ -21,7 +21,22 @@ public sealed record ContractPdfModel(
     /// <summary>The full Arabic contract text, clause headings and all — see
     /// IContractTextTemplate.BuildDefault for the format this is expected to
     /// follow, and ContractPdfGenerator.ComposeBody for how it is rendered.</summary>
-    string Body);
+    string Body)
+{
+    /// <summary>The project's name, printed large under the letterhead. Empty prints nothing.</summary>
+    public string ProjectName { get; init; } = string.Empty;
+
+    /// <summary>The quotation's priced sections, printed as the contract's price schedule before the
+    /// signatures. Null or empty prints no schedule — the contract then reads as it always did.</summary>
+    public ContractPriceSchedule? Prices { get; init; }
+}
+
+/// <summary>The quotation's money, as the contract prints it: sections of lines, then the totals.</summary>
+public sealed record ContractPriceSchedule(
+    IReadOnlyList<BoqPdfSection> Sections,
+    decimal Total,
+    decimal SpecialDiscount,
+    decimal GrandTotal);
 
 public interface IContractPdfGenerator
 {

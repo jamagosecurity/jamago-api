@@ -2,6 +2,7 @@ using Jama.Application.Common;
 using Jama.Application.Common.Models;
 using Jama.Application.Contacts;
 using Jama.Application.Contacts.Commands.CreateContactSubmission;
+using Jama.Application.Contacts.Commands.DeleteContactSubmission;
 using Jama.Application.Contacts.Queries.GetContactSubmissions;
 using Jama.Web.Infrastructure;
 using MediatR;
@@ -17,13 +18,21 @@ public class Contacts : EndpointGroupBase
             // Admins hold every permission implicitly, so this stays open to them
             // and additionally to staff an admin has granted contact.view.
             .MapGet(GetContacts, permission: Permissions.ContactView)
-            .MapPost(CreateContact);
+            .MapPost(CreateContact)
+            // Clearing the inbox is the administrator's call; reading it is not.
+            .MapDelete(DeleteContact, "{id:guid}", Roles.Admin);
     }
 
     public async Task<Ok<TypedResult<IReadOnlyList<ContactSubmissionDto>>>> GetContacts(ISender sender)
     {
         var result = await sender.Send(new GetContactSubmissionsQuery());
         return TypedResults.Ok(result);
+    }
+
+    public async Task<IResult> DeleteContact(ISender sender, Guid id)
+    {
+        var result = await sender.Send(new DeleteContactSubmissionCommand(id));
+        return result.Succeeded ? Results.Ok(result) : Results.NotFound(result);
     }
 
     public async Task<Created<TypedResult<ContactSubmissionDto>>> CreateContact(

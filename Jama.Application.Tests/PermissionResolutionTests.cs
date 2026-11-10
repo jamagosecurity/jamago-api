@@ -94,3 +94,45 @@ public sealed class PermissionResolutionTests
         Assert.Equal([Permissions.ContactView], effective);
     }
 }
+
+public sealed class NonMoiJobAndMailPermissionTests
+{
+    [Fact]
+    public void Both_new_permissions_are_in_the_catalogue_with_plain_names()
+    {
+        Assert.Contains(Permissions.All, p => p.Key == "nonmoijob.manage" && p.Name == "Issue Non-MOI jobs");
+        Assert.Contains(Permissions.All, p => p.Key == "mail.read" && p.Name == "Read company mail");
+    }
+
+    [Fact]
+    public void Whoever_could_issue_jobs_through_maintenance_still_can()
+    {
+        // Splitting the grant out must not take access away from existing maintenance managers.
+        var effective = Permissions.EffectiveFor(Roles.Staff, [Permissions.MaintenanceManage]);
+        Assert.Contains(Permissions.NonMoiJobManage, effective);
+    }
+
+    [Fact]
+    public void Issuing_jobs_does_not_give_the_maintenance_queue_or_mail()
+    {
+        var effective = Permissions.EffectiveFor(Roles.Staff, [Permissions.NonMoiJobManage]);
+        Assert.Contains(Permissions.NonMoiJobManage, effective);
+        Assert.DoesNotContain(Permissions.MaintenanceManage, effective);
+        Assert.DoesNotContain(Permissions.MailRead, effective);
+    }
+
+    [Fact]
+    public void Reading_mail_gives_nothing_else()
+    {
+        var effective = Permissions.EffectiveFor(Roles.Staff, [Permissions.MailRead]);
+        Assert.Equal([Permissions.MailRead], effective);
+    }
+
+    [Fact]
+    public void Admin_holds_both()
+    {
+        var effective = Permissions.EffectiveFor(Roles.Admin, []);
+        Assert.Contains(Permissions.NonMoiJobManage, effective);
+        Assert.Contains(Permissions.MailRead, effective);
+    }
+}

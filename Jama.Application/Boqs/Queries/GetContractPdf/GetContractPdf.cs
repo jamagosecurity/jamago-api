@@ -23,6 +23,8 @@ public sealed class GetContractPdfQueryHandler(
     {
         var boq = await context.Boqs
             .AsNoTracking()
+            .Include(x => x.Sections)
+            .ThenInclude(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
 
         if (boq is null || !BoqVisibility.CanSee(boq.Status, boq.PreparedById, actor))
@@ -48,7 +50,37 @@ public sealed class GetContractPdfQueryHandler(
             boq.ClientName,
             boq.GrandTotal));
 
-        var model = new ContractPdfModel(boq.BoqNumber, boq.RevisionNumber, boq.ApprovedAt!.Value, body);
+        // The contract carries the same priced sections the quotation does, so the amounts a client signs
+        // for are printed in the agreement itself, not only in a separate document.
+        var sections = boq.Sections
+            .OrderBy(section => section.SortOrder)
+            .Select((section, sectionIndex) =>
+            {
+                var number = (sectionIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var lines = section.Lines
+                    .OrderBy(line => line.SortOrder)
+                    .Select((line, lineIndex) => new BoqPdfLine(
+                        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{number}.{lineIndex + 1}"),
+                        line.ItemName,
+                        line.ModelNo,
+                        line.Brand,
+                        line.Type,
+                        line.Uom.ToString(),
+                        line.Quantity,
+                        line.UnitRate,
+                        line.LineTotal))
+                    .ToList();
+                return new BoqPdfSection(number, section.Title, lines.Sum(l => l.LineTotal), lines);
+            })
+            .ToList();
+
+        var model = new ContractPdfModel(boq.BoqNumber, boq.RevisionNumber, boq.ApprovedAt!.Value, body)
+        {
+            ProjectName = boq.ProjectName ?? string.Empty,
+            Prices = sections.Count == 0
+                ? null
+                : new ContractPriceSchedule(sections, boq.Total, boq.SpecialDiscount, boq.GrandTotal),
+        };
 
         return ApiResult<ContractPdfDto>.Success(
             new ContractPdfDto(
