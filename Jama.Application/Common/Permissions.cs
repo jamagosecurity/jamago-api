@@ -77,7 +77,7 @@ public static class Permissions
     /// here the way boq.manage/boq.approve are split.</summary>
     public const string MaintenanceManage = "maintenance.manage";
 
-    /// <summary>Issuing Non-MOI jobs to technicians and seeing their status and amount. Split out of
+    /// <summary>Issuing Non-MOI jobs to technicians, seeing their status and amount, and managing the Non-MOI inventory (the services-and-prices list the technician ticks from). Split out of
     /// <see cref="MaintenanceManage"/> so a coordinator can hand out jobs without also getting the
     /// whole ticket queue. Anyone who already holds maintenance.manage keeps this — see <see cref="Expand"/>.</summary>
     public const string NonMoiJobManage = "nonmoijob.manage";
@@ -115,7 +115,7 @@ public static class Permissions
         new(DrawingManage, "Build & submit drawings", "Can upload CAD drawings, attach the plotted PDF, and submit a drawing for approval. Cannot approve one — not even their own."),
         new(DrawingApprove, "Approve or reject drawings", "Can open a drawing submitted for approval and approve it, or reject it with a reason. Does not include uploading or editing drawings."),
         new(MaintenanceManage, "Manage maintenance tickets", "Can see every maintenance ticket, assign one to themself or another staff member, resolve it with notes, or cancel it. Also needed to log a ticket on a client's behalf — a client can always log their own."),
-        new(NonMoiJobManage, "Issue Non-MOI jobs", "Can hand a Non-MOI job to one technician, edit or delete it, and see which are done and for how much. Does not include the maintenance ticket queue or the price list."),
+        new(NonMoiJobManage, "Non-MOI jobs & inventory", "Can hand a Non-MOI job to one technician, edit or delete it, see which are done and for how much, and manage the Non-MOI inventory (services, prices and pictures). Does not include the maintenance ticket queue."),
         new(MailRead, "Read company mail", "Can open the Company mail screen and read every company mailbox, incoming and outgoing. Read-only: cannot send, reply or forward — that stays with administrators."),
     ];
 

@@ -100,7 +100,7 @@ public sealed class NonMoiJobAndMailPermissionTests
     [Fact]
     public void Both_new_permissions_are_in_the_catalogue_with_plain_names()
     {
-        Assert.Contains(Permissions.All, p => p.Key == "nonmoijob.manage" && p.Name == "Issue Non-MOI jobs");
+        Assert.Contains(Permissions.All, p => p.Key == "nonmoijob.manage" && p.Name == "Non-MOI jobs & inventory");
         Assert.Contains(Permissions.All, p => p.Key == "mail.read" && p.Name == "Read company mail");
     }
 

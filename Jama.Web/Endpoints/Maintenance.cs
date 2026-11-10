@@ -54,13 +54,13 @@ public sealed class Maintenance : EndpointGroupBase
             // Served without a token so an <img src> can show it, as a stock
             // item's pictures are; the ids are unguessable guids.
             .MapGet(GetCatalogueImage, "issue-catalogue/images/{imageId:guid}")
-            .MapPost(UploadCatalogueImage, "issue-catalogue/{id:guid}/images", permission: Permissions.MaintenanceManage, allowFileUpload: true)
-            .MapDelete(DeleteCatalogueImage, "issue-catalogue/images/{imageId:guid}", permission: Permissions.MaintenanceManage)
-            .MapPost(CreateCatalogueItem, "issue-catalogue", permission: Permissions.MaintenanceManage)
-            .MapPut(UpdateCatalogueItem, "issue-catalogue/{id:guid}", permission: Permissions.MaintenanceManage)
-            .MapDelete(DeleteCatalogueItem, "issue-catalogue/{id:guid}", permission: Permissions.MaintenanceManage)
-            .MapPost(RenameCategory, "issue-catalogue/categories/rename", permission: Permissions.MaintenanceManage)
-            .MapDelete(DeleteCategory, "issue-catalogue/categories", permission: Permissions.MaintenanceManage)
+            .MapPost(UploadCatalogueImage, "issue-catalogue/{id:guid}/images", permission: Permissions.NonMoiJobManage, allowFileUpload: true)
+            .MapDelete(DeleteCatalogueImage, "issue-catalogue/images/{imageId:guid}", permission: Permissions.NonMoiJobManage)
+            .MapPost(CreateCatalogueItem, "issue-catalogue", permission: Permissions.NonMoiJobManage)
+            .MapPut(UpdateCatalogueItem, "issue-catalogue/{id:guid}", permission: Permissions.NonMoiJobManage)
+            .MapDelete(DeleteCatalogueItem, "issue-catalogue/{id:guid}", permission: Permissions.NonMoiJobManage)
+            .MapPost(RenameCategory, "issue-catalogue/categories/rename", permission: Permissions.NonMoiJobManage)
+            .MapDelete(DeleteCategory, "issue-catalogue/categories", permission: Permissions.NonMoiJobManage)
             .MapGet(AssignableStaff, "assignable-staff", permission: Permissions.MaintenanceManage);
     }
 
