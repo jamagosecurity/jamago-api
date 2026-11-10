@@ -47,6 +47,10 @@ public static class DependencyInjection
         services.AddSingleton<IWhatsAppSender, TwilioWhatsAppSender>();
         services.AddHostedService<Jama.Infrastructure.Mail.MailSyncService>();
         services.AddSingleton<IMailSender, Jama.Infrastructure.Mail.MailSender>();
+        services.AddSingleton<Jama.Infrastructure.Background.BackgroundWorkQueue>();
+        services.AddSingleton<IBackgroundWork>(sp => sp.GetRequiredService<Jama.Infrastructure.Background.BackgroundWorkQueue>());
+        services.AddHostedService(sp => sp.GetRequiredService<Jama.Infrastructure.Background.BackgroundWorkQueue>());
+        services.AddScoped<IJobBillPdfGenerator, Jama.Infrastructure.Documents.NonMoiJobBillPdfGenerator>();
 
         return services;
     }

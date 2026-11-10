@@ -56,8 +56,8 @@ public class NonMoiJobTests
     {
         var context = NewContext();
 
-        var first = await new CreateNonMoiJobCommandHandler(context).Handle(Job(TechA), CancellationToken.None);
-        var second = await new CreateNonMoiJobCommandHandler(context).Handle(Job(TechA), CancellationToken.None);
+        var first = await new CreateNonMoiJobCommandHandler(context, new FakeCurrentUser(Clerk)).Handle(Job(TechA), CancellationToken.None);
+        var second = await new CreateNonMoiJobCommandHandler(context, new FakeCurrentUser(Clerk)).Handle(Job(TechA), CancellationToken.None);
 
         Assert.True(first.Succeeded);
         Assert.Equal("NMJ-00001", first.Data!.JobNumber);
@@ -71,7 +71,7 @@ public class NonMoiJobTests
     {
         var context = NewContext();
 
-        var result = await new CreateNonMoiJobCommandHandler(context).Handle(Job(Clerk), CancellationToken.None);
+        var result = await new CreateNonMoiJobCommandHandler(context, new FakeCurrentUser(Clerk)).Handle(Job(Clerk), CancellationToken.None);
 
         Assert.False(result.Succeeded);
         Assert.Empty(context.NonMoiJobs);
@@ -82,7 +82,7 @@ public class NonMoiJobTests
     {
         var context = NewContext();
 
-        var result = await new CreateNonMoiJobCommandHandler(context).Handle(Job(Off), CancellationToken.None);
+        var result = await new CreateNonMoiJobCommandHandler(context, new FakeCurrentUser(Clerk)).Handle(Job(Off), CancellationToken.None);
 
         Assert.False(result.Succeeded);
     }
@@ -101,7 +101,7 @@ public class NonMoiJobTests
     public async Task A_technician_sees_only_the_jobs_assigned_to_them()
     {
         var context = NewContext();
-        var create = new CreateNonMoiJobCommandHandler(context);
+        var create = new CreateNonMoiJobCommandHandler(context, new FakeCurrentUser(Clerk));
         await create.Handle(Job(TechA), CancellationToken.None);
         await create.Handle(Job(TechB), CancellationToken.None);
 
@@ -117,7 +117,7 @@ public class NonMoiJobTests
     public async Task Reassigning_a_job_moves_it_to_the_other_technicians_list()
     {
         var context = NewContext();
-        var created = await new CreateNonMoiJobCommandHandler(context).Handle(Job(TechA), CancellationToken.None);
+        var created = await new CreateNonMoiJobCommandHandler(context, new FakeCurrentUser(Clerk)).Handle(Job(TechA), CancellationToken.None);
 
         var updated = await new UpdateNonMoiJobCommandHandler(context, TimeProvider.System).Handle(
             new UpdateNonMoiJobCommand

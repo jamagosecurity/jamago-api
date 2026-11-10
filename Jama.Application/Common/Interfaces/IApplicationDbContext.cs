@@ -35,6 +35,7 @@ public interface IApplicationDbContext
     DbSet<MaintenanceCatalogueImage> MaintenanceCatalogueImages { get; }
     DbSet<NonMoiJob> NonMoiJobs { get; }
     DbSet<NonMoiJobLine> NonMoiJobLines { get; }
+    DbSet<NonMoiJobEvent> NonMoiJobEvents { get; }
     DbSet<MailMessage> MailMessages { get; }
     DbSet<MailAccountState> MailAccountStates { get; }
     DbSet<MailSendLog> MailSendLogs { get; }

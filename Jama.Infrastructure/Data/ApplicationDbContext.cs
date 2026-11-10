@@ -38,6 +38,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<MaintenanceCatalogueImage> MaintenanceCatalogueImages => Set<MaintenanceCatalogueImage>();
     public DbSet<NonMoiJob> NonMoiJobs => Set<NonMoiJob>();
     public DbSet<NonMoiJobLine> NonMoiJobLines => Set<NonMoiJobLine>();
+    public DbSet<NonMoiJobEvent> NonMoiJobEvents => Set<NonMoiJobEvent>();
     public DbSet<MailMessage> MailMessages => Set<MailMessage>();
     public DbSet<MailAccountState> MailAccountStates => Set<MailAccountState>();
     public DbSet<MailSendLog> MailSendLogs => Set<MailSendLog>();

@@ -19,6 +19,7 @@ public sealed record CreateNonMoiJobCommand : IRequest<ApiResult<NonMoiJobDto>>,
     public string? DescriptionEn { get; init; }
     public string? DescriptionAr { get; init; }
     public Guid AssignedToId { get; init; }
+    public string? CustomerEmail { get; init; }
 }
 
 public sealed class CreateNonMoiJobCommandValidator : AbstractValidator<CreateNonMoiJobCommand>
@@ -26,7 +27,7 @@ public sealed class CreateNonMoiJobCommandValidator : AbstractValidator<CreateNo
     public CreateNonMoiJobCommandValidator() => NonMoiJobRules.AddRulesTo(this);
 }
 
-public sealed class CreateNonMoiJobCommandHandler(IApplicationDbContext context)
+public sealed class CreateNonMoiJobCommandHandler(IApplicationDbContext context, ICurrentUser actor)
     : IRequestHandler<CreateNonMoiJobCommand, ApiResult<NonMoiJobDto>>
 {
     public async Task<ApiResult<NonMoiJobDto>> Handle(CreateNonMoiJobCommand request, CancellationToken cancellationToken)
@@ -48,6 +49,10 @@ public sealed class CreateNonMoiJobCommandHandler(IApplicationDbContext context)
             DescriptionAr = NonMoiJobRules.Clean(request.DescriptionAr),
             AssignedToId = technician.AdminUserId!.Value,
             AssignedToName = technician.FullName,
+            CustomerEmail = NonMoiJobRules.Clean(request.CustomerEmail),
+            // Who issued it, taken from the token: only this person (or an administrator) can close the deal.
+            AssignedById = actor.UserId,
+            AssignedByName = actor.DisplayName,
         };
 
         context.NonMoiJobs.Add(job);
@@ -68,6 +73,7 @@ public sealed record UpdateNonMoiJobCommand : IRequest<ApiResult<NonMoiJobDto>>,
     public string? DescriptionEn { get; init; }
     public string? DescriptionAr { get; init; }
     public Guid AssignedToId { get; init; }
+    public string? CustomerEmail { get; init; }
 }
 
 public sealed class UpdateNonMoiJobCommandValidator : AbstractValidator<UpdateNonMoiJobCommand>
@@ -83,6 +89,8 @@ public sealed class UpdateNonMoiJobCommandHandler(IApplicationDbContext context,
         var job = await context.NonMoiJobs.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
         if (job is null)
             return ApiResult<NonMoiJobDto>.Failure("Job not found.");
+        if (job.Status is "Sent" or "Closed")
+            return ApiResult<NonMoiJobDto>.Failure("This job's bill is with the client, so it cannot be changed.");
 
         // Re-checked only when the job is being handed to someone else, so a
         // technician who has since left does not block a typo fix.
@@ -102,6 +110,7 @@ public sealed class UpdateNonMoiJobCommandHandler(IApplicationDbContext context,
         job.Longitude = SiteCoordinates.Round(request.Longitude);
         job.DescriptionEn = request.DescriptionEn!.Trim();
         job.DescriptionAr = NonMoiJobRules.Clean(request.DescriptionAr);
+        job.CustomerEmail = NonMoiJobRules.Clean(request.CustomerEmail);
         job.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
 
         await context.SaveChangesAsync(cancellationToken);
@@ -119,6 +128,8 @@ public sealed class DeleteNonMoiJobCommandHandler(IApplicationDbContext context)
         var job = await context.NonMoiJobs.FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
         if (job is null)
             return ApiResult<string>.Failure("Job not found.");
+        if (job.Status is "Sent" or "Closed")
+            return ApiResult<string>.Failure("This job's bill has been sent to the client, so it cannot be removed.");
 
         context.NonMoiJobs.Remove(job);
         await context.SaveChangesAsync(cancellationToken);

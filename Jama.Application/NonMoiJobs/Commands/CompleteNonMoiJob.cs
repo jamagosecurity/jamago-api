@@ -38,7 +38,7 @@ public sealed class CompleteNonMoiJobCommandHandler(IApplicationDbContext contex
         // Someone else's job looks exactly like a missing one.
         if (job is null || job.AssignedToId != actor.UserId)
             return ApiResult<NonMoiJobDto>.Failure("Job not found.");
-        if (job.Status == "Completed")
+        if (job.Status != "Assigned")
             return ApiResult<NonMoiJobDto>.Failure("This job is already completed.");
 
         var catalogue = await context.MaintenanceCatalogueItems.AsNoTracking().ToListAsync(cancellationToken);

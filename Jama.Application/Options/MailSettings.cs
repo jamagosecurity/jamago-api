@@ -15,6 +15,10 @@ public sealed class MailSettings
     /// <summary>How many of the newest messages to copy the first time a mailbox is read.</summary>
     public int FirstSyncMessages { get; set; } = 300;
 
+    /// <summary>The public address of the website, used to build the links in a client's bill email and WhatsApp message
+    /// (the page where they approve, reject or comment). No trailing slash.</summary>
+    public string PublicSiteUrl { get; set; } = "https://jamago.qa";
+
     public List<MailAccountSettings> Accounts { get; set; } = [];
 }
 

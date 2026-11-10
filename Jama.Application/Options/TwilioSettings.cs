@@ -28,6 +28,10 @@ public sealed class TwilioSettings
     /// </summary>
     public string QuotationSentContentSid { get; set; } = string.Empty;
 
+    /// <summary>Content SID of the approved template for a closed Non-MOI job's bill (variables: customer, job number,
+    /// amount, link). Empty sends plain text, which works in the Sandbox and inside a session the customer opened.</summary>
+    public string JobBillContentSid { get; set; } = string.Empty;
+
     /// <summary>Base URL the quotation PDF link is built from, e.g.
     /// "https://api.jamago.qa". No trailing slash.</summary>
     public string PublicApiBaseUrl { get; set; } = string.Empty;

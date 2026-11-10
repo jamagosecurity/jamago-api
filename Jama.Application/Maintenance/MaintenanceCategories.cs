@@ -45,6 +45,13 @@ public static class MaintenanceCategories
 
     /// <summary>The six built-ins keep their keys and cannot be renamed or
     /// removed — tickets and prices are written against them.</summary>
+    /// <summary>The words to print for a stored category: "NvrStorage" → "NVR &amp; storage"; a custom name as typed.</summary>
+    public static string Label(string category)
+    {
+        var found = Array.Find(BuiltIn, b => b.Key == category);
+        return found.Label ?? category;
+    }
+
     public static bool IsBuiltIn(string category) => Array.Exists(BuiltIn, b => b.Key == category);
 
     /// <summary>Checklist order: the built-ins as listed, then added

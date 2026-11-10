@@ -14,10 +14,27 @@ public sealed class GetNonMoiJobsQueryHandler(IApplicationDbContext context)
     public async Task<ApiResult<IReadOnlyList<NonMoiJobDto>>> Handle(
         GetNonMoiJobsQuery request, CancellationToken cancellationToken)
     {
-        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines)
+        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
         return ApiResult<IReadOnlyList<NonMoiJobDto>>.Success(jobs.Select(NonMoiJobRules.ToDto).ToList());
+    }
+}
+
+/// <summary>How many finished jobs are waiting for the signed-in person to close: the ones they issued, or every one
+/// for an administrator. Drives the red number beside Non-MOI Jobs in the sidebar.</summary>
+public sealed record GetJobsAwaitingCloseQuery : IRequest<ApiResult<int>>;
+
+public sealed class GetJobsAwaitingCloseQueryHandler(IApplicationDbContext context, ICurrentUser actor)
+    : IRequestHandler<GetJobsAwaitingCloseQuery, ApiResult<int>>
+{
+    public async Task<ApiResult<int>> Handle(GetJobsAwaitingCloseQuery request, CancellationToken cancellationToken)
+    {
+        // Finished and waiting for the issuer to send, or sent and the client asked for changes.
+        var waiting = context.NonMoiJobs.AsNoTracking().Where(x => x.Status == "Completed" || x.Status == "ChangesRequested");
+        if (actor.Role != Jama.Application.Common.Roles.Admin)
+            waiting = waiting.Where(x => x.AssignedById == actor.UserId);
+        return ApiResult<int>.Success(await waiting.CountAsync(cancellationToken));
     }
 }
 
@@ -30,7 +47,7 @@ public sealed class GetMyNonMoiJobsQueryHandler(IApplicationDbContext context, I
     public async Task<ApiResult<IReadOnlyList<NonMoiJobDto>>> Handle(
         GetMyNonMoiJobsQuery request, CancellationToken cancellationToken)
     {
-        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines)
+        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events)
             .Where(x => x.AssignedToId == actor.UserId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);

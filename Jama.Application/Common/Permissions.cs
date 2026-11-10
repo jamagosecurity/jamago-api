@@ -115,7 +115,7 @@ public static class Permissions
         new(DrawingManage, "Build & submit drawings", "Can upload CAD drawings, attach the plotted PDF, and submit a drawing for approval. Cannot approve one — not even their own."),
         new(DrawingApprove, "Approve or reject drawings", "Can open a drawing submitted for approval and approve it, or reject it with a reason. Does not include uploading or editing drawings."),
         new(MaintenanceManage, "Manage maintenance tickets", "Can see every maintenance ticket, assign one to themself or another staff member, resolve it with notes, or cancel it. Also needed to log a ticket on a client's behalf — a client can always log their own."),
-        new(NonMoiJobManage, "Non-MOI jobs & inventory", "Can hand a Non-MOI job to one technician, edit or delete it, see which are done and for how much, and manage the Non-MOI inventory (services, prices and pictures). Does not include the maintenance ticket queue."),
+        new(NonMoiJobManage, "Non-MOI jobs & inventory", "Can hand a Non-MOI job to one technician, edit it, and — for the jobs they issued — review the technician's work, give a discount and close the deal, which sends the client the bill by email and WhatsApp. Also manages the Non-MOI inventory (services, prices and pictures). Does not include the maintenance ticket queue."),
         new(MailRead, "Read company mail", "Can open the Company mail screen and read every company mailbox, incoming and outgoing. Read-only: cannot send, reply or forward — that stays with administrators."),
     ];
 

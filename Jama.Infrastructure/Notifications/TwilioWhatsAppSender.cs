@@ -94,6 +94,53 @@ public sealed class TwilioWhatsAppSender : IWhatsAppSender
         }
     }
 
+    public async Task<WhatsAppSendResult> SendJobBillAsync(
+        string toPhoneNumber,
+        string customerName,
+        string jobNumber,
+        decimal amountPayable,
+        string billUrl,
+        CancellationToken cancellationToken)
+    {
+        if (!_settings.IsConfigured)
+            return new WhatsAppSendResult(false, "WhatsApp is not set up on this server.");
+
+        EnsureClientInitialised();
+
+        try
+        {
+            var to = new PhoneNumber($"whatsapp:{NormalizeE164(toPhoneNumber)}");
+            var from = new PhoneNumber(_settings.WhatsAppFrom);
+
+            if (string.IsNullOrWhiteSpace(_settings.JobBillContentSid))
+            {
+                await MessageResource.CreateAsync(
+                    to: to,
+                    from: from,
+                    body: $"Hello {customerName}, your maintenance work {jobNumber} is complete. "
+                        + $"Amount payable: QAR {amountPayable:N2}. View your bill here: {billUrl}\n\n"
+                        + $"Payment details:\n{Jama.Application.Common.CompanyPaymentDetails.AsText()}\n\n"
+                        + "Jama Go Security Equipment");
+                return new WhatsAppSendResult(true, null);
+            }
+
+            var variables = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+            {
+                ["1"] = customerName,
+                ["2"] = jobNumber,
+                ["3"] = amountPayable.ToString("N2"),
+                ["4"] = billUrl,
+            });
+            await MessageResource.CreateAsync(to: to, from: from, contentSid: _settings.JobBillContentSid, contentVariables: variables);
+            return new WhatsAppSendResult(true, null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send the WhatsApp bill for job {JobNumber} to {Phone}.", jobNumber, toPhoneNumber);
+            return new WhatsAppSendResult(false, "WhatsApp could not deliver the message: " + ex.Message);
+        }
+    }
+
     private void EnsureClientInitialised()
     {
         if (_clientInitialised)

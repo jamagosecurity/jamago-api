@@ -95,7 +95,10 @@ public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSende
             message.InReplyTo = id;
             message.References.Add(id);
         }
-        message.Body = new TextPart("plain") { Text = r.Body };
+        var body = new BodyBuilder { TextBody = r.Body, HtmlBody = r.HtmlBody };
+        foreach (var file in r.Attachments ?? [])
+            body.Attachments.Add(file.FileName, file.Content, ContentType.Parse(file.ContentType));
+        message.Body = body.ToMessageBody();
         return message;
     }
 }

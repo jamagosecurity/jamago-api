@@ -17,6 +17,10 @@ public static class RateLimitPolicies
     /// queue with junk; a real person registers once.</summary>
     public const string ClientRegister = "client-register";
 
+    /// <summary>A client answering their bill (Approve / Reject / Comment) from the link in their email. The link itself is the
+    /// credential, so this only stops a script hammering it.</summary>
+    public const string JobBillResponse = "job-bill-response";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -40,6 +44,11 @@ public static class RateLimitPolicies
                         Window = TimeSpan.FromMinutes(windowMinutes),
                         QueueLimit = 0,
                     }));
+
+            options.AddPolicy(JobBillResponse, context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
 
             // Same envelope as every other failure, so the client shows this
             // sentence instead of a bare "request failed".

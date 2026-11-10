@@ -1548,11 +1548,59 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("AmountPayable")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid>("AssignedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AssignedByName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasDefaultValue("");
+
                     b.Property<Guid>("AssignedToId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("AssignedToName")
                         .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<int>("BillRevision")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("BillToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ClientDecision")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ClientMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ClientRespondedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClientResponderName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ClosedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClosedByName")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
@@ -1565,6 +1613,10 @@ namespace Jama.Infrastructure.Data.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CustomerEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
 
                     b.Property<string>("CustomerName")
                         .IsRequired()
@@ -1585,6 +1637,13 @@ namespace Jama.Infrastructure.Data.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<decimal>("Discount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime?>("EmailSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("JobNumber")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -1601,6 +1660,10 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Property<double?>("Longitude")
                         .HasColumnType("double precision");
 
+                    b.Property<string>("SentFromAccount")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
@@ -1611,6 +1674,9 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("WhatsAppSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal>("WorkTotal")
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
@@ -1619,6 +1685,9 @@ namespace Jama.Infrastructure.Data.Migrations
 
                     b.HasIndex("AssignedToId");
 
+                    b.HasIndex("BillToken")
+                        .IsUnique();
+
                     b.HasIndex("JobNumber")
                         .IsUnique();
 
@@ -1626,6 +1695,48 @@ namespace Jama.Infrastructure.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_NonMoiJobs_SitePin", "(\"Latitude\" IS NULL) = (\"Longitude\" IS NULL) AND (\"Latitude\" IS NULL OR (\"Latitude\" BETWEEN -90 AND 90 AND \"Longitude\" BETWEEN -180 AND 180))");
                         });
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal>("AmountPayable")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("NonMoiJobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NonMoiJobId");
+
+                    b.ToTable("NonMoiJobEvents", (string)null);
                 });
 
             modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobLine", b =>
@@ -2382,6 +2493,17 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Navigation("TechnicianInspection");
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobEvent", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.NonMoiJob", "NonMoiJob")
+                        .WithMany("Events")
+                        .HasForeignKey("NonMoiJobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NonMoiJob");
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobLine", b =>
                 {
                     b.HasOne("Jama.Domain.Entities.NonMoiJob", "NonMoiJob")
@@ -2557,6 +2679,8 @@ namespace Jama.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Jama.Domain.Entities.NonMoiJob", b =>
                 {
+                    b.Navigation("Events");
+
                     b.Navigation("Lines");
                 });
 

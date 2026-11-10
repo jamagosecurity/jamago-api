@@ -27,6 +27,19 @@ public sealed class NonMoiJobConfiguration : IEntityTypeConfiguration<NonMoiJob>
 
         builder.Property(x => x.Status).HasMaxLength(20).IsRequired().HasDefaultValue("Assigned");
         builder.Property(x => x.WorkTotal).HasPrecision(12, 2);
+        builder.Property(x => x.Discount).HasPrecision(12, 2);
+        builder.Property(x => x.AmountPayable).HasPrecision(12, 2);
+        builder.Property(x => x.CustomerEmail).HasMaxLength(320);
+        builder.Property(x => x.AssignedByName).HasMaxLength(300).IsRequired().HasDefaultValue(string.Empty);
+        builder.Property(x => x.ClosedByName).HasMaxLength(300);
+        builder.Property(x => x.SentFromAccount).HasMaxLength(40);
+        builder.Property(x => x.BillToken).HasMaxLength(64);
+        builder.HasIndex(x => x.BillToken).IsUnique();
+        builder.Property(x => x.BillRevision).HasDefaultValue(1);
+        builder.Property(x => x.ClientDecision).HasMaxLength(20);
+        builder.Property(x => x.ClientMessage).HasMaxLength(2000);
+        builder.Property(x => x.ClientResponderName).HasMaxLength(200);
+        builder.HasMany(x => x.Events).WithOne(x => x.NonMoiJob).HasForeignKey(x => x.NonMoiJobId).OnDelete(DeleteBehavior.Cascade);
         builder.Property(x => x.CompletionNotes).HasMaxLength(1000);
         builder.HasMany(x => x.Lines).WithOne(x => x.NonMoiJob).HasForeignKey(x => x.NonMoiJobId).OnDelete(DeleteBehavior.Cascade);
     }
@@ -41,6 +54,19 @@ public sealed class NonMoiJobLineConfiguration : IEntityTypeConfiguration<NonMoi
         builder.Property(x => x.IssueType).HasMaxLength(200).IsRequired();
         builder.Property(x => x.UnitFee).HasPrecision(12, 2);
         builder.Property(x => x.LineTotal).HasPrecision(12, 2);
+        builder.HasIndex(x => x.NonMoiJobId);
+    }
+}
+
+public sealed class NonMoiJobEventConfiguration : IEntityTypeConfiguration<NonMoiJobEvent>
+{
+    public void Configure(EntityTypeBuilder<NonMoiJobEvent> builder)
+    {
+        builder.ToTable("NonMoiJobEvents");
+        builder.Property(x => x.Action).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.ActorName).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Note).HasMaxLength(2000);
+        builder.Property(x => x.AmountPayable).HasPrecision(12, 2);
         builder.HasIndex(x => x.NonMoiJobId);
     }
 }

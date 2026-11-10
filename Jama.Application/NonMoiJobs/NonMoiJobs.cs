@@ -24,7 +24,24 @@ public sealed record NonMoiJobDto(
     DateTime? CompletedAt = null,
     decimal WorkTotal = 0,
     string? CompletionNotes = null,
-    IReadOnlyList<NonMoiJobLineDto>? Lines = null);
+    IReadOnlyList<NonMoiJobLineDto>? Lines = null,
+    string? CustomerEmail = null,
+    Guid AssignedById = default,
+    string AssignedByName = "",
+    decimal Discount = 0,
+    decimal AmountPayable = 0,
+    DateTime? ClosedAt = null,
+    string? ClosedByName = null,
+    DateTime? EmailSentAt = null,
+    DateTime? WhatsAppSentAt = null,
+    int BillRevision = 1,
+    string? ClientDecision = null,
+    string? ClientMessage = null,
+    string? ClientResponderName = null,
+    DateTime? ClientRespondedAt = null,
+    IReadOnlyList<NonMoiJobEventDto>? Events = null);
+
+public sealed record NonMoiJobEventDto(string Action, string ActorName, string? Note, int Revision, decimal AmountPayable, DateTime At);
 
 public sealed record NonMoiJobLineDto(string Category, string IssueType, int Quantity, decimal UnitFee, decimal LineTotal);
 
@@ -37,6 +54,9 @@ public interface INonMoiJobRequest : ISiteCoordinateRequest
     string? DescriptionEn { get; }
     string? DescriptionAr { get; }
     Guid AssignedToId { get; }
+
+    /// <summary>Optional client email for sending the bill. Null when the request does not carry one.</summary>
+    string? CustomerEmail => null;
 }
 
 internal static class NonMoiJobRules
@@ -49,7 +69,14 @@ internal static class NonMoiJobRules
         job.AssignedToId, job.AssignedToName, job.CreatedAt, job.UpdatedAt,
         job.Status, job.CompletedAt, job.WorkTotal, job.CompletionNotes,
         job.Lines.OrderBy(l => l.SortOrder)
-            .Select(l => new NonMoiJobLineDto(l.Category, l.IssueType, l.Quantity, l.UnitFee, l.LineTotal)).ToList());
+            .Select(l => new NonMoiJobLineDto(l.Category, l.IssueType, l.Quantity, l.UnitFee, l.LineTotal)).ToList(),
+        job.CustomerEmail, job.AssignedById, job.AssignedByName, job.Discount,
+        // Until the bill has been sent the amount payable is simply the total less any discount typed so far.
+        NonMoiJobBill.IsSent(job) ? job.AmountPayable : job.WorkTotal - job.Discount,
+        job.ClosedAt, job.ClosedByName, job.EmailSentAt, job.WhatsAppSentAt,
+        job.BillRevision, job.ClientDecision, job.ClientMessage, job.ClientResponderName, job.ClientRespondedAt,
+        job.Events.OrderBy(e => e.CreatedAt)
+            .Select(e => new NonMoiJobEventDto(e.Action, e.ActorName, e.Note, e.Revision, e.AmountPayable, e.CreatedAt)).ToList());
 
     /// <summary>Next reference, derived from the highest issued so a deleted
     /// job never lets the next one reuse its number.</summary>
@@ -102,6 +129,10 @@ internal static class NonMoiJobRules
         validator.RuleFor(x => x.DescriptionEn).NotEmpty().WithMessage("Describe the job in English.")
             .MinimumLength(3).WithMessage("The description must be at least 3 characters.").MaximumLength(2000);
         validator.RuleFor(x => x.DescriptionAr).MaximumLength(2000);
+        validator.RuleFor(x => x.CustomerEmail)
+            .Must(e => string.IsNullOrWhiteSpace(e) || Jama.Application.Mail.Commands.SendMailCommandValidator.IsAddress(e))
+            .WithMessage("Enter a valid email address, like name@example.com.")
+            .MaximumLength(320);
         validator.RuleFor(x => x.AssignedToId).NotEmpty().WithMessage("Choose the technician for this job.");
         SiteCoordinates.AddRulesTo(validator);
     }
