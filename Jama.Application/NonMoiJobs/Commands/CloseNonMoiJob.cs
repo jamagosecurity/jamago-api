@@ -12,7 +12,7 @@ using Microsoft.Extensions.Options;
 namespace Jama.Application.NonMoiJobs.Commands;
 
 /// <summary>
-/// The person who issued the job reviews what the technician did, may take a discount off the total (nothing else
+/// A Non-MOI manager (usually the person who issued the job) reviews what the technician did, may take a discount off the total (nothing else
 /// about the prices can change), and SENDS THE BILL TO THE CLIENT for approval — by email and WhatsApp, each carrying a link
 /// to the client's own page with Approve / Reject / Comment. The job becomes "Sent" and locks while it is with the client.
 /// If the client rejects or comments, it comes back here ("ChangesRequested") and can be adjusted and sent again as the
@@ -38,11 +38,11 @@ public sealed class CloseNonMoiJobCommandValidator : AbstractValidator<CloseNonM
         RuleFor(x => x.Discount)
             .GreaterThanOrEqualTo(0m).WithMessage("The discount cannot be negative.")
             .LessThanOrEqualTo(DiscountMax).WithMessage($"The discount must be {DiscountMax:N2} or less.");
-        RuleFor(x => x).Must(x => x.SendEmail || x.SendWhatsApp)
-            .WithMessage("Choose at least one way to send the bill: email or WhatsApp.")
+        // The bill goes to the client by email, always. WhatsApp is not used for bills.
+        RuleFor(x => x.SendEmail).Equal(true)
+            .WithMessage("The bill is sent to the client by email, so email cannot be turned off.")
             .OverridePropertyName("Channels");
-        RuleFor(x => x.MailboxKey).NotEmpty().WithMessage("Choose which company mailbox the email is sent from.")
-            .When(x => x.SendEmail);
+        RuleFor(x => x.MailboxKey).NotEmpty().WithMessage("Choose which company mailbox the email is sent from.");
         RuleFor(x => x.Email)
             .Must(e => string.IsNullOrWhiteSpace(e) || Jama.Application.Mail.Commands.SendMailCommandValidator.IsAddress(e))
             .WithMessage("Enter a valid email address, like name@example.com.");
@@ -66,10 +66,13 @@ public sealed class CloseNonMoiJobCommandHandler(
         if (job is null)
             return ApiResult<NonMoiJobDto>.Failure("Job not found.");
 
-        // The person who issued it, or an administrator. Anyone else with the grant can look but not send.
-        var isAdmin = actor.Role == Roles.Admin;
-        if (!isAdmin && (job.AssignedById == Guid.Empty || job.AssignedById != actor.UserId))
-            return ApiResult<NonMoiJobDto>.Failure("Only the person who issued this job, or an administrator, can send its bill.");
+        // Email is mandatory; WhatsApp (SendWhatsApp) is accepted for compatibility but never used — nothing goes out through it.
+        if (!request.SendEmail)
+            return ApiResult<NonMoiJobDto>.Failure("The bill is sent to the client by email, so email cannot be turned off.");
+
+        // Anyone who reaches this handler holds the Non-MOI manage permission (the endpoint requires it), so they may review
+        // and send the bill — not only the person who issued the job. A job is often issued by the administrator and billed by
+        // the Non-MOI staff member; the issuer is still told when the client answers.
 
         if (job.Status == "Closed")
             return ApiResult<NonMoiJobDto>.Failure("The client has already approved this job.");
@@ -85,14 +88,12 @@ public sealed class CloseNonMoiJobCommandHandler(
         if (request.SendEmail)
         {
             if (string.IsNullOrWhiteSpace(email))
-                return ApiResult<NonMoiJobDto>.Failure("Add the client's email address, or untick the email.");
+                return ApiResult<NonMoiJobDto>.Failure("Add the client's email address — the bill is sent by email.");
             account = mailOptions.Value.Accounts.FirstOrDefault(a =>
                 string.Equals(a.Key, request.MailboxKey, StringComparison.OrdinalIgnoreCase));
             if (account is null || !account.IsConfigured)
                 return ApiResult<NonMoiJobDto>.Failure("That mailbox is not set up for sending.");
         }
-        if (request.SendWhatsApp && !twilioOptions.Value.IsConfigured)
-            return ApiResult<NonMoiJobDto>.Failure("WhatsApp is not set up on this server. Untick it, or ask the administrator to set it up.");
 
         // The client's earlier answer has been read: this send is a new revision of the bill. Done once — a retry after a
         // half-failed send finds ClientDecision already cleared and does not count a second revision.
@@ -143,20 +144,6 @@ public sealed class CloseNonMoiJobCommandHandler(
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        if (request.SendWhatsApp && job.WhatsAppSentAt is null)
-        {
-            var sent = await whatsApp.SendJobBillAsync(
-                job.CustomerNumber, job.CustomerName, job.JobNumber, job.AmountPayable, pageUrl, cancellationToken);
-            if (!sent.Ok)
-            {
-                var already = job.EmailSentAt is not null ? " The email has already gone out, so trying again will only resend the WhatsApp message." : string.Empty;
-                return ApiResult<NonMoiJobDto>.Failure((sent.Error ?? "The WhatsApp message could not be sent.") + already);
-            }
-
-            job.WhatsAppSentAt = timeProvider.GetUtcNow().UtcDateTime;
-            await context.SaveChangesAsync(cancellationToken);
-        }
-
         var now = timeProvider.GetUtcNow().UtcDateTime;
         job.Status = "Sent";
         job.ClientMessage = null;
@@ -167,7 +154,7 @@ public sealed class CloseNonMoiJobCommandHandler(
             NonMoiJobId = job.Id,
             Action = "Sent",
             ActorName = actor.DisplayName,
-            Note = string.Join(" + ", new[] { request.SendEmail ? "email" : null, request.SendWhatsApp ? "WhatsApp" : null }.Where(x => x is not null)),
+            Note = "email",
             Revision = job.BillRevision,
             AmountPayable = job.AmountPayable,
         });

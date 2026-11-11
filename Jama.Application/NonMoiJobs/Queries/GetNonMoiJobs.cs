@@ -21,8 +21,7 @@ public sealed class GetNonMoiJobsQueryHandler(IApplicationDbContext context)
     }
 }
 
-/// <summary>How many finished jobs are waiting for the signed-in person to close: the ones they issued, or every one
-/// for an administrator. Drives the red number beside Non-MOI Jobs in the sidebar.</summary>
+/// <summary>How many finished jobs are waiting to be billed — every Non-MOI manager can send a bill, so everyone sees the same number. Drives the red number beside Non-MOI Jobs in the sidebar.</summary>
 public sealed record GetJobsAwaitingCloseQuery : IRequest<ApiResult<int>>;
 
 public sealed class GetJobsAwaitingCloseQueryHandler(IApplicationDbContext context, ICurrentUser actor)
@@ -31,9 +30,8 @@ public sealed class GetJobsAwaitingCloseQueryHandler(IApplicationDbContext conte
     public async Task<ApiResult<int>> Handle(GetJobsAwaitingCloseQuery request, CancellationToken cancellationToken)
     {
         // Finished and waiting for the issuer to send, or sent and the client asked for changes.
+        // Every Non-MOI manager can send a bill, so they all see the same count.
         var waiting = context.NonMoiJobs.AsNoTracking().Where(x => x.Status == "Completed" || x.Status == "ChangesRequested");
-        if (actor.Role != Jama.Application.Common.Roles.Admin)
-            waiting = waiting.Where(x => x.AssignedById == actor.UserId);
         return ApiResult<int>.Success(await waiting.CountAsync(cancellationToken));
     }
 }

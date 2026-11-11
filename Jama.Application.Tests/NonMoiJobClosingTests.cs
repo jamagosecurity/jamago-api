@@ -109,7 +109,7 @@ public class NonMoiJobClosingTests
         new(id, discount, to, email, whatsApp, "info");
 
     [Fact]
-    public async Task The_issuer_closes_the_deal_with_a_discount_and_the_client_is_sent_the_bill_both_ways()
+    public async Task The_issuer_closes_the_deal_with_a_discount_and_the_client_is_sent_the_bill_by_email()
     {
         var (context, job) = await SeedAsync();
         var mail = new FakeMail(); var wa = new FakeWhatsApp(); var pdf = new FakePdf();
@@ -121,11 +121,10 @@ public class NonMoiJobClosingTests
         Assert.Equal(100m, result.Data.Discount);
         Assert.Equal(900m, result.Data.AmountPayable);
         Assert.Equal(1, mail.Sent);
-        Assert.Equal(1, wa.Sent);
+        Assert.Equal(0, wa.Sent);                          // WhatsApp is never used, even if it was asked for
         Assert.Equal(900m, pdf.Last!.AmountPayable);
         var attachment = Assert.Single(mail.Last!.Attachments!);
         Assert.Equal("NMJ-00001 Bill.pdf", attachment.FileName);
-        Assert.Contains($"/bill/{job.BillToken}", wa.LastUrl);   // the client's own page, not a bare PDF
         Assert.Contains($"/bill/{job.BillToken}?do=approve", mail.Last.HtmlBody);
         Assert.Contains($"/bill/{job.BillToken}?do=reject", mail.Last.HtmlBody);
         Assert.Contains($"/bill/{job.BillToken}?do=comment", mail.Last.HtmlBody);
@@ -140,24 +139,20 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public async Task An_administrator_may_close_someone_elses_job_but_another_staff_member_may_not()
+    public async Task Any_non_moi_manager_may_send_the_bill_not_only_the_person_who_issued_the_job()
     {
-        var (context, job) = await SeedAsync();
+        var (context, job) = await SeedAsync();                        // issued by Issuer
 
-        var refused = await Handler(context, new FakeUser(Stranger)).Handle(Close(job.Id), default);
-        Assert.False(refused.Succeeded);
-        Assert.Equal("Completed", (await context.NonMoiJobs.SingleAsync()).Status);
-
-        var allowed = await Handler(context, new FakeUser(Stranger, Roles.Admin)).Handle(Close(job.Id), default);
-        Assert.True(allowed.Succeeded);
+        var other = await Handler(context, new FakeUser(Stranger)).Handle(Close(job.Id), default);   // another Non-MOI staff member
+        Assert.True(other.Succeeded);
+        Assert.Equal("Sent", (await context.NonMoiJobs.SingleAsync()).Status);
     }
 
     [Fact]
-    public async Task A_job_issued_before_the_issuer_was_recorded_can_only_be_closed_by_an_administrator()
+    public async Task A_job_issued_before_the_issuer_was_recorded_can_still_be_sent_by_a_manager()
     {
         var (context, job) = await SeedAsync(issuer: Guid.Empty);
-        Assert.False((await Handler(context, new FakeUser(Issuer)).Handle(Close(job.Id), default)).Succeeded);
-        Assert.True((await Handler(context, new FakeUser(Issuer, Roles.Admin)).Handle(Close(job.Id), default)).Succeeded);
+        Assert.True((await Handler(context, new FakeUser(Issuer)).Handle(Close(job.Id), default)).Succeeded);
     }
 
     [Theory]
@@ -185,17 +180,18 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public void At_least_one_way_of_sending_and_a_mailbox_for_the_email_are_required()
+    public void Email_is_mandatory_and_so_is_a_mailbox_to_send_it_from()
     {
         var validator = new CloseNonMoiJobCommandValidator();
         Assert.False(validator.Validate(Close(Guid.NewGuid(), email: false, whatsApp: false)).IsValid);
+        Assert.False(validator.Validate(Close(Guid.NewGuid(), email: false, whatsApp: true)).IsValid);   // WhatsApp alone is not enough
         Assert.False(validator.Validate(new CloseNonMoiJobCommand(Guid.NewGuid(), 0m, null, true, false, null)).IsValid);
         Assert.False(validator.Validate(Close(Guid.NewGuid(), to: "not-an-email")).IsValid);
         Assert.True(validator.Validate(Close(Guid.NewGuid(), whatsApp: false)).IsValid);
     }
 
     [Fact]
-    public async Task Without_an_email_on_file_the_email_must_be_typed_or_unticked()
+    public async Task Without_an_email_on_file_the_email_must_be_typed()
     {
         var (context, job) = await SeedAsync();
         job.CustomerEmail = null;
@@ -209,26 +205,18 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public async Task If_the_whatsapp_fails_the_job_stays_open_and_a_retry_does_not_send_the_email_twice()
+    public async Task Whatsapp_is_never_used_even_when_it_is_requested_or_would_fail()
     {
         var (context, job) = await SeedAsync();
-        var mail = new FakeMail();
+        var mail = new FakeMail(); var wa = new FakeWhatsApp(ok: false);
 
-        var first = await Handler(context, new FakeUser(Issuer), mail, new FakeWhatsApp(ok: false)).Handle(Close(job.Id, 50m), default);
+        var result = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, 50m), default);   // whatsApp: true by default
 
-        Assert.False(first.Succeeded);
-        Assert.Contains("email has already gone out", first.Errors.Single());
-        var after = await context.NonMoiJobs.SingleAsync();
-        Assert.Equal("Completed", after.Status);
-        Assert.NotNull(after.EmailSentAt);
-        Assert.Null(after.WhatsAppSentAt);
-
-        var wa = new FakeWhatsApp();
-        var retry = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, 50m), default);
-
-        Assert.True(retry.Succeeded);
-        Assert.Equal(1, mail.Sent);     // the email was not sent again
-        Assert.Equal(1, wa.Sent);
+        Assert.True(result.Succeeded);
+        Assert.Equal(1, mail.Sent);
+        Assert.Equal(0, wa.Sent);
+        Assert.Null((await context.NonMoiJobs.SingleAsync()).WhatsAppSentAt);
+        Assert.Equal("Sent", (await context.NonMoiJobs.SingleAsync()).Status);
     }
 
     [Fact]
@@ -243,14 +231,26 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public async Task Choosing_whatsapp_when_it_is_not_set_up_is_refused_before_anything_is_sent()
+    public async Task The_bill_goes_by_email_whether_or_not_whatsapp_is_set_up_on_the_server()
     {
         var (context, job) = await SeedAsync();
         var mail = new FakeMail();
         var result = await Handler(context, new FakeUser(Issuer), mail, twilio: false).Handle(Close(job.Id), default);
 
+        Assert.True(result.Succeeded);
+        Assert.Equal(1, mail.Sent);
+    }
+
+    [Fact]
+    public async Task A_request_with_email_turned_off_is_refused_and_nothing_is_sent()
+    {
+        var (context, job) = await SeedAsync();
+        var mail = new FakeMail();
+        var result = await Handler(context, new FakeUser(Issuer), mail).Handle(Close(job.Id, email: false), default);
+
         Assert.False(result.Succeeded);
         Assert.Equal(0, mail.Sent);
+        Assert.Equal("Completed", (await context.NonMoiJobs.SingleAsync()).Status);
     }
 
     [Fact]
@@ -291,19 +291,19 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public async Task The_sidebar_count_is_the_finished_jobs_waiting_for_that_person_and_everything_for_an_administrator()
+    public async Task The_sidebar_count_is_every_finished_job_waiting_to_be_billed_for_all_managers()
     {
         var (context, job) = await SeedAsync();                       // done, issued by Issuer
         context.NonMoiJobs.Add(new NonMoiJob { Id = Guid.NewGuid(), JobNumber = "NMJ-2", CustomerName = "B", CustomerNumber = "5", Location = "x", DescriptionEn = "y", AssignedToId = Guid.NewGuid(), AssignedById = Stranger, Status = "Completed" });
         context.NonMoiJobs.Add(new NonMoiJob { Id = Guid.NewGuid(), JobNumber = "NMJ-3", CustomerName = "C", CustomerNumber = "5", Location = "x", DescriptionEn = "y", AssignedToId = Guid.NewGuid(), AssignedById = Issuer, Status = "Assigned" });   // not done yet
         await context.SaveChangesAsync();
 
-        Assert.Equal(1, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Issuer)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
-        Assert.Equal(1, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Stranger)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
+        Assert.Equal(2, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Issuer)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
+        Assert.Equal(2, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Stranger)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
         Assert.Equal(2, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Guid.NewGuid(), Roles.Admin)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
 
-        await Handler(context, new FakeUser(Issuer)).Handle(Close(job.Id), default);     // closing it takes it off the count
-        Assert.Equal(0, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Issuer)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
+        await Handler(context, new FakeUser(Issuer)).Handle(Close(job.Id), default);     // sending one takes it off the count
+        Assert.Equal(1, (await new GetJobsAwaitingCloseQueryHandler(context, new FakeUser(Issuer)).Handle(new GetJobsAwaitingCloseQuery(), default)).Data);
     }
 
     // ===== The client's answer =====
