@@ -1,6 +1,7 @@
 using Jama.Application.Boqs.Commands.ApproveBoq;
 using Jama.Application.Boqs.Commands.CreateBoq;
 using Jama.Application.Boqs.Commands.DeleteBoq;
+using Jama.Application.Boqs.Commands.DuplicateBoq;
 using Jama.Application.Boqs.Commands.RejectBoq;
 using Jama.Application.Boqs.Commands.SeenBoqNotifications;
 using Jama.Application.Boqs.Commands.SubmitBoq;
@@ -61,6 +62,7 @@ public sealed class Boqs : EndpointGroupBase
             .MapPut(Update, "{id:guid}", permission: Permissions.BoqManage)
             // Submitting is the last step of building, so it goes with building.
             .MapPost(Submit, "{id:guid}/submit", permission: Permissions.BoqManage)
+            .MapPost(Duplicate, "{id:guid}/duplicate", permission: Permissions.BoqManage)
             // Answering it does not.
             .MapPost(Approve, "{id:guid}/approve", permission: Permissions.BoqApprove)
             .MapPost(Reject, "{id:guid}/reject", permission: Permissions.BoqApprove)
@@ -91,6 +93,14 @@ public sealed class Boqs : EndpointGroupBase
         return result.Succeeded
             ? Results.Created($"/api/boqs/{result.Data!.Id}", result)
             : Results.BadRequest(result);
+    }
+
+    public async Task<IResult> Duplicate(ISender sender, Guid id, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new DuplicateBoqCommand(id), cancellationToken);
+        return result.Succeeded
+            ? Results.Created($"/api/boqs/{result.Data!.Id}", result)
+            : Results.NotFound(result);
     }
 
     public async Task<IResult> Update(
