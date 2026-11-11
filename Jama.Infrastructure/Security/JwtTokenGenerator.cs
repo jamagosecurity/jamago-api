@@ -17,7 +17,8 @@ public class JwtTokenGenerator(
     public LoginResponse Generate(AdminUser user)
     {
         var settings = options.Value;
-        var expiresAtUtc = DateTime.UtcNow.AddMinutes(settings.AccessTokenMinutes);
+        var expiresAtUtc = DateTime.UtcNow.AddMinutes(
+            user.Role == Roles.Technician ? Math.Max(settings.AccessTokenMinutes, settings.TechnicianTokenMinutes) : settings.AccessTokenMinutes);
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(settings.Key));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
