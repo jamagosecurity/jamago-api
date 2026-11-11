@@ -25,8 +25,8 @@ public sealed class NonMoiJobs : EndpointGroupBase
     {
         app.MapGroup(this)
             .MapGet(GetAll, permission: Permissions.NonMoiJobManage)
-            .MapGet(GetMine, "mine", AppRoles.Technician)
-            .MapPost(Complete, "{id:guid}/complete", AppRoles.Technician)
+            .MapGet(GetMine, "mine", AppRoles.Technician, permission: Permissions.NonMoiJobWork)
+            .MapPost(Complete, "{id:guid}/complete", AppRoles.Technician, permission: Permissions.NonMoiJobWork)
             .MapPost(Close, "{id:guid}/close", permission: Permissions.NonMoiJobManage)
             .MapGet(GetBill, "{id:guid}/bill", permission: Permissions.NonMoiJobManage)
             .MapGet(GetMailboxes, "send-options", permission: Permissions.NonMoiJobManage)

@@ -135,4 +135,19 @@ public sealed class NonMoiJobAndMailPermissionTests
         Assert.Contains(Permissions.NonMoiJobManage, effective);
         Assert.Contains(Permissions.MailRead, effective);
     }
+
+    [Fact]
+    public void A_technician_can_be_given_only_the_jobs_section_or_only_inspections()
+    {
+        var jobsOnly = Permissions.EffectiveFor(Roles.Technician, [Permissions.NonMoiJobWork]);
+        Assert.Contains(Permissions.NonMoiJobWork, jobsOnly);
+        Assert.DoesNotContain(Permissions.DiaInspect, jobsOnly);
+
+        var inspectOnly = Permissions.EffectiveFor(Roles.Technician, [Permissions.DiaInspect]);
+        Assert.DoesNotContain(Permissions.NonMoiJobWork, inspectOnly);
+
+        // An unconfigured technician still gets everything their role needs.
+        Assert.Contains(Permissions.NonMoiJobWork, Permissions.EffectiveFor(Roles.Technician, []));
+        Assert.Contains(Permissions.NonMoiJobWork, Permissions.DefaultsForDepartment("Technician"));
+    }
 }
