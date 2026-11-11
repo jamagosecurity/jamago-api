@@ -23,6 +23,8 @@ internal static class BoqNumbers
     {
         var used = await context.Boqs
             .AsNoTracking()
+            // Deleted quotations still hold their numbers.
+            .IgnoreQueryFilters()
             .Where(x => x.BoqNumber.StartsWith(Prefix))
             .Select(x => x.BoqNumber)
             .ToListAsync(cancellationToken);

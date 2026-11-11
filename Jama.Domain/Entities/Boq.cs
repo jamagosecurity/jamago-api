@@ -121,4 +121,14 @@ public class Boq : BaseEntity
     /// PDF falls back to generating the same default on the spot.
     /// </summary>
     public string? ContractText { get; set; }
+
+    // ===== Soft delete =====
+    //
+    // A deleted quotation is hidden everywhere (a global query filter), but the row, its lines and its trail stay in the
+    // database. Its number stays taken, so a number that has been circulated is never issued again.
+
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
+    public Guid? DeletedById { get; set; }
+    public string? DeletedByName { get; set; }
 }

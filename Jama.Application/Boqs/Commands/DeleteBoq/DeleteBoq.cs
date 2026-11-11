@@ -7,7 +7,7 @@ namespace Jama.Application.Boqs.Commands.DeleteBoq;
 
 public sealed record DeleteBoqCommand(Guid Id) : IRequest<ApiResult<Guid>>;
 
-public sealed class DeleteBoqCommandHandler(IApplicationDbContext context)
+public sealed class DeleteBoqCommandHandler(IApplicationDbContext context, ICurrentUser actor, TimeProvider timeProvider)
     : IRequestHandler<DeleteBoqCommand, ApiResult<Guid>>
 {
     public async Task<ApiResult<Guid>> Handle(
@@ -18,8 +18,12 @@ public sealed class DeleteBoqCommandHandler(IApplicationDbContext context)
         if (boq is null)
             return ApiResult<Guid>.Failure("BOQ not found.");
 
-        // Sections and their lines go with it through the configured cascade.
-        context.Boqs.Remove(boq);
+        // Soft delete: hidden everywhere, kept in the database with who removed it and when. Its sections, lines and
+        // approval trail stay as they were, and its number is never reused.
+        boq.IsDeleted = true;
+        boq.DeletedAt = timeProvider.GetUtcNow().UtcDateTime;
+        boq.DeletedById = actor.UserId;
+        boq.DeletedByName = actor.DisplayName;
         await context.SaveChangesAsync(cancellationToken);
 
         return ApiResult<Guid>.Success(boq.Id);

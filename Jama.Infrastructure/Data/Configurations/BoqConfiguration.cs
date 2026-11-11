@@ -23,6 +23,11 @@ public sealed class BoqConfiguration : IEntityTypeConfiguration<Boq>
         builder.Property(x => x.ApprovedByName).HasMaxLength(200);
         builder.Property(x => x.RejectedByName).HasMaxLength(200);
         builder.Property(x => x.RejectionReason).HasMaxLength(1000);
+        builder.Property(x => x.DeletedByName).HasMaxLength(200);
+
+        // Soft delete: a deleted quotation disappears from every query. Code that must still see it (the next-number
+        // lookup) opts out with IgnoreQueryFilters.
+        builder.HasQueryFilter(x => !x.IsDeleted);
 
         builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.Total).HasPrecision(18, 2);
@@ -60,6 +65,7 @@ public sealed class BoqSectionConfiguration : IEntityTypeConfiguration<BoqSectio
 
         builder.Property(x => x.Title).HasMaxLength(200).IsRequired();
         builder.HasIndex(x => new { x.BoqId, x.SortOrder });
+        builder.HasQueryFilter(x => !x.Boq.IsDeleted);
 
         builder.HasMany(x => x.Lines)
             .WithOne(x => x.Section)
@@ -73,6 +79,7 @@ public sealed class BoqLineConfiguration : IEntityTypeConfiguration<BoqLine>
     public void Configure(EntityTypeBuilder<BoqLine> builder)
     {
         builder.ToTable("BoqLines");
+        builder.HasQueryFilter(x => !x.Section.Boq.IsDeleted);
 
         builder.Property(x => x.ItemName).HasMaxLength(200).IsRequired();
         builder.Property(x => x.ModelNo).HasMaxLength(120);
@@ -112,6 +119,7 @@ public sealed class BoqApprovalEventConfiguration : IEntityTypeConfiguration<Boq
     public void Configure(EntityTypeBuilder<BoqApprovalEvent> builder)
     {
         builder.ToTable("BoqApprovalEvents");
+        builder.HasQueryFilter(x => !x.Boq.IsDeleted);
 
         builder.Property(x => x.Action).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(x => x.ActorName).HasMaxLength(200);
