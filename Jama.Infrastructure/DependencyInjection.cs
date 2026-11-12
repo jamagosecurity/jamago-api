@@ -45,6 +45,10 @@ public static class DependencyInjection
         services.AddSingleton<IPdfWatermarker, PdfWatermarker>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IWhatsAppSender, TwilioWhatsAppSender>();
+        // Opens a short Google Maps share link to find the pin; never follows a redirect on its own (see MapLinkResolver).
+        services.AddSingleton<IMapLinkResolver>(_ => new Jama.Infrastructure.Geo.MapLinkResolver(
+            new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(4) })
+            { Timeout = TimeSpan.FromSeconds(8) }));
         services.AddHostedService<Jama.Infrastructure.Mail.MailSyncService>();
         services.AddSingleton<IMailSender, Jama.Infrastructure.Mail.MailSender>();
         services.AddSingleton<Jama.Infrastructure.Background.BackgroundWorkQueue>();
