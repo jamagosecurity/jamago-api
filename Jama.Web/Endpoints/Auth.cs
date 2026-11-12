@@ -3,6 +3,7 @@ using System.Security.Claims;
 using Jama.Application.Auth;
 using Jama.Application.Auth.Commands.ChangePassword;
 using Jama.Application.Auth.Commands.Login;
+using Jama.Application.Auth.Commands.PasswordReset;
 using Jama.Application.Auth.Commands.RefreshToken;
 using Jama.Application.Auth.Queries.GetCurrentUser;
 using Jama.Application.Common.Interfaces;
@@ -21,7 +22,9 @@ public class Auth : EndpointGroupBase
             .MapPost(Login, "login")
             .MapGet(Me, "me", requireAuthorization: true)
             .MapPost(Refresh, "refresh", requireAuthorization: true)
-            .MapPost(ChangePassword, "change-password", requireAuthorization: true);
+            .MapPost(ChangePassword, "change-password", requireAuthorization: true)
+            .MapPost(ForgotPassword, "forgot-password", rateLimitPolicy: RateLimitPolicies.PasswordReset)
+            .MapPost(ResetPassword, "reset-password", rateLimitPolicy: RateLimitPolicies.PasswordReset);
     }
 
     public async Task<Results<Ok<TypedResult<LoginResponse>>, JsonHttpResult<TypedResult<LoginResponse>>>> Login(
@@ -137,5 +140,20 @@ public class Auth : EndpointGroupBase
         return result.Succeeded
             ? TypedResults.Ok(result)
             : TypedResults.BadRequest(result);
+    }
+
+    public sealed record ForgotPasswordBody(string? Email);
+    public sealed record ResetPasswordBody(string? Email, string? Token, string? NewPassword);
+
+    public async Task<IResult> ForgotPassword(ISender sender, ForgotPasswordBody body, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new RequestPasswordResetCommand(body.Email), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    public async Task<IResult> ResetPassword(ISender sender, ResetPasswordBody body, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new ResetPasswordCommand(body.Email, body.Token, body.NewPassword), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
     }
 }

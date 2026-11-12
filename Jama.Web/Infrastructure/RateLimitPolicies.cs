@@ -21,6 +21,9 @@ public static class RateLimitPolicies
     /// credential, so this only stops a script hammering it.</summary>
     public const string JobBillResponse = "job-bill-response";
 
+    /// <summary>Forgotten-password requests and resets. Each request sends an email, and each reset tries a code.</summary>
+    public const string PasswordReset = "password-reset";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -49,6 +52,11 @@ public static class RateLimitPolicies
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
+
+            options.AddPolicy(PasswordReset, context =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions { PermitLimit = 8, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 }));
 
             // Same envelope as every other failure, so the client shows this
             // sentence instead of a bare "request failed".

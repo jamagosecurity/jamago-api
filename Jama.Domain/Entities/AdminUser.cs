@@ -20,5 +20,26 @@ public class AdminUser : BaseEntity
     /// than nothing.
     /// </summary>
     public DateTime? NotificationsSeenAt { get; set; }
+
+    // ===== Profile: who this person is, in their own words =====
+
+    /// <summary>The person's own job title ("Senior Technician"), written by them. Shown beside their name.</summary>
+    public string? Designation { get; set; }
+
+    /// <summary>The number colleagues can reach them on, written by them (or an administrator).</summary>
+    public string? Phone { get; set; }
+
+    /// <summary>Where their profile picture is stored (see IFileStorage). Null when they have none.</summary>
+    public string? PhotoKey { get; set; }
+    public string? PhotoContentType { get; set; }
+
+    /// <summary>When the picture last changed. Doubles as its version, so a new picture is fetched, not served from cache.</summary>
+    public DateTime? PhotoUpdatedAt { get; set; }
+
+    // ===== Forgotten password =====
+
+    /// <summary>SHA-256 of the one-time reset code emailed to the person. Never the code itself.</summary>
+    public string? PasswordResetTokenHash { get; set; }
+    public DateTime? PasswordResetExpiresAt { get; set; }
     public ICollection<UserPermission> Permissions { get; set; } = [];
 }

@@ -24,4 +24,10 @@ public record UserSummaryDto(
     /// address to the client or having it guess. Same caveat as Permissions: the
     /// SuperAdmin policy is what actually enforces this.
     /// </summary>
-    bool IsSuperAdmin);
+    bool IsSuperAdmin,
+    /// <summary>The person's own job title, if they have written one.</summary>
+    string? Designation = null,
+    /// <summary>0 when there is no profile picture; otherwise changes whenever the picture does.</summary>
+    long PhotoVersion = 0,
+    /// <summary>The person's own contact number, if they have added one.</summary>
+    string? Phone = null);

@@ -35,5 +35,9 @@ internal static class StaffMappings
                 ? []
                 : entity.Account.Role == Common.Roles.Admin
                     ? Common.Permissions.ForRole(Common.Roles.Admin)
-                    : entity.Account.Permissions.Select(p => p.Permission).OrderBy(p => p).ToList());
+                    : entity.Account.Permissions.Select(p => p.Permission).OrderBy(p => p).ToList(),
+            entity.Account?.Id,
+            entity.Account?.Designation,
+            Profiles.ProfileRules.PhotoVersion(entity.Account),
+            entity.Account?.Phone);
 }

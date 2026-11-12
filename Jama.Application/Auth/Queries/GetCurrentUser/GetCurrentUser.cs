@@ -53,6 +53,9 @@ public class GetCurrentUserQueryHandler : IRequestHandler<GetCurrentUserQuery, T
                 user.FullName,
                 user.Role,
                 granted,
-                _adminSeed.IsSuperAdmin(user.Email)));
+                _adminSeed.IsSuperAdmin(user.Email),
+                user.Designation,
+                Profiles.ProfileRules.PhotoVersion(user),
+                user.Phone));
     }
 }

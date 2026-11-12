@@ -24,5 +24,11 @@ public class AdminUserConfiguration : IEntityTypeConfiguration<AdminUser>
         builder.Property(x => x.Role)
             .HasMaxLength(50)
             .IsRequired();
+
+        builder.Property(x => x.Designation).HasMaxLength(100);
+        builder.Property(x => x.Phone).HasMaxLength(30);
+        builder.Property(x => x.PasswordResetTokenHash).HasMaxLength(64);
+        builder.Property(x => x.PhotoKey).HasMaxLength(300);
+        builder.Property(x => x.PhotoContentType).HasMaxLength(50);
     }
 }

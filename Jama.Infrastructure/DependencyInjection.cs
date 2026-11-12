@@ -45,6 +45,9 @@ public static class DependencyInjection
         services.AddSingleton<IPdfWatermarker, PdfWatermarker>();
         services.AddSingleton<IFileStorage, LocalFileStorage>();
         services.AddSingleton<IWhatsAppSender, TwilioWhatsAppSender>();
+        // Live aircraft over Qatar for the sign-in map; one shared cache for every visitor.
+        services.AddSingleton<Jama.Application.Flights.IFlightFeed>(sp => new Jama.Infrastructure.Flights.OpenSkyFlightFeed(
+            new HttpClient { Timeout = TimeSpan.FromSeconds(10) }, sp.GetRequiredService<TimeProvider>()));
         // Opens a short Google Maps share link to find the pin; never follows a redirect on its own (see MapLinkResolver).
         services.AddSingleton<IMapLinkResolver>(_ => new Jama.Infrastructure.Geo.MapLinkResolver(
             new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false, ConnectTimeout = TimeSpan.FromSeconds(4) })

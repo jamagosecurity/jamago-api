@@ -14,4 +14,9 @@ public record AdminStaffDto(
     /// <summary>Login account enabled. Independent of <paramref name="IsActive"/>.</summary>
     bool CanSignIn,
     DateTime CreatedAt,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    /// <summary>The login account behind this member, which the profile endpoints are addressed by.</summary>
+    Guid? AccountId = null,
+    string? Designation = null,
+    long PhotoVersion = 0,
+    string? Phone = null);

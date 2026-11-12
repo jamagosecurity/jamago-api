@@ -58,6 +58,9 @@ public class JwtTokenGenerator(
                 user.FullName,
                 user.Role,
                 granted,
-                adminSeed.Value.IsSuperAdmin(user.Email)));
+                adminSeed.Value.IsSuperAdmin(user.Email),
+                user.Designation,
+                Jama.Application.Profiles.ProfileRules.PhotoVersion(user),
+                user.Phone));
     }
 }
