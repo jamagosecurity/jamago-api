@@ -20,6 +20,7 @@ public sealed record CreateNonMoiJobCommand : IRequest<ApiResult<NonMoiJobDto>>,
     public string? DescriptionAr { get; init; }
     public Guid AssignedToId { get; init; }
     public string? CustomerEmail { get; init; }
+    public DateTimeOffset? ScheduledAt { get; init; }
 }
 
 public sealed class CreateNonMoiJobCommandValidator : AbstractValidator<CreateNonMoiJobCommand>
@@ -50,6 +51,7 @@ public sealed class CreateNonMoiJobCommandHandler(IApplicationDbContext context,
             AssignedToId = technician.AdminUserId!.Value,
             AssignedToName = technician.FullName,
             CustomerEmail = NonMoiJobRules.Clean(request.CustomerEmail),
+            ScheduledAt = request.ScheduledAt?.UtcDateTime,
             // Who issued it, taken from the token: only this person (or an administrator) can close the deal.
             AssignedById = actor.UserId,
             AssignedByName = actor.DisplayName,
@@ -74,6 +76,7 @@ public sealed record UpdateNonMoiJobCommand : IRequest<ApiResult<NonMoiJobDto>>,
     public string? DescriptionAr { get; init; }
     public Guid AssignedToId { get; init; }
     public string? CustomerEmail { get; init; }
+    public DateTimeOffset? ScheduledAt { get; init; }
 }
 
 public sealed class UpdateNonMoiJobCommandValidator : AbstractValidator<UpdateNonMoiJobCommand>
@@ -111,6 +114,7 @@ public sealed class UpdateNonMoiJobCommandHandler(IApplicationDbContext context,
         job.DescriptionEn = request.DescriptionEn!.Trim();
         job.DescriptionAr = NonMoiJobRules.Clean(request.DescriptionAr);
         job.CustomerEmail = NonMoiJobRules.Clean(request.CustomerEmail);
+        job.ScheduledAt = request.ScheduledAt?.UtcDateTime;
         job.UpdatedAt = timeProvider.GetUtcNow().UtcDateTime;
 
         await context.SaveChangesAsync(cancellationToken);

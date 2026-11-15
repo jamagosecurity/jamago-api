@@ -91,6 +91,8 @@
   <ItemGroup>
 
     <EmbeddedResource Include="Documents\Assets\jamago-logo.png" />
+    <EmbeddedResource Include="Mail\Assets\email-logo.png" />
+    <EmbeddedResource Include="Mail\Assets\moi-ssd.jpg" />
 
     <EmbeddedResource Include="Documents\Assets\jamago-logo-watermark.png" />
     <EmbeddedResource Include="Documents\Assets\jamago-quote-watermark.png" />

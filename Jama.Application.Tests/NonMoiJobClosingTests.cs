@@ -125,12 +125,13 @@ public class NonMoiJobClosingTests
         Assert.Equal(900m, pdf.Last!.AmountPayable);
         var attachment = Assert.Single(mail.Last!.Attachments!);
         Assert.Equal("NMJ-00001 Bill.pdf", attachment.FileName);
-        Assert.Contains($"/bill/{job.BillToken}?do=approve", mail.Last.HtmlBody);
-        Assert.Contains($"/bill/{job.BillToken}?do=reject", mail.Last.HtmlBody);
-        Assert.Contains($"/bill/{job.BillToken}?do=comment", mail.Last.HtmlBody);
-        Assert.Contains(">Approve<", mail.Last.HtmlBody);
+        Assert.Contains($"/bill/{job.BillToken}\"", mail.Last.HtmlBody);    // one button to the client's page, where they decide once
+        Assert.DoesNotContain("?do=", mail.Last.HtmlBody);
+        Assert.Contains("Review &amp; respond", mail.Last.HtmlBody);
+        Assert.Contains("cid:jamago-logo", mail.Last.HtmlBody);             // the logo travels inside the message
+        Assert.Contains(">INVOICE<", mail.Last.HtmlBody);
         Assert.Contains("IBAN: <strong>QA11QIIB 0000 0000 1113196013001</strong>", mail.Last.HtmlBody);
-        Assert.Contains("?do=approve", mail.Last.Body);          // the plain-text version has the same three links
+        Assert.Contains($"/bill/{job.BillToken}", mail.Last.Body);   // the plain-text version has the same link
         Assert.Contains("Jama Go", mail.Last.Body);      // the mailbox's signature is on the message
         Assert.Contains("FAWRAN - JAMA GO SECURITY EQUIPMENT", mail.Last.Body);   // where to pay
         Assert.Contains("CR NO: 189177", mail.Last.Body);
@@ -316,6 +317,7 @@ public class NonMoiJobClosingTests
     {
         var (context, job) = await SeedAsync();
         context.AdminUsers.Add(new AdminUser { Id = Issuer, Email = "hasan@jamago.qa", FullName = "Hasan", IsActive = true });
+        context.AdminUsers.Add(new AdminUser { Id = job.AssignedToId, Email = "tech@jamago.qa", FullName = "Tech", IsActive = true });
         await context.SaveChangesAsync();
         var mail = new FakeMail();
         var sent = await Handler(context, new FakeUser(Issuer), mail).Handle(Close(job.Id, 100m, whatsApp: false), default);
@@ -339,15 +341,14 @@ public class NonMoiJobClosingTests
         Assert.Equal("Mr Noor (client)", saved.ClosedByName);
         Assert.False(result.Data!.CanRespond);
 
-        // Three notes: company mailbox + Hasan together, and the client's own receipt (which carries the payment details).
-        Assert.Equal(2, mail.All.Count);
-        var staff = mail.All[0];
-        Assert.Contains("info@jamago.qa", staff.To);
-        Assert.Contains("hasan@jamago.qa", staff.To);
-        Assert.Contains("approved", staff.Subject);
-        var client = mail.All[1];
-        Assert.Equal(["client@example.com"], client.To);
-        Assert.Contains("IBAN: QA11QIIB 0000 0000 1113196013001", client.Body);
+        // One email to everyone: the client, with the company inbox, the sender (Hasan) and the technician copied.
+        var email = Assert.Single(mail.All);
+        Assert.Equal(["client@example.com"], email.To);
+        Assert.Contains("info@jamago.qa", email.Cc);
+        Assert.Contains("hasan@jamago.qa", email.Cc);
+        Assert.Contains("tech@jamago.qa", email.Cc);
+        Assert.Contains("approved", email.Subject);
+        Assert.Contains("IBAN: QA11QIIB 0000 0000 1113196013001", email.Body);
         Assert.Contains(await context.NonMoiJobEvents.ToListAsync(), e => e.Action == "Approved");
     }
 
@@ -366,7 +367,13 @@ public class NonMoiJobClosingTests
         Assert.Equal("ChangesRequested", saved.Status);
         Assert.Equal(expected, saved.ClientDecision);
         Assert.Equal("The price is too high for the cable work.", saved.ClientMessage);
-        Assert.Contains("The price is too high", mail.All[0].Body);   // the company and Hasan are told what the client said
+        // Before approval it stays between the sender and the client: Hasan (and the mailbox he sent from) hears what
+        // the client said; the technician is not told; the client gets a receipt.
+        Assert.Equal(2, mail.All.Count);
+        Assert.Contains("The price is too high", mail.All[0].Body);
+        Assert.Contains("hasan@jamago.qa", mail.All[0].To);
+        Assert.DoesNotContain("tech@jamago.qa", mail.All.SelectMany(m => m.To.Concat(m.Cc)));
+        Assert.Equal(["client@example.com"], mail.All[1].To);
         Assert.Null(saved.ClosedAt);
 
         // …and it is waiting for the issuer: it shows in their red number.
@@ -469,7 +476,7 @@ public class NonMoiJobClosingTests
         Assert.Single(held.Items);                                                 // the emails are waiting for the background worker
 
         await held.Items[0](CancellationToken.None);                               // when the worker gets to it, they go out
-        Assert.Equal(2, mail.All.Count);
+        Assert.Single(mail.All);                                                   // one approval email, everyone on it
     }
 
     [Theory]

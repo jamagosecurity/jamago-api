@@ -27,6 +27,9 @@ public class NonMoiJob : BaseEntity
     public string? DescriptionAr { get; set; }
 
     /// <summary>The technician (an AdminUser id) who sees this job.</summary>
+    /// <summary>When the technician is to visit the site, set by whoever issues the job. UTC; shown in Doha time.</summary>
+    public DateTime? ScheduledAt { get; set; }
+
     public Guid AssignedToId { get; set; }
     public string AssignedToName { get; set; } = string.Empty;
 
@@ -65,6 +68,8 @@ public class NonMoiJob : BaseEntity
     public DateTime? EmailSentAt { get; set; }
     public DateTime? WhatsAppSentAt { get; set; }
     public string? SentFromAccount { get; set; }
+    /// <summary>The staff member who last sent the bill: they are told when the client answers.</summary>
+    public Guid? SentById { get; set; }
 
     /// <summary>An unguessable token that makes the bill's PDF link work for the client without signing in.</summary>
     public string? BillToken { get; set; }

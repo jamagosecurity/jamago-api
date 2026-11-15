@@ -3,6 +3,7 @@ using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Application.Options;
 using Jama.Domain.Entities;
+using Jama.Application.Mail;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -17,7 +18,9 @@ public sealed record SendMailCommand(
     IReadOnlyList<string>? Cc,
     string? Subject,
     string? Body,
-    Guid? ReplyToMessageId) : IRequest<ApiResult<MailSentDto>>;
+    Guid? ReplyToMessageId,
+    /// <summary>The original message under a reply or forward; shown below the signature.</summary>
+    string? Quoted = null) : IRequest<ApiResult<MailSentDto>>;
 
 public sealed record MailSentDto(bool CopySavedToSent, Guid? SentMessageId);
 
@@ -40,6 +43,7 @@ public sealed class SendMailCommandValidator : AbstractValidator<SendMailCommand
             .Must(s => s is null || !s.Contains('\r') && !s.Contains('\n')).WithMessage("The subject must be one line.");
         RuleFor(x => x.Body).NotEmpty().WithMessage("Write a message.")
             .MaximumLength(100_000).WithMessage("The message is too long.");
+        RuleFor(x => x.Quoted).MaximumLength(200_000).WithMessage("The quoted message is too long.");
     }
 
     /// <summary>Plain, single address: name@domain.tld, no spaces, no angle brackets or line breaks.</summary>
@@ -79,8 +83,16 @@ public sealed class SendMailCommandHandler(
             .Where(a => !to.Contains(a, StringComparer.OrdinalIgnoreCase)).ToList();
         var subject = request.Subject!.Trim();
 
+        // The message as written, the mailbox's signature, then the original (reply / forward) underneath.
+        var body = request.Body!.TrimEnd();
+        var quoted = string.IsNullOrWhiteSpace(request.Quoted) ? null : request.Quoted.Trim();
+        var card = await EmailSignature.ResolveAsync(context, account, cancellationToken);
+        var text = body + "\n\n" + EmailSignature.Text(account, card) + (quoted is null ? "" : "\n\n" + quoted);
+        var html = MessageHtml(body, EmailSignature.Html(account, card), quoted);
+        var signer = card.Name;
+
         var result = await sender.SendAsync(
-            new MailSendRequest(account.Key, "Jama Go", to, cc, subject, request.Body!, inReplyTo), cancellationToken);
+            new MailSendRequest(account.Key, signer, to, cc, subject, text, inReplyTo, null, html), cancellationToken);
         if (!result.Ok)
             return ApiResult<MailSentDto>.Failure(result.Error ?? "The message could not be sent.");
 
@@ -103,27 +115,42 @@ public sealed class SendMailCommandHandler(
         Guid? sentId = null;
         if (copySaved)
         {
-            var body = request.Body!;
             sentId = Guid.CreateVersion7();
+            var snippet = string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
             context.MailMessages.Add(new MailMessage
             {
                 Id = sentId.Value,
                 AccountKey = account.Key,
                 AccountAddress = account.Address,
+                SourceKey = account.Key,
                 Folder = "Sent",
                 UidValidity = result.CopyUidValidity!.Value,
                 Uid = result.CopyUid!.Value,
-                FromName = "Jama Go",
+                FromName = signer,
                 FromAddress = account.Address,
                 ToAddresses = string.Join(", ", to),
                 Subject = subject,
                 SentAt = DateTime.UtcNow,
-                Snippet = string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) is { Length: > 240 } s ? s[..240] : string.Join(' ', body.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)),
-                BodyText = body,
+                Snippet = snippet.Length > 240 ? snippet[..240] : snippet,
+                BodyText = text,
+                BodyHtml = html,
             });
         }
 
         await context.SaveChangesAsync(cancellationToken);
         return ApiResult<MailSentDto>.Success(new MailSentDto(copySaved, sentId));
+    }
+
+    private static string MessageHtml(string body, string signature, string? quoted)
+    {
+        static string Paragraphs(string value) =>
+            System.Net.WebUtility.HtmlEncode(value.Replace("\r", string.Empty)).Replace("\n", "<br>");
+
+        var quote = quoted is null ? string.Empty
+            : $@"<div style=""margin-top:26px;padding:12px 0 0 14px;border-left:3px solid #E3E0D8;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#4B5260"">{Paragraphs(quoted)}</div>";
+        return $@"<!doctype html><html><head><meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width,initial-scale=1""></head>
+<body style=""margin:0;padding:16px;background:#ffffff"">
+<div style=""font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#0B1730"">{Paragraphs(body)}</div>
+{signature}{quote}</body></html>";
     }
 }

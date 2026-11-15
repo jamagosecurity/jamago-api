@@ -19,6 +19,14 @@ public sealed class MailSettings
     /// (the page where they approve, reject or comment). No trailing slash.</summary>
     public string PublicSiteUrl { get; set; } = "https://jamago.qa";
 
+    /// <summary>The copy mailbox (e.g. "accounts"): every mailbox forwards a copy of its incoming mail here (set by the
+    /// owner in hPanel), so new mail keeps showing even when someone changes their own password. Mail read from it is
+    /// filed under the mailbox it was sent to.</summary>
+    public string ArchiveKey { get; set; } = string.Empty;
+
+    /// <summary>The company's main inbox: copied on every client approval of a Non-MOI bill.</summary>
+    public string CompanyInbox { get; set; } = "info@jamago.qa";
+
     public List<MailAccountSettings> Accounts { get; set; } = [];
 }
 
@@ -37,6 +45,12 @@ public sealed class MailAccountSettings
 
     /// <summary>Appended to new messages, replies and forwards from this mailbox. Plain text; the sender can edit it before sending.</summary>
     public string Signature { get; set; } = string.Empty;
+
+    /// <summary>The person behind the mailbox, for the signature card: e.g. "Yousef Kotb", "Pre-Sales", "+974 3139 9511".
+    /// Left empty on a shared mailbox (info, support…) the card shows the department instead.</summary>
+    public string SignatureName { get; set; } = string.Empty;
+    public string SignatureTitle { get; set; } = string.Empty;
+    public string SignatureMobile { get; set; } = string.Empty;
 
     /// <summary>Outgoing server. Left empty it is derived from <see cref="Host"/> (imap.x.com → smtp.x.com).</summary>
     public string SmtpHost { get; set; } = string.Empty;

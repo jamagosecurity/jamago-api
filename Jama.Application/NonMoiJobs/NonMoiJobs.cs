@@ -39,7 +39,8 @@ public sealed record NonMoiJobDto(
     string? ClientMessage = null,
     string? ClientResponderName = null,
     DateTime? ClientRespondedAt = null,
-    IReadOnlyList<NonMoiJobEventDto>? Events = null);
+    IReadOnlyList<NonMoiJobEventDto>? Events = null,
+    DateTime? ScheduledAt = null);
 
 public sealed record NonMoiJobEventDto(string Action, string ActorName, string? Note, int Revision, decimal AmountPayable, DateTime At);
 
@@ -57,6 +58,9 @@ public interface INonMoiJobRequest : ISiteCoordinateRequest
 
     /// <summary>Optional client email for sending the bill. Null when the request does not carry one.</summary>
     string? CustomerEmail => null;
+
+    /// <summary>When the technician should visit. Sent with the time zone (Doha, +03:00).</summary>
+    DateTimeOffset? ScheduledAt => null;
 }
 
 internal static class NonMoiJobRules
@@ -76,7 +80,8 @@ internal static class NonMoiJobRules
         job.ClosedAt, job.ClosedByName, job.EmailSentAt, job.WhatsAppSentAt,
         job.BillRevision, job.ClientDecision, job.ClientMessage, job.ClientResponderName, job.ClientRespondedAt,
         job.Events.OrderBy(e => e.CreatedAt)
-            .Select(e => new NonMoiJobEventDto(e.Action, e.ActorName, e.Note, e.Revision, e.AmountPayable, e.CreatedAt)).ToList());
+            .Select(e => new NonMoiJobEventDto(e.Action, e.ActorName, e.Note, e.Revision, e.AmountPayable, e.CreatedAt)).ToList(),
+        job.ScheduledAt);
 
     /// <summary>Next reference, derived from the highest issued so a deleted
     /// job never lets the next one reuse its number.</summary>
@@ -134,6 +139,10 @@ internal static class NonMoiJobRules
             .WithMessage("Enter a valid email address, like name@example.com.")
             .MaximumLength(320);
         validator.RuleFor(x => x.AssignedToId).NotEmpty().WithMessage("Choose the technician for this job.");
+        validator.RuleFor(x => x.ScheduledAt)
+            .NotNull().WithMessage("Choose the date and time of the visit.")
+            .Must(at => at is null || (at.Value.Year >= 2024 && at.Value <= DateTimeOffset.UtcNow.AddYears(2)))
+            .WithMessage("Choose a visit date within the next two years.");
         SiteCoordinates.AddRulesTo(validator);
     }
 

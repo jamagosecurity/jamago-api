@@ -93,6 +93,54 @@ public class MailSendTests
     }
 
     [Fact]
+    public async Task Every_message_carries_the_mailboxs_signature_card_with_the_original_below_it()
+    {
+        await using var context = NewContext();
+        var sender = new FakeSender(new MailSendResult(true, null, 7, 43));
+        var settings = Microsoft.Extensions.Options.Options.Create(new MailSettings
+        {
+            Accounts = [new MailAccountSettings { Key = "youssef", Address = "youssef@jamago.qa", Host = "imap.example.com", Password = "x",
+                SignatureName = "Yousef Kotb", SignatureTitle = "Pre-Sales", SignatureMobile = "+974 3139 9511" }],
+        });
+        var handler = new SendMailCommandHandler(context, sender, new FakeUser(), settings);
+
+        var result = await handler.Handle(new SendMailCommand("youssef", ["client@example.com"], null, "Re: Quote", "Thank you <b>sir</b>", null,
+            "On 1 Nov, Client wrote:\n> Please send the quote"), default);
+
+        Assert.True(result.Succeeded);
+        var html = sender.Last!.HtmlBody!;
+        Assert.Equal("Yousef Kotb", sender.Last.FromDisplayName);
+        Assert.Contains("Thank you &lt;b&gt;sir&lt;/b&gt;", html);              // what was typed is shown as text, never as markup
+        Assert.Contains("Yousef Kotb", html);
+        Assert.Contains("Pre-Sales", html);
+        Assert.Contains("+974 3139 9511", html);
+        Assert.Contains("cid:jamago-logo", html);
+        Assert.Contains("MOI-SSD Approved CCTV Contractor", html);
+        Assert.True(html.IndexOf("Yousef Kotb", StringComparison.Ordinal) < html.IndexOf("Please send the quote", StringComparison.Ordinal));
+        Assert.Contains("Mobile: +974 3139 9511", sender.Last.Body);             // the plain-text version has it too
+    }
+
+    [Fact]
+    public async Task The_signature_comes_from_the_staff_profile_with_the_mailbox_email()
+    {
+        await using var context = NewContext();
+        context.AdminUsers.Add(new AdminUser { Id = Guid.NewGuid(), Email = "Info@Jamago.qa", FullName = "Sara Ali", IsActive = true,
+            Designation = "Sales Coordinator", Phone = "+974 5555 1212" });
+        await context.SaveChangesAsync();
+        var sender = new FakeSender(new MailSendResult(true, null, 7, 44));
+        var handler = new SendMailCommandHandler(context, sender, new FakeUser(), Settings());
+
+        var result = await handler.Handle(Valid(), default);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Sara Ali", sender.Last!.FromDisplayName);
+        Assert.Contains("Sara Ali", sender.Last.HtmlBody);
+        Assert.Contains("Sales Coordinator", sender.Last.HtmlBody);
+        Assert.Contains("+974 5555 1212", sender.Last.HtmlBody);
+        Assert.DoesNotContain("Customer Service", sender.Last.HtmlBody);   // the department wording is only the fallback
+    }
+
+    [Fact]
     public async Task A_reply_threads_under_the_original_message()
     {
         await using var context = NewContext();

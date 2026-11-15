@@ -16,6 +16,24 @@ namespace Jama.Infrastructure.Mail;
 /// </summary>
 public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSender> logger) : IMailSender
 {
+    /// <summary>What an email's HTML writes (as <c>cid:jamago-logo</c>) to show the company logo.</summary>
+    public const string LogoContentId = "jamago-logo";
+
+    /// <summary>What an email's HTML writes (as <c>cid:jamago-moi</c>) to show the MOI-SSD approval badge.</summary>
+    public const string MoiBadgeContentId = "jamago-moi";
+
+    private static readonly byte[] EmailLogo = Load("email-logo.png");
+    private static readonly byte[] MoiBadge = Load("moi-ssd.jpg");
+
+    private static byte[] Load(string name)
+    {
+        using var stream = typeof(MailSender).Assembly.GetManifestResourceStream("Jama.Infrastructure.Mail.Assets." + name);
+        if (stream is null) return [];
+        using var copy = new MemoryStream();
+        stream.CopyTo(copy);
+        return copy.ToArray();
+    }
+
     public async Task<MailSendResult> SendAsync(MailSendRequest request, CancellationToken cancellationToken)
     {
         var account = options.Value.Accounts.FirstOrDefault(a =>
@@ -96,6 +114,18 @@ public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSende
             message.References.Add(id);
         }
         var body = new BodyBuilder { TextBody = r.Body, HtmlBody = r.HtmlBody };
+        // HTML that asks for the company logo gets it inside the message, so it shows even where the mail app blocks
+        // downloaded pictures.
+        if (r.HtmlBody?.Contains("cid:" + LogoContentId, StringComparison.Ordinal) == true && EmailLogo.Length > 0)
+        {
+            var logo = body.LinkedResources.Add("jamago-logo.png", EmailLogo, new ContentType("image", "png"));
+            logo.ContentId = LogoContentId;
+        }
+        if (r.HtmlBody?.Contains("cid:" + MoiBadgeContentId, StringComparison.Ordinal) == true && MoiBadge.Length > 0)
+        {
+            var badge = body.LinkedResources.Add("moi-ssd.jpg", MoiBadge, new ContentType("image", "jpeg"));
+            badge.ContentId = MoiBadgeContentId;
+        }
         foreach (var file in r.Attachments ?? [])
             body.Attachments.Add(file.FileName, file.Content, ContentType.Parse(file.ContentType));
         message.Body = body.ToMessageBody();

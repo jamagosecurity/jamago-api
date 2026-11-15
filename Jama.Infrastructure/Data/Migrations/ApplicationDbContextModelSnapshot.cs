@@ -1192,6 +1192,9 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Property<bool>("HasAttachments")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("MessageId")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
@@ -1203,6 +1206,11 @@ namespace Jama.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(240)
                         .HasColumnType("character varying(240)");
+
+                    b.Property<string>("SourceKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Subject")
                         .IsRequired()
@@ -1229,7 +1237,9 @@ namespace Jama.Infrastructure.Data.Migrations
 
                     b.HasIndex("AccountKey", "SentAt");
 
-                    b.HasIndex("AccountKey", "Folder", "UidValidity", "Uid")
+                    b.HasIndex("AccountKey", "Folder", "MessageId");
+
+                    b.HasIndex("SourceKey", "Folder", "UidValidity", "Uid")
                         .IsUnique();
 
                     b.ToTable("MailMessages", (string)null);
@@ -1698,6 +1708,12 @@ namespace Jama.Infrastructure.Data.Migrations
 
                     b.Property<double?>("Longitude")
                         .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("ScheduledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SentById")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("SentFromAccount")
                         .HasMaxLength(40)

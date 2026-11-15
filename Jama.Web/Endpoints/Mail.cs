@@ -16,12 +16,21 @@ public sealed class Mail : EndpointGroupBase
             .MapGet(GetMessages, "messages", permission: Permissions.MailRead)
             .MapGet(GetMessage, "messages/{id:guid}", permission: Permissions.MailRead)
             .MapGet(GetAccounts, "accounts", permission: Permissions.MailRead)
+            .MapPost(SetRead, "messages/{id:guid}/read", permission: Permissions.MailRead)
             .MapPost(Send, "send", AppRoles.Admin);
     }
 
     public async Task<IResult> GetMessages(ISender sender, CancellationToken ct,
-        string? account = null, string? folder = null, string? search = null, int page = 1, int pageSize = 50) =>
-        Results.Ok(await sender.Send(new GetMailMessagesQuery(account, folder, search, page, pageSize), ct));
+        string? account = null, string? folder = null, string? search = null, int page = 1, int pageSize = 50, bool unread = false) =>
+        Results.Ok(await sender.Send(new GetMailMessagesQuery(account, folder, search, page, pageSize, unread), ct));
+
+    public sealed record SetReadBody(bool Read);
+
+    public async Task<IResult> SetRead(ISender sender, Guid id, SetReadBody body, CancellationToken ct)
+    {
+        var r = await sender.Send(new SetMailReadCommand(id, body.Read), ct);
+        return r.Succeeded ? Results.Ok(r) : Results.NotFound(r);
+    }
 
     public async Task<IResult> GetMessage(ISender sender, Guid id, CancellationToken ct)
     {

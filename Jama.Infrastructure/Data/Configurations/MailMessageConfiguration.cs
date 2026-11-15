@@ -20,8 +20,11 @@ public sealed class MailMessageConfiguration : IEntityTypeConfiguration<MailMess
         builder.Property(x => x.Snippet).HasMaxLength(240);
         builder.Property(x => x.AttachmentNames).HasMaxLength(1000);
 
-        // One row per message per mailbox: re-reading never duplicates.
-        builder.HasIndex(x => new { x.AccountKey, x.Folder, x.UidValidity, x.Uid }).IsUnique();
+        // One row per message per mailbox it was read from: re-reading never duplicates.
+        builder.Property(x => x.SourceKey).HasMaxLength(100);
+        builder.HasIndex(x => new { x.SourceKey, x.Folder, x.UidValidity, x.Uid }).IsUnique();
+        // The same email reaching a person directly and through the copy mailbox is shown once.
+        builder.HasIndex(x => new { x.AccountKey, x.Folder, x.MessageId });
         builder.HasIndex(x => x.SentAt);
         builder.HasIndex(x => new { x.AccountKey, x.SentAt });
     }

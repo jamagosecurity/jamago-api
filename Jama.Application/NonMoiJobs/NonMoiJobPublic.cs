@@ -33,7 +33,12 @@ public sealed record PublicJobBillDto(
     /// <summary>"Approved", "Rejected" or "Commented" once the client has answered this revision.</summary>
     string? Decision,
     string? DecisionMessage,
-    DateTime? DecidedAt);
+    DateTime? DecidedAt,
+    /// <summary>The client's own number, shown under "Billed to".</summary>
+    string CustomerNumber = "",
+    DateTime? CompletedAt = null,
+    /// <summary>When this revision of the bill was sent: the invoice date.</summary>
+    DateTime? IssuedAt = null);
 
 /// <summary>The client's page, found by the secret token in the link they were sent.</summary>
 public sealed record GetPublicJobBillQuery(string Token) : IRequest<ApiResult<PublicJobBillDto>>;
@@ -52,13 +57,18 @@ public sealed class GetPublicJobBillQueryHandler(IApplicationDbContext context)
         if (job is null || !NonMoiJobBill.IsSent(job))
             return ApiResult<PublicJobBillDto>.Failure("This link is not valid.");
 
+        var issuedAt = await context.NonMoiJobEvents.AsNoTracking()
+            .Where(e => e.NonMoiJobId == job.Id && e.Action == "Sent" && e.Revision == job.BillRevision)
+            .Select(e => (DateTime?)e.CreatedAt).MaxAsync(cancellationToken);
+
         return ApiResult<PublicJobBillDto>.Success(new PublicJobBillDto(
             job.JobNumber, job.CustomerName, job.Location, job.BillRevision, job.Status,
             job.Lines.OrderBy(l => l.SortOrder)
                 .Select(l => new PublicBillLineDto(l.IssueType, MaintenanceCategories.Label(l.Category), l.Quantity, l.UnitFee, l.LineTotal)).ToList(),
             job.WorkTotal, job.Discount, job.AmountPayable,
             CompanyPaymentDetails.AccountName, CompanyPaymentDetails.CrNumber, CompanyPaymentDetails.Iban,
-            job.Status == "Sent", job.ClientDecision, job.ClientMessage, job.ClientRespondedAt));
+            job.Status == "Sent", job.ClientDecision, job.ClientMessage, job.ClientRespondedAt,
+            job.CustomerNumber, job.CompletedAt, issuedAt ?? job.EmailSentAt ?? job.UpdatedAt));
     }
 }
 
@@ -158,9 +168,13 @@ public sealed class RespondToNonMoiJobCommandHandler(
         return await new GetPublicJobBillQueryHandler(context).Handle(new GetPublicJobBillQuery(token), cancellationToken);
     }
 
-    /// <summary>The emails that tell everyone concerned: the company mailbox and the person who issued the job, and a receipt for the
-    /// client. Only built here (it needs the database); sent later, in the background, with best effort — the answer is already saved, and
-    /// staff see the result in the app regardless (red number, status, history).</summary>
+    /// <summary>
+    /// Who hears about the client's answer. Until the client approves, the bill is between the person who sent it and the
+    /// client: a reject or comment goes to the sender (their login email and the mailbox the bill went from), and the
+    /// client gets a receipt. An approval is final, so one email goes to everyone: the client, the company inbox
+    /// (info@jamago.qa), the sender and the technician who did the work. Only built here (it needs the database); sent
+    /// later, in the background, with best effort — the answer is already saved and staff see it in the app regardless.
+    /// </summary>
     private async Task<List<MailSendRequest>> BuildNotificationsAsync(NonMoiJob job, string action, string who, string? message, CancellationToken ct)
     {
         var notes = new List<MailSendRequest>();
@@ -170,41 +184,65 @@ public sealed class RespondToNonMoiJobCommandHandler(
                 string.Equals(a.Key, job.SentFromAccount, StringComparison.OrdinalIgnoreCase) && a.IsConfigured);
             if (account is null) return notes;
 
-            var issuerEmail = await context.AdminUsers.AsNoTracking()
-                .Where(u => u.Id == job.AssignedById).Select(u => u.Email).FirstOrDefaultAsync(ct);
+            var senderId = job.SentById ?? job.AssignedById;
+            var emails = await context.AdminUsers.AsNoTracking()
+                .Where(u => u.Id == senderId || u.Id == job.AssignedToId)
+                .Select(u => new { u.Id, u.Email }).ToListAsync(ct);
+            var senderEmail = emails.FirstOrDefault(e => e.Id == senderId)?.Email;
+            var technicianEmail = emails.FirstOrDefault(e => e.Id == job.AssignedToId)?.Email;
             var money = job.AmountPayable.ToString("N2", System.Globalization.CultureInfo.InvariantCulture);
 
-            // ---- to the company mailbox and the person who issued the job
-            var staffHeading = action switch
+            static List<string> Distinct(params string?[] addresses) => addresses
+                .Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            if (action == "Approved")
             {
-                "Approved" => $"{job.CustomerName} approved bill {job.JobNumber}",
-                "Rejected" => $"{job.CustomerName} rejected bill {job.JobNumber}",
-                _ => $"{job.CustomerName} commented on bill {job.JobNumber}",
-            };
+                // ---- one email to everyone: the client, the company inbox, the sender and the technician
+                var heading = $"Invoice {job.JobNumber} approved";
+                var lines = new List<string>
+                {
+                    $"Dear {job.CustomerName},",
+                    $"Thank you for approving invoice {job.JobNumber} for QAR {money}.",
+                    $"Approved by {who} on {(job.ClientRespondedAt ?? timeProvider.GetUtcNow().UtcDateTime).AddHours(3).ToString("d MMM yyyy, h:mm tt", System.Globalization.CultureInfo.InvariantCulture)} (Doha time).",
+                    "You can pay using the details below.",
+                };
+                var (text, html) = JobBillEmail.Note(heading, lines, CompanyPaymentDetails.AsText());
+                var to = Distinct(job.CustomerEmail);
+                var cc = Distinct(mailOptions.Value.CompanyInbox, account.Address, senderEmail, technicianEmail)
+                    .Where(a => !to.Contains(a, StringComparer.OrdinalIgnoreCase)).ToList();
+                if (to.Count == 0 && cc.Count > 0) { to = [cc[0]]; cc.RemoveAt(0); }
+                if (to.Count > 0)
+                    notes.Add(new MailSendRequest(account.Key, "Jama Go", to, cc, $"{heading} — Jama Go Security Equipment", text, null, null, html));
+                return notes;
+            }
+
+            // ---- reject or comment: the sender only…
+            var staffHeading = action == "Rejected"
+                ? $"{job.CustomerName} rejected invoice {job.JobNumber}"
+                : $"{job.CustomerName} commented on invoice {job.JobNumber}";
             var staffLines = new List<string>
             {
-                $"Job {job.JobNumber} · revision {job.BillRevision} · amount payable QAR {money}.",
+                $"Invoice {job.JobNumber} · revision {job.BillRevision} · amount QAR {money}.",
                 $"Answered by {who} (the client).",
             };
             if (!string.IsNullOrWhiteSpace(message)) staffLines.Add($"Their message: “{message}”");
-            staffLines.Add(action == "Approved"
-                ? "The deal is final. Nothing more is needed in the app."
-                : "The job is back with the person who issued it: open Non-MOI Jobs, adjust the discount if needed and send a new revision.");
+            staffLines.Add("Open Non-MOI Jobs, adjust the discount if needed and send a new revision.");
             var (staffText, staffHtml) = JobBillEmail.Note(staffHeading, staffLines);
-
-            var staffTo = new[] { account.Address, issuerEmail }
-                .Where(a => !string.IsNullOrWhiteSpace(a)).Select(a => a!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            var staffTo = Distinct(senderEmail, account.Address);
             if (staffTo.Count > 0)
                 notes.Add(new MailSendRequest(account.Key, "Jama Go", staffTo, [], staffHeading, staffText, null, null, staffHtml));
 
-            // ---- to the client: a receipt of their answer
+            // …and a receipt for the client
             if (!string.IsNullOrWhiteSpace(job.CustomerEmail))
             {
-                var clientHeading = action == "Approved" ? "Thank you — your bill is approved" : "We have received your message";
-                var clientLines = action == "Approved"
-                    ? new List<string> { $"Dear {job.CustomerName},", $"Thank you for approving bill {job.JobNumber} for QAR {money}.", "You can pay using the details below." }
-                    : new List<string> { $"Dear {job.CustomerName},", $"We have received your {(action == "Rejected" ? "rejection" : "comment")} on bill {job.JobNumber}.", "We will look at it and send you an updated bill soon." };
-                var (clientText, clientHtml) = JobBillEmail.Note(clientHeading, clientLines, action == "Approved" ? CompanyPaymentDetails.AsText() : null);
+                const string clientHeading = "We have received your message";
+                var clientLines = new List<string>
+                {
+                    $"Dear {job.CustomerName},",
+                    $"We have received your {(action == "Rejected" ? "rejection" : "comment")} on invoice {job.JobNumber}.",
+                    "We will look at it and send you an updated invoice soon.",
+                };
+                var (clientText, clientHtml) = JobBillEmail.Note(clientHeading, clientLines);
                 notes.Add(new MailSendRequest(account.Key, "Jama Go", [job.CustomerEmail!], [], $"{clientHeading} — {job.JobNumber}", clientText, null, null, clientHtml));
             }
         }

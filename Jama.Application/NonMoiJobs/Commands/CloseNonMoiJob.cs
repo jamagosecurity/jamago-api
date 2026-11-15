@@ -111,6 +111,7 @@ public sealed class CloseNonMoiJobCommandHandler(
         job.AmountPayable = job.WorkTotal - request.Discount;
         job.CustomerEmail = email;
         job.SentFromAccount = request.SendEmail ? account!.Key : job.SentFromAccount;
+        job.SentById = actor.UserId;
         job.BillToken ??= Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
         await context.SaveChangesAsync(cancellationToken);
 
@@ -119,7 +120,8 @@ public sealed class CloseNonMoiJobCommandHandler(
         if (request.SendEmail && job.EmailSentAt is null)
         {
             var pdf = billPdf.Generate(NonMoiJobBill.ToModel(job));
-            var (subject, text, html) = JobBillEmail.Bill(job, pageUrl, account!.Signature);
+            var card = await Jama.Application.Mail.EmailSignature.ResolveAsync(context, account!, cancellationToken);
+            var (subject, text, html) = JobBillEmail.Bill(job, pageUrl, account, timeProvider.GetUtcNow().UtcDateTime, card);
 
             var sent = await mail.SendAsync(
                 new MailSendRequest(account.Key, "Jama Go", [email!], [], subject, text, null,

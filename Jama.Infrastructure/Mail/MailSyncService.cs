@@ -60,11 +60,7 @@ public sealed class MailSyncService(
     {
         try
         {
-            using var client = new ImapClient { Timeout = 30_000 };
-            await client.ConnectAsync(account.Host, account.Port, account.UseSsl
-                ? MailKit.Security.SecureSocketOptions.SslOnConnect
-                : MailKit.Security.SecureSocketOptions.StartTlsWhenAvailable, ct);
-            await client.AuthenticateAsync(account.Login, account.Password, ct);
+            using var client = await ImapFolders.ConnectAsync(account, ct);
 
             await SyncFolderAsync(client, account, "Inbox", client.Inbox, ct);
 
@@ -78,9 +74,18 @@ public sealed class MailSyncService(
         {
             // Never log the password; the message alone says what failed.
             logger.LogWarning("Mail sync {Key} failed: {Message}", account.Key, ex.Message);
-            await RecordErrorAsync(account.Key, ex.Message);
+            await RecordErrorAsync(account.Key, Plain(ex));
         }
     }
+
+    /// <summary>What went wrong, in words the admin can act on.</summary>
+    private static string Plain(Exception ex) => ex switch
+    {
+        MailKit.Security.AuthenticationException => "Password not accepted — it may have been changed. Update it to reconnect.",
+        MailKit.Security.SslHandshakeException or System.Net.Sockets.SocketException or TimeoutException or IOException
+            => "Could not reach the mail server (network). Trying again in a few minutes.",
+        _ => ex.Message,
+    };
 
     private async Task RecordErrorAsync(string key, string message)
     {
@@ -138,27 +143,56 @@ public sealed class MailSyncService(
             uids = await folder.SearchAsync(range, SearchQuery.All, ct);
         }
 
+        // Only the outline of each message (envelope + structure), then only its text and HTML parts: attachments are
+        // never downloaded, so a mailbox full of large files syncs as fast as one with plain notes.
+        // The copy mailbox also needs the headers, to see which of our mailboxes each email was really sent to.
+        var isArchive = folderName == "Inbox" && !string.IsNullOrWhiteSpace(_settings.ArchiveKey)
+                        && string.Equals(account.Key, _settings.ArchiveKey, StringComparison.OrdinalIgnoreCase);
+        var items = MessageSummaryItems.UniqueId | MessageSummaryItems.Envelope | MessageSummaryItems.BodyStructure
+                    | MessageSummaryItems.InternalDate | MessageSummaryItems.Flags;
+        if (isArchive) items |= MessageSummaryItems.Headers;
+        var summaries = uids.Count == 0 ? [] : await folder.FetchAsync(uids, items, ct);
+
         var added = 0;
-        foreach (var uid in uids.OrderBy(u => u.Id))
+        foreach (var summary in summaries.OrderBy(x => x.UniqueId.Id))
         {
             ct.ThrowIfCancellationRequested();
-            var uidValue = (long)uid.Id;
-            if (uidValue <= state.LastUid && state.LastUid != 0 && uids.Count == 0) continue;
+            var uidValue = (long)summary.UniqueId.Id;
             if (await context.MailMessages.AnyAsync(
-                    m => m.AccountKey == account.Key && m.Folder == folderName
+                    m => m.SourceKey == account.Key && m.Folder == folderName
                          && m.UidValidity == validity && m.Uid == uidValue, ct))
             {
                 state.LastUid = Math.Max(state.LastUid, uidValue);
                 continue;
             }
 
-            var message = await folder.GetMessageAsync(uid, ct);   // read-only folder: not marked read
-            context.MailMessages.Add(ToEntity(account, folderName, validity, uidValue, message));
+            // Whose mail it is: the mailbox itself, or — read from the copy mailbox — the person it was sent to.
+            var owner = isArchive ? RecipientMailbox(summary) ?? account : account;
+            // The same email can arrive twice (directly and through the copy mailbox): keep the first.
+            var messageId = summary.Envelope?.MessageId;
+            if (!string.IsNullOrEmpty(messageId) && await context.MailMessages.AnyAsync(
+                    m => m.AccountKey == owner.Key && m.Folder == folderName && m.MessageId == messageId, ct))
+            {
+                state.LastUid = Math.Max(state.LastUid, uidValue);
+                continue;
+            }
+
+            var text = await PartTextAsync(folder, summary, summary.TextBody, ct);
+            var html = await PartTextAsync(folder, summary, summary.HtmlBody, ct);
+            var entity = ToEntity(account, folderName, validity, uidValue, summary, text, html);
+            entity.AccountKey = owner.Key;
+            entity.AccountAddress = owner.Address;
+            entity.SourceKey = account.Key;
+            entity.IsRead = folderName == "Sent" || (summary.Flags?.HasFlag(MessageFlags.Seen) ?? true);
+            context.MailMessages.Add(entity);
             state.LastUid = Math.Max(state.LastUid, uidValue);
             added++;
 
-            if (added % 25 == 0) await context.SaveChangesAsync(ct);
+            if (added % 10 == 0) await context.SaveChangesAsync(ct);
         }
+
+        // Read marks change outside the app too (Outlook, webmail, a phone): bring ours in line with the server's.
+        if (folderName == "Inbox") await RefreshReadMarksAsync(context, folder, account.Key, validity, ct);
 
         state.LastSyncAt = DateTime.UtcNow;
         state.LastError = null;
@@ -167,11 +201,79 @@ public sealed class MailSyncService(
         if (added > 0) logger.LogInformation("Mail sync {Key}/{Folder}: {Added} new message(s).", account.Key, folderName, added);
     }
 
-    private static MailMessage ToEntity(MailAccountSettings account, string folder, long validity, long uid, MimeMessage m)
+    /// <summary>
+    /// For mail in the copy mailbox: which of our mailboxes it was sent to. The forwarding server's delivery headers
+    /// name the original mailbox even for Bcc; otherwise To, then Cc. Null when it was sent to the copy mailbox itself.
+    /// </summary>
+    private MailAccountSettings? RecipientMailbox(IMessageSummary summary)
     {
-        var from = m.From.Mailboxes.FirstOrDefault();
-        var text = (m.TextBody ?? string.Empty).Replace("\r", string.Empty);
-        var attachments = m.Attachments.Select(a => a.ContentDisposition?.FileName ?? a.ContentType.Name ?? "attachment").ToList();
+        var mailboxes = _settings.Accounts
+            .Where(a => !string.Equals(a.Key, _settings.ArchiveKey, StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(a => a.Address.Trim().ToLowerInvariant(), a => a);
+
+        IEnumerable<string> Addresses()
+        {
+            string[] delivery = ["X-Original-To", "Delivered-To", "X-Forwarded-To", "X-Forwarded-For", "Envelope-To"];
+            if (summary.Headers is { } headers)
+                foreach (var header in headers)
+                    if (delivery.Contains(header.Field, StringComparer.OrdinalIgnoreCase))
+                        foreach (var part in header.Value.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                            yield return part.Trim('<', '>', '"', ' ');
+            foreach (var m in summary.Envelope?.To.Mailboxes ?? []) yield return m.Address;
+            foreach (var m in summary.Envelope?.Cc.Mailboxes ?? []) yield return m.Address;
+        }
+
+        foreach (var address in Addresses())
+            if (mailboxes.TryGetValue(address.Trim().ToLowerInvariant(), out var hit)) return hit;
+        return null;
+    }
+
+    /// <summary>Copies the server's "seen" mark onto the messages we hold. One small request (flags only) per pass.</summary>
+    private static async Task RefreshReadMarksAsync(IApplicationDbContext context, IMailFolder folder, string key, long validity, CancellationToken ct)
+    {
+        if (folder.Count == 0) return;
+        var flags = await folder.FetchAsync(0, -1, MessageSummaryItems.UniqueId | MessageSummaryItems.Flags, ct);
+        var seen = flags.ToDictionary(f => (long)f.UniqueId.Id, f => f.Flags?.HasFlag(MessageFlags.Seen) ?? true);
+
+        var held = await context.MailMessages.AsNoTracking()
+            .Where(m => m.SourceKey == key && m.Folder == "Inbox" && m.UidValidity == validity)
+            .Select(m => new { m.Id, m.Uid, m.IsRead })
+            .ToListAsync(ct);
+        var nowRead = held.Where(m => !m.IsRead && seen.TryGetValue(m.Uid, out var r) && r).Select(m => m.Id).ToList();
+        var nowUnread = held.Where(m => m.IsRead && seen.TryGetValue(m.Uid, out var r) && !r).Select(m => m.Id).ToList();
+        if (nowRead.Count > 0)
+            await context.MailMessages.Where(m => nowRead.Contains(m.Id)).ExecuteUpdateAsync(u => u.SetProperty(m => m.IsRead, true), ct);
+        if (nowUnread.Count > 0)
+            await context.MailMessages.Where(m => nowUnread.Contains(m.Id)).ExecuteUpdateAsync(u => u.SetProperty(m => m.IsRead, false), ct);
+    }
+
+    /// <summary>One text part of a message (plain or HTML), downloaded on its own; empty when the message has none.</summary>
+    private static async Task<string?> PartTextAsync(IMailFolder folder, IMessageSummary summary, BodyPartText? part, CancellationToken ct)
+    {
+        if (part is null) return null;
+        try
+        {
+            var entity = await folder.GetBodyPartAsync(summary.UniqueId, part, ct);
+            return entity is TextPart tp ? tp.Text : null;
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;   // one unreadable part never stops the rest of the mailbox
+        }
+    }
+
+    private static MailMessage ToEntity(MailAccountSettings account, string folder, long validity, long uid,
+        IMessageSummary s, string? textBody, string? htmlBody)
+    {
+        var env = s.Envelope;
+        var from = env?.From.Mailboxes.FirstOrDefault();
+        var text = (textBody ?? string.Empty).Replace("\r", string.Empty);
+        if (text.Length == 0 && htmlBody is not null)
+            text = System.Net.WebUtility.HtmlDecode(System.Text.RegularExpressions.Regex.Replace(
+                System.Text.RegularExpressions.Regex.Replace(htmlBody, "<(style|script)[^>]*>.*?</\\1>", " ", System.Text.RegularExpressions.RegexOptions.Singleline | System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+                "<[^>]+>", " "));
+        var attachments = s.Attachments.Select(a => a.FileName ?? a.ContentType.Name ?? "attachment").ToList();
+        var date = env?.Date ?? s.InternalDate;
 
         return new MailMessage
         {
@@ -180,14 +282,15 @@ public sealed class MailSyncService(
             Folder = folder,
             UidValidity = validity,
             Uid = uid,
-            MessageId = Clip(m.MessageId, 500) is { Length: > 0 } mid ? mid : null,            FromName = Clip(from?.Name, 200),
+            MessageId = Clip(env?.MessageId, 500) is { Length: > 0 } mid ? mid : null,
+            FromName = Clip(from?.Name, 200),
             FromAddress = Clip(from?.Address, 320),
-            ToAddresses = Clip(string.Join(", ", m.To.Mailboxes.Select(x => x.Address)), 1000),
-            Subject = Clip(m.Subject, 500),
-            SentAt = m.Date == DateTimeOffset.MinValue ? DateTime.UtcNow : m.Date.UtcDateTime,
+            ToAddresses = Clip(string.Join(", ", env?.To.Mailboxes.Select(x => x.Address) ?? []), 1000),
+            Subject = Clip(env?.Subject, 500),
+            SentAt = date is { } d && d != DateTimeOffset.MinValue ? d.UtcDateTime : DateTime.UtcNow,
             Snippet = Clip(string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)), 240),
             BodyText = Clip(text, 200_000),
-            BodyHtml = m.HtmlBody is { } html ? Clip(html, 400_000) : null,
+            BodyHtml = htmlBody is { } html ? Clip(html, 400_000) : null,
             HasAttachments = attachments.Count > 0,
             AttachmentNames = Clip(string.Join(", ", attachments), 1000),
         };

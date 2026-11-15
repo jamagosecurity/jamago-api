@@ -13,6 +13,11 @@ public class MailMessage : BaseEntity
     /// <summary>The company address it was delivered to, e.g. info@jamago.qa.</summary>
     public string AccountAddress { get; set; } = string.Empty;
 
+    /// <summary>The mailbox it was actually read from. Usually the same as <see cref="AccountKey"/>; for mail that
+    /// arrived through the copy mailbox (archive) it is the archive, while AccountKey is the person it was sent to.
+    /// UIDs and read marks belong to this mailbox.</summary>
+    public string SourceKey { get; set; } = string.Empty;
+
     /// <summary>"Inbox" (received) or "Sent" (sent by the company).</summary>
     public string Folder { get; set; } = "Inbox";
 
@@ -42,6 +47,10 @@ public class MailMessage : BaseEntity
     public bool HasAttachments { get; set; }
     /// <summary>File names only, comma-separated; the files themselves are not stored.</summary>
     public string AttachmentNames { get; set; } = string.Empty;
+
+    /// <summary>Read or not, kept in step with the mail server's own "seen" mark: read in Outlook or webmail shows
+    /// read here, and opening it here marks it read there.</summary>
+    public bool IsRead { get; set; } = true;
 }
 
 /// <summary>Where the reader got up to in one mailbox, and whether the last check worked.</summary>

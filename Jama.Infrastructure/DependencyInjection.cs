@@ -54,6 +54,7 @@ public static class DependencyInjection
             { Timeout = TimeSpan.FromSeconds(8) }));
         services.AddHostedService<Jama.Infrastructure.Mail.MailSyncService>();
         services.AddSingleton<IMailSender, Jama.Infrastructure.Mail.MailSender>();
+        services.AddSingleton<IMailFlagWriter, Jama.Infrastructure.Mail.MailFlagWriter>();
         services.AddSingleton<Jama.Infrastructure.Background.BackgroundWorkQueue>();
         services.AddSingleton<IBackgroundWork>(sp => sp.GetRequiredService<Jama.Infrastructure.Background.BackgroundWorkQueue>());
         services.AddHostedService(sp => sp.GetRequiredService<Jama.Infrastructure.Background.BackgroundWorkQueue>());

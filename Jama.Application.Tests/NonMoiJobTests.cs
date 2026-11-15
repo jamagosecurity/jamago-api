@@ -49,6 +49,7 @@ public class NonMoiJobTests
         Latitude = lat, Longitude = lng,
         DescriptionEn = "Replace two faulty cameras", DescriptionAr = "استبدال كاميرتين معطلتين",
         AssignedToId = assignee,
+        ScheduledAt = new DateTimeOffset(2026, 11, 20, 10, 0, 0, TimeSpan.FromHours(3)),
     };
 
     [Fact]
@@ -123,7 +124,7 @@ public class NonMoiJobTests
             new UpdateNonMoiJobCommand
             {
                 Id = created.Data!.Id, CustomerName = "Al Noor Trading", CustomerNumber = "+974 5550 1234",
-                Location = "Industrial Area, Doha", DescriptionEn = "Replace two faulty cameras", AssignedToId = TechB,
+                Location = "Industrial Area, Doha", DescriptionEn = "Replace two faulty cameras", AssignedToId = TechB, ScheduledAt = new DateTimeOffset(2026, 11, 20, 10, 0, 0, TimeSpan.FromHours(3)),
             },
             CancellationToken.None);
 
