@@ -154,7 +154,10 @@ public class MailSendTests
 
         Assert.True(result.Succeeded);
         Assert.Equal("<abc@client.example>", sender.Last!.InReplyToMessageId);
-        Assert.False((await context.MailSendLogs.SingleAsync()).CopySavedToSent);
+        // The copy is shown under Outgoing at once and filed in the Sent folder in the background.
+        Assert.True((await context.MailSendLogs.SingleAsync()).CopySavedToSent);
+        Assert.True(sender.Last.SaveCopyInBackground);
+        Assert.Equal(sender.Last.MessageId, (await context.MailMessages.SingleAsync(m => m.Folder == "Sent")).MessageId);
     }
 
     [Fact]

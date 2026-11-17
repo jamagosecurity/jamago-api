@@ -40,7 +40,14 @@ public sealed record NonMoiJobDto(
     string? ClientResponderName = null,
     DateTime? ClientRespondedAt = null,
     IReadOnlyList<NonMoiJobEventDto>? Events = null,
-    DateTime? ScheduledAt = null);
+    DateTime? ScheduledAt = null,
+    decimal AmountPaid = 0,
+    IReadOnlyList<NonMoiJobPaymentDto>? Payments = null);
+
+/// <summary>One payment on a job. HasReceipt: a receipt file can be downloaded.</summary>
+public sealed record NonMoiJobPaymentDto(
+    Guid Id, string Method, decimal Amount, DateOnly ReceivedOn, string? CollectedByName, string? Note,
+    bool HasReceipt, string? ReceiptFileName, string RecordedByName, DateTime RecordedAt);
 
 public sealed record NonMoiJobEventDto(string Action, string ActorName, string? Note, int Revision, decimal AmountPayable, DateTime At);
 
@@ -81,7 +88,17 @@ internal static class NonMoiJobRules
         job.BillRevision, job.ClientDecision, job.ClientMessage, job.ClientResponderName, job.ClientRespondedAt,
         job.Events.OrderBy(e => e.CreatedAt)
             .Select(e => new NonMoiJobEventDto(e.Action, e.ActorName, e.Note, e.Revision, e.AmountPayable, e.CreatedAt)).ToList(),
-        job.ScheduledAt);
+        job.ScheduledAt,
+        job.Payments.Sum(p => p.Amount),
+        job.Payments.OrderBy(p => p.ReceivedOn).ThenBy(p => p.CreatedAt).Select(ToPaymentDto).ToList());
+
+    internal static NonMoiJobPaymentDto ToPaymentDto(NonMoiJobPayment p) => new(
+        p.Id, p.Method, p.Amount, p.ReceivedOn, p.CollectedByName, p.Note,
+        p.ReceiptStorageKey is not null, p.ReceiptFileName, p.RecordedByName, p.CreatedAt);
+
+    /// <summary>What the client owes for the job: the sent bill, or until then the total less the discount.</summary>
+    internal static decimal Payable(NonMoiJob job) =>
+        NonMoiJobBill.IsSent(job) ? job.AmountPayable : job.WorkTotal - job.Discount;
 
     /// <summary>Next reference, derived from the highest issued so a deleted
     /// job never lets the next one reuse its number.</summary>

@@ -14,7 +14,7 @@ public sealed class GetNonMoiJobsQueryHandler(IApplicationDbContext context)
     public async Task<ApiResult<IReadOnlyList<NonMoiJobDto>>> Handle(
         GetNonMoiJobsQuery request, CancellationToken cancellationToken)
     {
-        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events)
+        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events).Include(x => x.Payments)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);
         return ApiResult<IReadOnlyList<NonMoiJobDto>>.Success(jobs.Select(NonMoiJobRules.ToDto).ToList());
@@ -45,7 +45,7 @@ public sealed class GetMyNonMoiJobsQueryHandler(IApplicationDbContext context, I
     public async Task<ApiResult<IReadOnlyList<NonMoiJobDto>>> Handle(
         GetMyNonMoiJobsQuery request, CancellationToken cancellationToken)
     {
-        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events)
+        var jobs = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events).Include(x => x.Payments)
             .Where(x => x.AssignedToId == actor.UserId)
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(cancellationToken);

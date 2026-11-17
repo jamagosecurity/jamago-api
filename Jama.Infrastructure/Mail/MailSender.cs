@@ -14,7 +14,7 @@ namespace Jama.Infrastructure.Mail;
 /// Sends through the company mailbox's own outgoing server, as that mailbox, then saves a copy in
 /// its Sent folder so the owner sees it there too. The one place the app writes to a mailbox.
 /// </summary>
-public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSender> logger) : IMailSender
+public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSender> logger, IBackgroundWork background) : IMailSender
 {
     /// <summary>What an email's HTML writes (as <c>cid:jamago-logo</c>) to show the company logo.</summary>
     public const string LogoContentId = "jamago-logo";
@@ -71,6 +71,17 @@ public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSende
         }
 
         // The message is already gone. Saving the Sent copy is best-effort: failing here must not look like a failed send.
+        if (request.SaveCopyInBackground)
+        {
+            // The message has gone out; filing the copy in Sent can happen after we answer.
+            background.Enqueue(ct => SaveCopyAsync(account, message, ct));
+            return new MailSendResult(true, null);
+        }
+        return await SaveCopyAsync(account, message, cancellationToken);
+    }
+
+    private async Task<MailSendResult> SaveCopyAsync(MailAccountSettings account, MimeMessage message, CancellationToken cancellationToken)
+    {
         try
         {
             using var imap = new ImapClient { Timeout = 30_000 };
@@ -103,8 +114,9 @@ public sealed class MailSender(IOptions<MailSettings> options, ILogger<MailSende
         message.From.Add(new MailboxAddress(r.FromDisplayName, account.Address));
         foreach (var to in r.To) message.To.Add(MailboxAddress.Parse(to));
         foreach (var cc in r.Cc) message.Cc.Add(MailboxAddress.Parse(cc));
+        foreach (var bcc in r.Bcc ?? []) message.Bcc.Add(MailboxAddress.Parse(bcc));
         message.Subject = r.Subject;
-        message.MessageId = MimeKit.Utils.MimeUtils.GenerateMessageId(DomainOf(account.Address));
+        message.MessageId = string.IsNullOrWhiteSpace(r.MessageId) ? MimeKit.Utils.MimeUtils.GenerateMessageId(DomainOf(account.Address)) : r.MessageId.Trim('<', '>', ' ');
         message.Date = DateTimeOffset.Now;
         if (!string.IsNullOrWhiteSpace(r.InReplyToMessageId))
         {

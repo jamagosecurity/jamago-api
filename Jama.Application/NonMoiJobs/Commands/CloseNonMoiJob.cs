@@ -61,7 +61,7 @@ public sealed class CloseNonMoiJobCommandHandler(
 {
     public async Task<ApiResult<NonMoiJobDto>> Handle(CloseNonMoiJobCommand request, CancellationToken cancellationToken)
     {
-        var job = await context.NonMoiJobs.Include(x => x.Lines).Include(x => x.Events)
+        var job = await context.NonMoiJobs.Include(x => x.Lines).Include(x => x.Events).Include(x => x.Payments)
             .FirstOrDefaultAsync(x => x.Id == request.Id, cancellationToken);
         if (job is null)
             return ApiResult<NonMoiJobDto>.Failure("Job not found.");
@@ -162,7 +162,7 @@ public sealed class CloseNonMoiJobCommandHandler(
         });
         await context.SaveChangesAsync(cancellationToken);
 
-        var saved = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events).FirstAsync(x => x.Id == job.Id, cancellationToken);
+        var saved = await context.NonMoiJobs.AsNoTracking().Include(x => x.Lines).Include(x => x.Events).Include(x => x.Payments).FirstAsync(x => x.Id == job.Id, cancellationToken);
         return ApiResult<NonMoiJobDto>.Success(NonMoiJobRules.ToDto(saved));
     }
 }

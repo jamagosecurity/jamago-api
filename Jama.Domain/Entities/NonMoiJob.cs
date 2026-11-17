@@ -90,6 +90,9 @@ public class NonMoiJob : BaseEntity
     public ICollection<NonMoiJobEvent> Events { get; set; } = [];
 
     public ICollection<NonMoiJobLine> Lines { get; set; } = [];
+
+    /// <summary>Money received for this job — cash a technician collected, or an online transfer with its receipt.</summary>
+    public ICollection<NonMoiJobPayment> Payments { get; set; } = [];
 }
 
 /// <summary>One issue the technician fixed on a job, priced from the catalogue when he completed it.
@@ -122,4 +125,34 @@ public class NonMoiJobEvent : BaseEntity
     public string? Note { get; set; }
     public int Revision { get; set; } = 1;
     public decimal AmountPayable { get; set; }
+}
+
+/// <summary>
+/// One payment received for a Non-MOI job. Cash: who collected it (usually the technician). Online: a bank transfer,
+/// always with its receipt (photo or PDF) as proof. Recorded by the Non-MOI admin; only the super admin can remove one.
+/// </summary>
+public class NonMoiJobPayment : BaseEntity
+{
+    public Guid NonMoiJobId { get; set; }
+    public NonMoiJob NonMoiJob { get; set; } = null!;
+
+    /// <summary>"Cash" or "Online".</summary>
+    public string Method { get; set; } = "Cash";
+    public decimal Amount { get; set; }
+
+    /// <summary>The day the money came in (Doha date).</summary>
+    public DateOnly ReceivedOn { get; set; }
+
+    /// <summary>Who took the cash — a technician or another staff member. Empty means the office.</summary>
+    public Guid? CollectedById { get; set; }
+    public string? CollectedByName { get; set; }
+
+    public string? Note { get; set; }
+
+    public string? ReceiptFileName { get; set; }
+    public string? ReceiptStorageKey { get; set; }
+    public string? ReceiptContentType { get; set; }
+
+    public Guid RecordedById { get; set; }
+    public string RecordedByName { get; set; } = string.Empty;
 }

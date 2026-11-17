@@ -14,7 +14,14 @@ public sealed record MailSendRequest(
     string? InReplyToMessageId,
     IReadOnlyList<MailAttachment>? Attachments = null,
     /// <summary>When set the message goes out as HTML with <see cref="Body"/> as its plain-text alternative.</summary>
-    string? HtmlBody = null);
+    string? HtmlBody = null,
+    /// <summary>Hidden recipients.</summary>
+    IReadOnlyList<string>? Bcc = null,
+    /// <summary>The Message-ID to give the message (no angle brackets). Lets the caller show the sent copy at once and
+    /// lets the next sync recognise it in the Sent folder.</summary>
+    string? MessageId = null,
+    /// <summary>Save the copy in the Sent folder in the background, after answering — sending feels instant.</summary>
+    bool SaveCopyInBackground = false);
 
 /// <summary>Outcome of one send. <see cref="CopyUid"/> is set when a copy reached the mailbox's Sent folder.</summary>
 public sealed record MailSendResult(bool Ok, string? Error, long? CopyUidValidity = null, long? CopyUid = null);

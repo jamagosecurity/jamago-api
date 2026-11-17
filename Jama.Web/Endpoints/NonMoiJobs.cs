@@ -37,6 +37,11 @@ public sealed class NonMoiJobs : EndpointGroupBase
             .MapGet(GetPublicBill, "public/{token}")
             .MapPost(RespondPublic, "public/{token}/respond", rateLimitPolicy: RateLimitPolicies.JobBillResponse)
             .MapGet(GetTechnicians, "technicians", permission: Permissions.NonMoiJobManage)
+            // Money received: cash collected or an online transfer with its receipt.
+            .MapPost(AddPayment, "{id:guid}/payments", permission: Permissions.NonMoiJobManage, allowFileUpload: true)
+            .MapGet(GetPaymentReceipt, "payments/{paymentId:guid}/receipt", permission: Permissions.NonMoiJobManage)
+            .MapDelete(DeletePayment, "payments/{paymentId:guid}", permission: AuthorizationPolicies.SuperAdmin)
+            .MapGet(GetCollections, "collections", permission: Permissions.NonMoiJobManage)
             .MapPost(Create, permission: Permissions.NonMoiJobManage)
             .MapPut(Update, "{id:guid}", permission: Permissions.NonMoiJobManage)
             .MapDelete(Delete, "{id:guid}", permission: Permissions.NonMoiJobManage);
@@ -113,5 +118,40 @@ public sealed class NonMoiJobs : EndpointGroupBase
     {
         var result = await sender.Send(new DeleteNonMoiJobCommand(id), cancellationToken);
         return result.Succeeded ? Results.Ok(result) : Results.NotFound(result);
+    }
+
+    public async Task<IResult> AddPayment(
+        ISender sender, Guid id, [Microsoft.AspNetCore.Mvc.FromForm] string method, [Microsoft.AspNetCore.Mvc.FromForm] decimal amount,
+        [Microsoft.AspNetCore.Mvc.FromForm] string? receivedOn, [Microsoft.AspNetCore.Mvc.FromForm] Guid? collectedById,
+        [Microsoft.AspNetCore.Mvc.FromForm] string? note, IFormFile? receipt, CancellationToken cancellationToken)
+    {
+        DateOnly? day = DateOnly.TryParseExact(receivedOn ?? "", "yyyy-MM-dd", out var d) ? d : null;
+        await using var stream = receipt?.OpenReadStream();
+        var result = await sender.Send(new AddNonMoiJobPaymentCommand
+        {
+            JobId = id, Method = method, Amount = amount, ReceivedOn = day, CollectedById = collectedById, Note = note,
+            ReceiptFileName = receipt?.FileName, ReceiptContentType = receipt?.ContentType, ReceiptSize = receipt?.Length ?? 0,
+            Receipt = stream,
+        }, cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    public async Task<IResult> GetPaymentReceipt(ISender sender, Guid paymentId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetNonMoiJobPaymentReceiptQuery(paymentId), cancellationToken);
+        return result.Succeeded ? Results.File(result.Data!.Content, result.Data.ContentType, result.Data.FileName) : Results.NotFound(result);
+    }
+
+    public async Task<IResult> DeletePayment(ISender sender, Guid paymentId, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new DeleteNonMoiJobPaymentCommand(paymentId), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
+    }
+
+    public async Task<IResult> GetCollections(ISender sender, CancellationToken cancellationToken, string? from = null, string? to = null)
+    {
+        static DateOnly? Day(string? v) => DateOnly.TryParseExact(v ?? "", "yyyy-MM-dd", out var d) ? d : null;
+        var result = await sender.Send(new GetCollectionsQuery(Day(from), Day(to)), cancellationToken);
+        return result.Succeeded ? Results.Ok(result) : Results.BadRequest(result);
     }
 }

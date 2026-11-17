@@ -1839,6 +1839,72 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.ToTable("NonMoiJobLines", (string)null);
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid?>("CollectedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CollectedByName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid>("NonMoiJobId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ReceiptContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("ReceiptFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<string>("ReceiptStorageKey")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateOnly>("ReceivedOn")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("RecordedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RecordedByName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NonMoiJobId");
+
+                    b.HasIndex("ReceivedOn");
+
+                    b.ToTable("NonMoiJobPayments", (string)null);
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.Quotation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2570,6 +2636,17 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Navigation("NonMoiJob");
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobPayment", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.NonMoiJob", "NonMoiJob")
+                        .WithMany("Payments")
+                        .HasForeignKey("NonMoiJobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("NonMoiJob");
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.QuotationLine", b =>
                 {
                     b.HasOne("Jama.Domain.Entities.Camera", "Camera")
@@ -2737,6 +2814,8 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Navigation("Events");
 
                     b.Navigation("Lines");
+
+                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("Jama.Domain.Entities.Quotation", b =>

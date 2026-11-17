@@ -70,3 +70,22 @@ public sealed class NonMoiJobEventConfiguration : IEntityTypeConfiguration<NonMo
         builder.HasIndex(x => x.NonMoiJobId);
     }
 }
+
+public sealed class NonMoiJobPaymentConfiguration : IEntityTypeConfiguration<NonMoiJobPayment>
+{
+    public void Configure(EntityTypeBuilder<NonMoiJobPayment> builder)
+    {
+        builder.ToTable("NonMoiJobPayments");
+        builder.Property(x => x.Method).HasMaxLength(10).IsRequired();
+        builder.Property(x => x.Amount).HasPrecision(12, 2);
+        builder.Property(x => x.CollectedByName).HasMaxLength(300);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.ReceiptFileName).HasMaxLength(260);
+        builder.Property(x => x.ReceiptStorageKey).HasMaxLength(400);
+        builder.Property(x => x.ReceiptContentType).HasMaxLength(120);
+        builder.Property(x => x.RecordedByName).HasMaxLength(300).IsRequired();
+        builder.HasOne(x => x.NonMoiJob).WithMany(x => x.Payments).HasForeignKey(x => x.NonMoiJobId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(x => x.NonMoiJobId);
+        builder.HasIndex(x => x.ReceivedOn);
+    }
+}

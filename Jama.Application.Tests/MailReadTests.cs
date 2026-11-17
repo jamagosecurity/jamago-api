@@ -17,6 +17,13 @@ public class MailReadTests
             Calls.Add((accountKey, uid, seen));
             return Task.CompletedTask;
         }
+
+        public List<(string Key, string Folder, long Uid, string? MessageId)> Trashed { get; } = [];
+        public Task MoveToTrashAsync(string accountKey, string folder, long uidValidity, long uid, string? messageId, CancellationToken ct)
+        {
+            Trashed.Add((accountKey, folder, uid, messageId));
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class InlineWork : IBackgroundWork
@@ -63,5 +70,27 @@ public class MailReadTests
             .Handle(new SetMailReadCommand(message.Id, true), default);
 
         Assert.Equal(("accounts", 12L, true), flags.Calls.Single());   // the copy mailbox holds that UID, not Youssef's
+    }
+
+    [Fact]
+    public async Task Deleting_removes_it_here_and_moves_it_to_Trash_on_the_right_mailbox()
+    {
+        await using var context = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseInMemoryDatabase($"del-{Guid.NewGuid()}").Options);
+        var inbox = new MailMessage { Id = Guid.NewGuid(), AccountKey = "youssef", SourceKey = "accounts", Folder = "Inbox", UidValidity = 9, Uid = 12 };
+        var justSent = new MailMessage { Id = Guid.NewGuid(), AccountKey = "info", SourceKey = "info", Folder = "Sent", Uid = -5, MessageId = "abc@jamago.qa" };
+        var kept = new MailMessage { Id = Guid.NewGuid(), AccountKey = "info", Folder = "Inbox", Uid = 3 };
+        context.MailMessages.AddRange(inbox, justSent, kept);
+        await context.SaveChangesAsync();
+        var flags = new FakeFlags();
+
+        var r = await new Jama.Application.Mail.Commands.DeleteMailCommandHandler(context, flags, new InlineWork(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Jama.Application.Mail.Commands.DeleteMailCommandHandler>.Instance)
+            .Handle(new Jama.Application.Mail.Commands.DeleteMailCommand([inbox.Id, justSent.Id]), default);
+
+        Assert.Equal(2, r.Data);
+        Assert.Equal(kept.Id, (await context.MailMessages.SingleAsync()).Id);
+        Assert.Contains(("accounts", "Inbox", 12L, (string?)null), flags.Trashed);        // the copy mailbox holds that UID
+        Assert.Contains(("info", "Sent", -5L, (string?)"abc@jamago.qa"), flags.Trashed); // found by Message-ID on the server
     }
 }

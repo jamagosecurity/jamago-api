@@ -1,5 +1,6 @@
 using Jama.Application.Common.Interfaces;
-using Jama.Domain.Entities;using Jama.Domain.Enums;
+using Jama.Domain.Entities;
+using Jama.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Infrastructure.Data;

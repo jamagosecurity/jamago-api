@@ -17,7 +17,8 @@ public sealed class Mail : EndpointGroupBase
             .MapGet(GetMessage, "messages/{id:guid}", permission: Permissions.MailRead)
             .MapGet(GetAccounts, "accounts", permission: Permissions.MailRead)
             .MapPost(SetRead, "messages/{id:guid}/read", permission: Permissions.MailRead)
-            .MapPost(Send, "send", AppRoles.Admin);
+            .MapPost(Send, "send", AppRoles.Admin)
+            .MapPost(Delete, "messages/delete", AppRoles.Admin);
     }
 
     public async Task<IResult> GetMessages(ISender sender, CancellationToken ct,
@@ -25,6 +26,14 @@ public sealed class Mail : EndpointGroupBase
         Results.Ok(await sender.Send(new GetMailMessagesQuery(account, folder, search, page, pageSize, unread), ct));
 
     public sealed record SetReadBody(bool Read);
+
+    public sealed record DeleteBody(IReadOnlyList<Guid>? Ids);
+
+    public async Task<IResult> Delete(ISender sender, DeleteBody body, CancellationToken ct)
+    {
+        var r = await sender.Send(new DeleteMailCommand(body.Ids ?? []), ct);
+        return r.Succeeded ? Results.Ok(r) : Results.BadRequest(r);
+    }
 
     public async Task<IResult> SetRead(ISender sender, Guid id, SetReadBody body, CancellationToken ct)
     {

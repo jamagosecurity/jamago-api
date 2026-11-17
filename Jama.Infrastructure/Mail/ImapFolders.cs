@@ -55,4 +55,19 @@ internal static class ImapFolders
         return all.FirstOrDefault(f => names.Contains(f.FullName, StringComparer.OrdinalIgnoreCase)
                                     || names.Contains(f.Name, StringComparer.OrdinalIgnoreCase));
     }
+
+    /// <summary>The Trash folder: the server's own marking if it has one, else the usual names.</summary>
+    internal static async Task<IMailFolder?> FindTrashAsync(ImapClient client, CancellationToken ct)
+    {
+        if ((client.Capabilities & ImapCapabilities.SpecialUse) != 0 || client.Capabilities.HasFlag(ImapCapabilities.XList))
+        {
+            var special = client.GetFolder(SpecialFolder.Trash);
+            if (special is not null) return special;
+        }
+        var ns = client.PersonalNamespaces[0];
+        var all = await client.GetFoldersAsync(ns, cancellationToken: ct);
+        string[] names = ["Trash", "INBOX.Trash", "Deleted Items", "Deleted Messages", "Bin", "[Gmail]/Trash"];
+        return all.FirstOrDefault(f => names.Contains(f.FullName, StringComparer.OrdinalIgnoreCase)
+                                    || names.Contains(f.Name, StringComparer.OrdinalIgnoreCase));
+    }
 }
