@@ -208,7 +208,7 @@ public sealed class RespondToNonMoiJobCommandHandler(
                 };
                 var (text, html) = JobBillEmail.Note(heading, lines, CompanyPaymentDetails.AsText());
                 var to = Distinct(job.CustomerEmail);
-                var cc = Distinct(mailOptions.Value.CompanyInbox, account.Address, senderEmail, technicianEmail)
+                var cc = Distinct(mailOptions.Value.CompanyInbox, senderEmail, technicianEmail)
                     .Where(a => !to.Contains(a, StringComparer.OrdinalIgnoreCase)).ToList();
                 if (to.Count == 0 && cc.Count > 0) { to = [cc[0]]; cc.RemoveAt(0); }
                 if (to.Count > 0)

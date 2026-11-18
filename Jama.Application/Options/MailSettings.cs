@@ -24,8 +24,8 @@ public sealed class MailSettings
     /// filed under the mailbox it was sent to.</summary>
     public string ArchiveKey { get; set; } = string.Empty;
 
-    /// <summary>The company's main inbox: copied on every client approval of a Non-MOI bill.</summary>
-    public string CompanyInbox { get; set; } = "info@jamago.qa";
+    /// <summary>The company mailbox copied on every client approval of a bill (sales).</summary>
+    public string CompanyInbox { get; set; } = "sales@jamago.qa";
 
     public List<MailAccountSettings> Accounts { get; set; } = [];
 }

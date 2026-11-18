@@ -341,10 +341,12 @@ public class NonMoiJobClosingTests
         Assert.Equal("Mr Noor (client)", saved.ClosedByName);
         Assert.False(result.Data!.CanRespond);
 
-        // One email to everyone: the client, with the company inbox, the sender (Hasan) and the technician copied.
+        // One email to everyone: the client, with sales, the sender (Hasan) and the technician copied — not info@,
+        // even though the bill went out from the info mailbox (that mailbox keeps its copy in Sent).
         var email = Assert.Single(mail.All);
         Assert.Equal(["client@example.com"], email.To);
-        Assert.Contains("info@jamago.qa", email.Cc);
+        Assert.Contains("sales@jamago.qa", email.Cc);
+        Assert.DoesNotContain("info@jamago.qa", email.Cc);
         Assert.Contains("hasan@jamago.qa", email.Cc);
         Assert.Contains("tech@jamago.qa", email.Cc);
         Assert.Contains("approved", email.Subject);
