@@ -116,12 +116,14 @@ public sealed class GetBoqPdfQueryHandler(
             })
             .ToList();
 
-        // The signature carries the preparer's designation as their profile has it today.
-        var designation = await context.AdminUsers
+        // The signature carries the preparer's name, email and designation as their account has them today.
+        var preparer = await context.AdminUsers
             .AsNoTracking()
             .Where(u => u.Id == boq.PreparedById)
-            .Select(u => u.Designation)
+            .Select(u => new { u.FullName, u.Email, u.Designation })
             .FirstOrDefaultAsync(cancellationToken);
+        var preparedBy = preparer is null ? boq.PreparedByName : BoqNames.Format(preparer.FullName, preparer.Email);
+        var designation = preparer?.Designation;
 
         var model = new BoqPdfModel(
             boq.BoqNumber,
@@ -132,7 +134,7 @@ public sealed class GetBoqPdfQueryHandler(
             boq.IssueDate,
             boq.Status.ToString(),
             boq.Notes,
-            boq.PreparedByName,
+            preparedBy,
             boq.Total,
             boq.SpecialDiscount,
             boq.GrandTotal,

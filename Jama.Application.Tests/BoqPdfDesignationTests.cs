@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Tests;
 
-/// <summary>The quotation PDF signature carries the preparer's designation from their profile, as it is today.</summary>
+/// <summary>The quotation PDF signature carries the preparer's name, email and designation from their account, as it is today.</summary>
 public class BoqPdfDesignationTests
 {
     private sealed class Viewer : ICurrentUser
@@ -69,6 +69,16 @@ public class BoqPdfDesignationTests
         preparer.Designation = "Sales Director";
         await db.SaveChangesAsync();
         Assert.Equal("Sales Director", (await RenderAsync(db, boq.Id)).PreparedByDesignation);
+    }
+
+    [Fact]
+    public async Task Signature_name_and_email_come_from_the_account_as_it_is_now()
+    {
+        var (db, _, boq) = await SeedAsync("Head of Sales");
+        boq.PreparedByName = "Old Name <old@gmail.com>";   // what was saved when the quotation was made
+        await db.SaveChangesAsync();
+
+        Assert.Equal("Yousef Kotb <youssef@jamago.qa>", (await RenderAsync(db, boq.Id)).PreparedByName);
     }
 
     [Theory]

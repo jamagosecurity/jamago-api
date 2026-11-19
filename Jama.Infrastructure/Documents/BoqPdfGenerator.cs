@@ -357,16 +357,23 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
         return string.Join('\n', lines);
     }
 
-    /// <summary>Matches an email inside a display name, capturing only the part
-    /// before the "@".</summary>
+    /// <summary>Matches the "&lt;email&gt;" inside a stored name like "Jane Doe &lt;jane@jamago.qa&gt;",
+    /// capturing the whole address.</summary>
     private static readonly Regex EmbeddedEmail =
-        new(@"<\s*([^@<>\s]+)@[^<>]*>", RegexOptions.Compiled);
+        new(@"<\s*([^@<>\s]+@[^<>\s]+)\s*>", RegexOptions.Compiled);
 
-    /// <summary>"Jane Doe &lt;jane@jamago.qa&gt;" becomes "Jane Doe (jane)". The
-    /// domain is ours and identical on every quotation, so printing it on a
-    /// client-facing document adds a line of noise and no information.</summary>
-    private static string? PreparedBy(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? value : EmbeddedEmail.Replace(value, "($1)").Trim();
+    /// <summary>"Jane Doe &lt;jane@jamago.qa&gt;" becomes "Jane Doe": the name alone, no email or brackets.
+    /// A stored value that is only an email stays as it is.</summary>
+    private static string? PreparedBy(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var name = EmbeddedEmail.Replace(value, string.Empty).Trim();
+        return name.Length > 0 ? name : value.Trim();
+    }
+
+    /// <summary>The email inside a stored name like "Jane Doe &lt;jane@jamago.qa&gt;"; null when there is none.</summary>
+    private static string? PreparedByEmail(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : EmbeddedEmail.Match(value) is { Success: true } m ? m.Groups[1].Value : null;
 
     private static string Money(decimal value) => value.ToString("N2", CultureInfo.InvariantCulture);
 
@@ -684,13 +691,36 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
             column.Item().PaddingTop(14).Text("Yours faithfully,")
                 .FontSize(9).FontColor(InkSoft);
+            // Who signs it, as label / value pairs: Name, Email, Designation (from their profile).
             var signedBy = PreparedBy(model.PreparedByName);
-            column.Item().PaddingTop(3).Text(signedBy ?? CompanyName)
-                .FontSize(9.5f).Bold().FontColor(Ink);
-            // The preparer's designation from their profile, under their name.
-            if (signedBy is not null && !string.IsNullOrWhiteSpace(model.PreparedByDesignation))
-                column.Item().Text(model.PreparedByDesignation).FontSize(9).FontColor(InkSoft);
-            column.Item().Text(CompanyName).FontSize(8.5f).FontColor(Muted);
+            if (signedBy is null)
+            {
+                column.Item().PaddingTop(3).Text(CompanyName).FontSize(9.5f).Bold().FontColor(Ink);
+            }
+            else
+            {
+                var email = PreparedByEmail(model.PreparedByName);
+                column.Item().PaddingTop(4).Table(table =>
+                {
+                    table.ColumnsDefinition(c =>
+                    {
+                        c.ConstantColumn(62);
+                        c.RelativeColumn();
+                    });
+
+                    void Row(string label, string value, bool strong = false)
+                    {
+                        table.Cell().PaddingVertical(1.5f).Text(label + ":").FontSize(9).FontColor(Muted);
+                        var text = table.Cell().PaddingVertical(1.5f).Text(value).FontSize(9.5f).FontColor(Ink);
+                        if (strong) text.Bold();
+                    }
+
+                    Row("Name", signedBy, strong: true);
+                    if (email is not null) Row("Email", email);
+                    if (!string.IsNullOrWhiteSpace(model.PreparedByDesignation)) Row("Designation", model.PreparedByDesignation);
+                });
+            }
+            column.Item().PaddingTop(4).Text(CompanyName).FontSize(8.5f).FontColor(Muted);
         });
     }
 
