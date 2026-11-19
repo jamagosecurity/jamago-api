@@ -12,10 +12,10 @@ namespace Jama.Domain.Entities;
 /// on <see cref="Boq"/> answer "where does this stand"; these rows answer "how
 /// did it get here".
 ///
-/// The actor's name is COPIED rather than read through <see cref="ActorId"/>, on
-/// the same terms as a quotation line's price: a staff account may be renamed or
-/// removed, and a history that rewrites itself when it is would be no history at
-/// all.
+/// The actor's name is COPIED rather than read through <see cref="ActorId"/>, so
+/// the history survives the staff account being removed. When the same account is
+/// renamed (or its email changes), the copy is brought up to date so the person
+/// shows under their current name — see Jama.Application.Boqs.BoqNames.
 /// </summary>
 public class BoqApprovalEvent : BaseEntity
 {

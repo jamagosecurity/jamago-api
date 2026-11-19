@@ -1,3 +1,4 @@
+using Jama.Application.Boqs;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using MediatR;
@@ -50,8 +51,15 @@ public class UpdateMyStaffProfileCommandHandler
         // the portal header and admin listings read.
         if (staff.Account is not null)
         {
+            var renamed = !string.Equals(staff.Account.FullName, staff.FullName, StringComparison.Ordinal);
             staff.Account.FullName = staff.FullName;
             staff.Account.UpdatedAt = DateTime.UtcNow;
+
+            // Quotations keep a copy of the person's name; bring theirs up to date.
+            if (renamed)
+            {
+                await BoqNames.RenameAsync(_context, staff.Account, cancellationToken);
+            }
         }
 
         await _context.SaveChangesAsync(cancellationToken);

@@ -1,4 +1,5 @@
 using Jama.Application.Auth;
+using Jama.Application.Boqs;
 using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
@@ -69,8 +70,16 @@ public class UpdateStaffCommandHandler : IRequestHandler<UpdateStaffCommand, Typ
         }
         else
         {
+            // Quotations keep a copy of the person's name; a new name or email has to reach them too.
+            var renamed = !string.Equals(entity.Account.FullName, fullName, StringComparison.Ordinal)
+                || !string.Equals(entity.Account.Email, email, StringComparison.Ordinal);
+
             entity.Account.Email = email;
             entity.Account.FullName = fullName;
+            if (renamed)
+            {
+                await BoqNames.RenameAsync(_context, entity.Account, cancellationToken);
+            }
             entity.Account.IsActive = request.CanSignIn;
             entity.Account.UpdatedAt = DateTime.UtcNow;
 
