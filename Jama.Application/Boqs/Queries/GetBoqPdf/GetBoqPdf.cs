@@ -116,6 +116,13 @@ public sealed class GetBoqPdfQueryHandler(
             })
             .ToList();
 
+        // The signature carries the preparer's designation as their profile has it today.
+        var designation = await context.AdminUsers
+            .AsNoTracking()
+            .Where(u => u.Id == boq.PreparedById)
+            .Select(u => u.Designation)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var model = new BoqPdfModel(
             boq.BoqNumber,
             boq.ProjectName,
@@ -137,6 +144,7 @@ public sealed class GetBoqPdfQueryHandler(
             TermsOverride = boq.TermsAndConditions,
             TermsOverrideAr = boq.TermsAndConditionsAr,
             TermsLanguage = request.TermsLanguage,
+            PreparedByDesignation = string.IsNullOrWhiteSpace(designation) ? null : designation.Trim(),
         };
 
         return ApiResult<BoqPdfDto>.Success(

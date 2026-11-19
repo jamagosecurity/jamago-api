@@ -684,8 +684,12 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
             column.Item().PaddingTop(14).Text("Yours faithfully,")
                 .FontSize(9).FontColor(InkSoft);
-            column.Item().PaddingTop(3).Text(PreparedBy(model.PreparedByName) ?? CompanyName)
+            var signedBy = PreparedBy(model.PreparedByName);
+            column.Item().PaddingTop(3).Text(signedBy ?? CompanyName)
                 .FontSize(9.5f).Bold().FontColor(Ink);
+            // The preparer's designation from their profile, under their name.
+            if (signedBy is not null && !string.IsNullOrWhiteSpace(model.PreparedByDesignation))
+                column.Item().Text(model.PreparedByDesignation).FontSize(9).FontColor(InkSoft);
             column.Item().Text(CompanyName).FontSize(8.5f).FontColor(Muted);
         });
     }

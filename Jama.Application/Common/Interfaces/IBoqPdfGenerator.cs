@@ -96,6 +96,11 @@ public sealed record BoqPdfModel(
     /// English regardless of whether Arabic wording exists — Arabic only
     /// ever prints because the download specifically asked for it.</summary>
     public BoqTermsLanguage TermsLanguage { get; init; } = BoqTermsLanguage.English;
+
+    /// <summary>The preparer's designation from their profile (Personal details), e.g. "Head of Sales". Read from
+    /// the account when the PDF is made, so a profile change shows on every quotation. Printed under the name in
+    /// the signature; null or blank prints nothing.</summary>
+    public string? PreparedByDesignation { get; init; }
 }
 
 public interface IBoqPdfGenerator
