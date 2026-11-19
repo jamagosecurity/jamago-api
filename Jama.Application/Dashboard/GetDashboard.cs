@@ -66,6 +66,9 @@ public sealed class GetDashboardQueryHandler(IApplicationDbContext context, IOpt
         var firstOfLast = firstOfMonth.AddMonths(-1);
         var received = await context.NonMoiJobPayments.AsNoTracking().Where(p => p.ReceivedOn >= firstOfLast)
             .Select(p => new { p.ReceivedOn, p.Amount, p.Method }).ToListAsync(ct);
+        // MOI jobs are paid the same way; their money counts too.
+        received.AddRange(await context.MoiJobPayments.AsNoTracking().Where(p => p.ReceivedOn >= firstOfLast)
+            .Select(p => new { p.ReceivedOn, p.Amount, p.Method }).ToListAsync(ct));
         var thisMonth = received.Where(a => a.ReceivedOn >= firstOfMonth).ToList();
         var revenue = thisMonth.Sum(a => a.Amount);
         var revenueLast = received.Where(a => a.ReceivedOn < firstOfMonth).Sum(a => a.Amount);

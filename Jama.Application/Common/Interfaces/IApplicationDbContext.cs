@@ -37,6 +37,12 @@ public interface IApplicationDbContext
     DbSet<NonMoiJobLine> NonMoiJobLines { get; }
     DbSet<NonMoiJobEvent> NonMoiJobEvents { get; }
     DbSet<NonMoiJobPayment> NonMoiJobPayments { get; }
+    DbSet<MoiJob> MoiJobs { get; }
+    DbSet<MoiJobLine> MoiJobLines { get; }
+    DbSet<MoiJobEvent> MoiJobEvents { get; }
+    DbSet<MoiJobPayment> MoiJobPayments { get; }
+    DbSet<MoiServiceItem> MoiServiceItems { get; }
+    DbSet<MoiServiceImage> MoiServiceImages { get; }
     DbSet<MailMessage> MailMessages { get; }
     DbSet<MailAccountState> MailAccountStates { get; }
     DbSet<MailSendLog> MailSendLogs { get; }

@@ -1,0 +1,91 @@
+using Jama.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
+
+namespace Jama.Infrastructure.Data.Configurations;
+
+public sealed class MoiJobConfiguration : IEntityTypeConfiguration<MoiJob>
+{
+    public void Configure(EntityTypeBuilder<MoiJob> builder)
+    {
+        // The same pin guard a DIA site carries: half a pin, or one out of range,
+        // sends a technician to the wrong place.
+        builder.ToTable("MoiJobs", t => t.HasCheckConstraint(
+            "CK_MoiJobs_SitePin",
+            """("Latitude" IS NULL) = ("Longitude" IS NULL) AND ("Latitude" IS NULL OR ("Latitude" BETWEEN -90 AND 90 AND "Longitude" BETWEEN -180 AND 180))"""));
+
+        builder.Property(x => x.JobNumber).HasMaxLength(40).IsRequired();
+        builder.HasIndex(x => x.JobNumber).IsUnique();
+        builder.Property(x => x.CustomerName).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.CustomerNumber).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.Location).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.DescriptionEn).HasMaxLength(2000).IsRequired();
+        builder.Property(x => x.DescriptionAr).HasMaxLength(2000);
+        builder.Property(x => x.AssignedToName).HasMaxLength(300).IsRequired();
+
+        builder.HasIndex(x => x.AssignedToId);
+
+        builder.Property(x => x.Status).HasMaxLength(20).IsRequired().HasDefaultValue("Assigned");
+        builder.Property(x => x.WorkTotal).HasPrecision(12, 2);
+        builder.Property(x => x.Discount).HasPrecision(12, 2);
+        builder.Property(x => x.AmountPayable).HasPrecision(12, 2);
+        builder.Property(x => x.CustomerEmail).HasMaxLength(320);
+        builder.Property(x => x.AssignedByName).HasMaxLength(300).IsRequired().HasDefaultValue(string.Empty);
+        builder.Property(x => x.ClosedByName).HasMaxLength(300);
+        builder.Property(x => x.SentFromAccount).HasMaxLength(40);
+        builder.Property(x => x.BillToken).HasMaxLength(64);
+        builder.HasIndex(x => x.BillToken).IsUnique();
+        builder.Property(x => x.BillRevision).HasDefaultValue(1);
+        builder.Property(x => x.ClientDecision).HasMaxLength(20);
+        builder.Property(x => x.ClientMessage).HasMaxLength(2000);
+        builder.Property(x => x.ClientResponderName).HasMaxLength(200);
+        builder.HasMany(x => x.Events).WithOne(x => x.MoiJob).HasForeignKey(x => x.MoiJobId).OnDelete(DeleteBehavior.Cascade);
+        builder.Property(x => x.CompletionNotes).HasMaxLength(1000);
+        builder.HasMany(x => x.Lines).WithOne(x => x.MoiJob).HasForeignKey(x => x.MoiJobId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class MoiJobLineConfiguration : IEntityTypeConfiguration<MoiJobLine>
+{
+    public void Configure(EntityTypeBuilder<MoiJobLine> builder)
+    {
+        builder.ToTable("MoiJobLines");
+        builder.Property(x => x.Category).HasMaxLength(100).IsRequired();
+        builder.Property(x => x.IssueType).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.UnitFee).HasPrecision(12, 2);
+        builder.Property(x => x.LineTotal).HasPrecision(12, 2);
+        builder.HasIndex(x => x.MoiJobId);
+    }
+}
+
+public sealed class MoiJobEventConfiguration : IEntityTypeConfiguration<MoiJobEvent>
+{
+    public void Configure(EntityTypeBuilder<MoiJobEvent> builder)
+    {
+        builder.ToTable("MoiJobEvents");
+        builder.Property(x => x.Action).HasMaxLength(20).IsRequired();
+        builder.Property(x => x.ActorName).HasMaxLength(300).IsRequired();
+        builder.Property(x => x.Note).HasMaxLength(2000);
+        builder.Property(x => x.AmountPayable).HasPrecision(12, 2);
+        builder.HasIndex(x => x.MoiJobId);
+    }
+}
+
+public sealed class MoiJobPaymentConfiguration : IEntityTypeConfiguration<MoiJobPayment>
+{
+    public void Configure(EntityTypeBuilder<MoiJobPayment> builder)
+    {
+        builder.ToTable("MoiJobPayments");
+        builder.Property(x => x.Method).HasMaxLength(10).IsRequired();
+        builder.Property(x => x.Amount).HasPrecision(12, 2);
+        builder.Property(x => x.CollectedByName).HasMaxLength(300);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.ReceiptFileName).HasMaxLength(260);
+        builder.Property(x => x.ReceiptStorageKey).HasMaxLength(400);
+        builder.Property(x => x.ReceiptContentType).HasMaxLength(120);
+        builder.Property(x => x.RecordedByName).HasMaxLength(300).IsRequired();
+        builder.HasOne(x => x.MoiJob).WithMany(x => x.Payments).HasForeignKey(x => x.MoiJobId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(x => x.MoiJobId);
+        builder.HasIndex(x => x.ReceivedOn);
+    }
+}

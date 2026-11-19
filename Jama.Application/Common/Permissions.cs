@@ -86,6 +86,13 @@ public static class Permissions
     /// not even show the Non-MOI section. Technicians with no explicit grants get it from the role baseline.</summary>
     public const string NonMoiJobWork = "nonmoijob.work";
 
+    /// <summary>MOI jobs: issuing them to technicians, billing them, recording payments, and the MOI price list.
+    /// Separate from Non-MOI so each can be given to different people.</summary>
+    public const string MoiJobManage = "moijob.manage";
+
+    /// <summary>For technicians: seeing the MOI jobs issued to them and completing them.</summary>
+    public const string MoiJobWork = "moijob.work";
+
     /// <summary>Reading the company mailboxes in the Company mail screen. Read-only: sending, replying and
     /// forwarding stay with administrators, because mail goes out in a mailbox owner's name.</summary>
     public const string MailRead = "mail.read";
@@ -121,6 +128,8 @@ public static class Permissions
         new(MaintenanceManage, "Manage maintenance tickets", "Can see every maintenance ticket, assign one to themself or another staff member, resolve it with notes, or cancel it. Also needed to log a ticket on a client's behalf — a client can always log their own."),
         new(NonMoiJobManage, "Non-MOI jobs & inventory", "Can hand a Non-MOI job to one technician, edit it, and — for the jobs they issued — review the technician's work, give a discount and close the deal, which sends the client the bill by email and WhatsApp. Also manages the Non-MOI inventory (services, prices and pictures). Does not include the maintenance ticket queue."),
         new(NonMoiJobWork, "Do Non-MOI jobs (technician)", "For technicians: shows the Non-MOI Jobs section in their portal, where they see the jobs issued to them, tick the work they did and complete it. They never see or change prices."),
+        new(MoiJobManage, "MOI jobs & MOI services", "Can hand an MOI job to one technician, edit it, review the technician's work, give a discount and send the client the bill by email, then record cash or online payments. Also manages the MOI services price list (services, prices and pictures). Separate from Non-MOI jobs and from the MOI stock inventory."),
+        new(MoiJobWork, "Do MOI jobs (technician)", "For technicians: shows the MOI Jobs section in their portal, where they see the MOI jobs issued to them, tick the work they did and complete it. They never see or change prices."),
         new(MailRead, "Read company mail", "Can open the Company mail screen and read every company mailbox, incoming and outgoing. Read-only: cannot send, reply or forward — that stays with administrators."),
     ];
 
@@ -181,7 +190,7 @@ public static class Permissions
     /// worse failure than granting the baseline.
     /// </summary>
     private static IReadOnlyList<string> BaselineForRole(string role) =>
-        role == Roles.Technician ? [DiaView, DiaInspect, InvoiceView, NonMoiJobWork] : [];
+        role == Roles.Technician ? [DiaView, DiaInspect, InvoiceView, NonMoiJobWork, MoiJobWork] : [];
 
     /// <summary>
     /// The effective permission set for an account: the single place that answers
@@ -221,7 +230,7 @@ public static class Permissions
     public static IReadOnlyList<string> DefaultsForDepartment(string? department) =>
         department switch
         {
-            "Technician" => [DiaView, DiaInspect, InvoiceView, NonMoiJobWork],
+            "Technician" => [DiaView, DiaInspect, InvoiceView, NonMoiJobWork, MoiJobWork],
             "MOI DIA Upload" => [DiaView, DiaUpload],
             "MOI DIA Inspection" => [DiaView, DiaInspect],
             "Panels" => [PanelsManage],

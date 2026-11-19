@@ -40,6 +40,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<NonMoiJobLine> NonMoiJobLines => Set<NonMoiJobLine>();
     public DbSet<NonMoiJobEvent> NonMoiJobEvents => Set<NonMoiJobEvent>();
     public DbSet<NonMoiJobPayment> NonMoiJobPayments => Set<NonMoiJobPayment>();
+    public DbSet<MoiJob> MoiJobs => Set<MoiJob>();
+    public DbSet<MoiJobLine> MoiJobLines => Set<MoiJobLine>();
+    public DbSet<MoiJobEvent> MoiJobEvents => Set<MoiJobEvent>();
+    public DbSet<MoiJobPayment> MoiJobPayments => Set<MoiJobPayment>();
+    public DbSet<MoiServiceItem> MoiServiceItems => Set<MoiServiceItem>();
+    public DbSet<MoiServiceImage> MoiServiceImages => Set<MoiServiceImage>();
     public DbSet<MailMessage> MailMessages => Set<MailMessage>();
     public DbSet<MailAccountState> MailAccountStates => Set<MailAccountState>();
     public DbSet<MailSendLog> MailSendLogs => Set<MailSendLog>();
