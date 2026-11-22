@@ -46,11 +46,14 @@ public class CashHandoverTests
         AssignedToId = Tech, AssignedToName = "Tech", AssignedById = Hasan, AssignedByName = "Hasan", Status = "Closed", WorkTotal = 5000m, AmountPayable = 5000m,
     };
 
-    private static NonMoiJobPayment Pay(NonMoiJob job, decimal amount, Guid? by, string? name, string method = "Cash", DateOnly? day = null) => new()
+    private static readonly Guid Boss = Guid.NewGuid();
+
+    private static NonMoiJobPayment Pay(NonMoiJob job, decimal amount, Guid? by, string? name, string method = "Cash", DateOnly? day = null,
+        Guid? recordedById = null, string recordedBy = "Hasan") => new()
     {
         Id = Guid.NewGuid(), NonMoiJobId = job.Id, Method = method, Amount = amount, ReceivedOn = day ?? Today,
         CollectedById = method == "Cash" ? by : null, CollectedByName = method == "Cash" ? name : null,
-        RecordedById = Hasan, RecordedByName = "Hasan", CreatedAt = Evening.GetUtcNow().UtcDateTime,
+        RecordedById = recordedById ?? Hasan, RecordedByName = recordedBy, CreatedAt = Evening.GetUtcNow().UtcDateTime,
     };
 
     private static MoiJobPayment PayMoi(MoiJob job, decimal amount, Guid? by, string? name, string method = "Cash") => new()
@@ -60,7 +63,8 @@ public class CashHandoverTests
         RecordedById = Hasan, RecordedByName = "Hasan", CreatedAt = Evening.GetUtcNow().UtcDateTime,
     };
 
-    /// <summary>Tech collected 300 + 200 (one yesterday), Hasan 150, the office 50 and an online transfer on Non-MOI; Tech 400 on MOI.</summary>
+    /// <summary>Non-MOI: Tech collected 300 + 200 (one yesterday), Hasan 150, 50 "received at the office" that Boss recorded, and an online
+    /// transfer. MOI: Tech 400.</summary>
     private static async Task<ApplicationDbContext> SeedAsync()
     {
         var context = NewContext();
@@ -70,7 +74,7 @@ public class CashHandoverTests
         context.MoiJobs.Add(m);
         context.NonMoiJobPayments.AddRange(
             Pay(a, 300m, Tech, "Tech"), Pay(b, 200m, Tech, "Tech", day: Today.AddDays(-1)),
-            Pay(a, 150m, Hasan, "Hasan"), Pay(c, 50m, null, null),
+            Pay(a, 150m, Hasan, "Hasan"), Pay(c, 50m, null, null, recordedById: Boss, recordedBy: "Boss <boss@jamago.qa>"),
             Pay(c, 1000m, null, null, method: "Online"));
         context.MoiJobPayments.Add(PayMoi(m, 400m, Tech, "Tech"));
         await context.SaveChangesAsync();
@@ -85,7 +89,7 @@ public class CashHandoverTests
     // ===== What is waiting =====
 
     [Fact]
-    public async Task Each_person_has_the_cash_recorded_for_them_and_the_office_is_last()
+    public async Task Each_person_has_the_cash_recorded_for_them_and_office_cash_is_the_recording_admins()
     {
         var context = await SeedAsync();
 
@@ -93,8 +97,9 @@ public class CashHandoverTests
 
         Assert.Equal("NonMOI", pending.Kind);
         Assert.Equal(Today, pending.Today);
-        Assert.Equal(["Hasan", "Tech", CashKinds.Office], pending.Groups.Select(g => g.CollectorName));
-        Assert.Equal([150m, 500m, 50m], pending.Groups.Select(g => g.Total));
+        Assert.Equal(["Boss", "Hasan", "Tech"], pending.Groups.Select(g => g.CollectorName));      // the email is not shown
+        Assert.Equal([50m, 150m, 500m], pending.Groups.Select(g => g.Total));
+        Assert.Equal(Boss, pending.Groups[0].CollectorId);                                          // office cash belongs to who recorded it
         Assert.Equal(700m, pending.Total);                       // the online 1,000 is not cash
         var tech = pending.Groups.Single(g => g.CollectorId == Tech);
         Assert.Equal(Today.AddDays(-1), tech.OldestDay);          // yesterday's cash that was never handed over is still waiting
@@ -143,7 +148,7 @@ public class CashHandoverTests
 
         var pending = await PendingAsync(context, "nonmoi");
         Assert.DoesNotContain(pending.Groups, g => g.CollectorId == Tech);
-        Assert.Equal(200m, pending.Total);                        // Hasan's 150 and the office's 50 are still waiting
+        Assert.Equal(200m, pending.Total);                        // Hasan's 150 and Boss's 50 are still waiting
         Assert.Equal(2, await context.NonMoiJobPayments.CountAsync(p => p.CashHandoverId == result.Data.Id));
         Assert.Equal(0, await context.MoiJobPayments.CountAsync(p => p.CashHandoverId != null));   // MOI is a separate handover
     }
@@ -201,15 +206,33 @@ public class CashHandoverTests
     }
 
     [Fact]
-    public async Task The_office_cash_is_handed_over_like_anyone_elses()
+    public async Task Cash_received_at_the_office_is_handed_over_by_the_admin_who_recorded_it()
     {
         var context = await SeedAsync();
 
-        var result = await Confirmer(context).Handle(new ConfirmCashHandoverCommand("nonmoi", null, 50m, 50m, null), default);
+        var result = await Confirmer(context).Handle(new ConfirmCashHandoverCommand("nonmoi", Boss, 50m, 50m, null), default);
 
         Assert.True(result.Succeeded);
-        Assert.Null(result.Data!.CollectorId);
-        Assert.Equal(CashKinds.Office, result.Data.CollectorName);
+        Assert.Equal(Boss, result.Data!.CollectorId);
+        Assert.Equal("Boss", result.Data.CollectorName);
+        Assert.Equal(650m, (await PendingAsync(context, "nonmoi")).Total);
+    }
+
+    [Fact]
+    public async Task One_person_who_collected_cash_and_recorded_office_cash_hands_over_both_together()
+    {
+        var context = await SeedAsync();
+        var job = await context.NonMoiJobs.FirstAsync(j => j.JobNumber == "NMJ-00003");
+        context.NonMoiJobPayments.Add(Pay(job, 25m, null, null, recordedById: Hasan, recordedBy: "Hasan <hasan@jamago.qa>"));   // office cash Hasan recorded
+        await context.SaveChangesAsync();
+
+        var hasan = (await PendingAsync(context, "nonmoi")).Groups.Single(g => g.CollectorId == Hasan);
+
+        Assert.Equal(175m, hasan.Total);                 // his own 150 plus the 25 office cash
+        Assert.Equal(2, hasan.Payments.Count);
+        Assert.Equal("Hasan", hasan.CollectorName);      // the name he was picked under, without an email
+        Assert.True((await Confirmer(context).Handle(new ConfirmCashHandoverCommand("nonmoi", Hasan, 175m, 175m, null), default)).Succeeded);
+        Assert.Equal(2, await context.NonMoiJobPayments.CountAsync(p => p.CashHandoverId != null));   // exactly his two; Tech's cash is untouched
     }
 
     [Fact]

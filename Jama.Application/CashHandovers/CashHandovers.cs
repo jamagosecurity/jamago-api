@@ -10,7 +10,8 @@ namespace Jama.Application.CashHandovers;
 /// <summary>
 /// The accountant's panel. Every day, people who collected cash on jobs hand it to the accountant: the panel lists, per
 /// person, the cash recorded for them that has not been handed over yet, the accountant counts it and confirms. MOI and
-/// Non-MOI are kept apart — each is its own list and its own handover. A handover is only a record of what was received:
+/// Non-MOI are kept apart — each is its own list and its own handover. Cash that names who collected it is theirs; cash
+/// recorded as "received at the office" is held by whoever recorded it (the admin), so it is theirs to hand over. A handover is only a record of what was received:
 /// it never changes a bill or a payment.
 /// </summary>
 public static class CashKinds
@@ -29,7 +30,13 @@ public static class CashKinds
     internal static DateOnly Today(TimeProvider clock) => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime.AddHours(3));
     internal static DateOnly DohaDay(DateTime utc) => DateOnly.FromDateTime(utc.AddHours(3));
 
-    public const string Office = "Received at the office";
+    /// <summary>"Sara &lt;sara@jamago.qa&gt;" (how audit names are stored) to "Sara".</summary>
+    internal static string PersonName(string? name)
+    {
+        var text = (name ?? "").Trim();
+        var open = text.LastIndexOf('<');
+        return (open > 0 && text.EndsWith('>') ? text[..open] : text).Trim();
+    }
 }
 
 public sealed record HandoverPaymentDto(
@@ -55,8 +62,15 @@ public sealed record OnlinePaymentsDto(string Kind, DateOnly From, DateOnly To, 
 /// <summary>One cash payment, whichever kind of job it came from.</summary>
 internal sealed record CashRow(
     Guid PaymentId, Guid JobId, string JobNumber, string CustomerName, decimal Amount, DateOnly ReceivedOn,
-    Guid? CollectedById, string? CollectedByName, string RecordedByName, string? Note, Guid? HandoverId)
+    Guid? CollectedById, string? CollectedByName, Guid RecordedById, string RecordedByName, string? Note, Guid? HandoverId)
 {
+    /// <summary>Who holds this cash: the person named as collector, or — when it was received at the office — the admin who recorded it.</summary>
+    public Guid HolderId => CollectedById ?? RecordedById;
+
+    public string HolderName => !string.IsNullOrWhiteSpace(CollectedByName) && CollectedById is not null
+        ? CashKinds.PersonName(CollectedByName)
+        : CashKinds.PersonName(RecordedByName);
+
     public HandoverPaymentDto ToDto() => new(PaymentId, JobId, JobNumber, CustomerName, Amount, ReceivedOn, RecordedByName, Note);
 }
 
@@ -71,7 +85,7 @@ internal static class CashLookup
             if (pendingOnly) q = q.Where(p => p.CashHandoverId == null);
             return await q.OrderBy(p => p.ReceivedOn).ThenBy(p => p.CreatedAt)
                 .Select(p => new CashRow(p.Id, p.MoiJobId, p.MoiJob.JobNumber, p.MoiJob.CustomerName, p.Amount, p.ReceivedOn,
-                    p.CollectedById, p.CollectedByName, p.RecordedByName, p.Note, p.CashHandoverId))
+                    p.CollectedById, p.CollectedByName, p.RecordedById, p.RecordedByName, p.Note, p.CashHandoverId))
                 .ToListAsync(ct);
         }
 
@@ -79,7 +93,7 @@ internal static class CashLookup
         if (pendingOnly) n = n.Where(p => p.CashHandoverId == null);
         return await n.OrderBy(p => p.ReceivedOn).ThenBy(p => p.CreatedAt)
             .Select(p => new CashRow(p.Id, p.NonMoiJobId, p.NonMoiJob.JobNumber, p.NonMoiJob.CustomerName, p.Amount, p.ReceivedOn,
-                p.CollectedById, p.CollectedByName, p.RecordedByName, p.Note, p.CashHandoverId))
+                p.CollectedById, p.CollectedByName, p.RecordedById, p.RecordedByName, p.Note, p.CashHandoverId))
             .ToListAsync(ct);
     }
 }
@@ -99,14 +113,13 @@ public sealed class GetPendingHandoversQueryHandler(IApplicationDbContext contex
 
         var rows = await CashLookup.CashAsync(context, kind, pendingOnly: true, ct);
         var groups = rows
-            .GroupBy(x => x.CollectedById)
+            .GroupBy(x => x.HolderId)
             .Select(g => new PendingHandoverDto(
                 g.Key,
-                g.Select(x => x.CollectedByName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? CashKinds.Office,
+                g.OrderByDescending(x => x.CollectedById is not null).First().HolderName,
                 g.Sum(x => x.Amount), g.Min(x => x.ReceivedOn), g.Max(x => x.ReceivedOn),
                 g.Select(x => x.ToDto()).ToList()))
-            .OrderBy(g => g.CollectorId is null)        // the office last
-            .ThenBy(g => g.CollectorName)
+            .OrderBy(g => g.CollectorName)
             .ToList();
         return ApiResult<PendingHandoversDto>.Success(new(kind, CashKinds.Today(clock), groups.Sum(g => g.Total), groups));
     }
@@ -148,7 +161,7 @@ public sealed class ConfirmCashHandoverCommandHandler(IApplicationDbContext cont
         if (kind is null) return Fail("Choose MOI or Non-MOI.");
 
         var rows = await CashLookup.CashAsync(context, kind, pendingOnly: true, ct);
-        rows = rows.Where(x => x.CollectedById == r.CollectorId).ToList();
+        rows = rows.Where(x => x.HolderId == r.CollectorId).ToList();
         if (rows.Count == 0) return Fail("Nothing is waiting from this person. Refresh the page.");
 
         var expected = rows.Sum(x => x.Amount);
@@ -167,7 +180,7 @@ public sealed class ConfirmCashHandoverCommandHandler(IApplicationDbContext cont
             Id = Guid.CreateVersion7(),
             Kind = kind,
             CollectorId = r.CollectorId,
-            CollectorName = rows.Select(x => x.CollectedByName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? CashKinds.Office,
+            CollectorName = rows.OrderByDescending(x => x.CollectedById is not null).First().HolderName,
             ExpectedAmount = expected,
             ReceivedAmount = r.ReceivedAmount,
             Note = note,
