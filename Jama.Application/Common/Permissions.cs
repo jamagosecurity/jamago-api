@@ -93,6 +93,10 @@ public static class Permissions
     /// <summary>For technicians: seeing the MOI jobs issued to them and completing them.</summary>
     public const string MoiJobWork = "moijob.work";
 
+    /// <summary>The accountant: receives the cash people collected, counts it, and records the handover — for MOI and for
+    /// Non-MOI separately — and checks the online transfers. Does not issue jobs or take payments.</summary>
+    public const string AccountsManage = "accounts.manage";
+
     /// <summary>Reading the company mailboxes in the Company mail screen. Read-only: sending, replying and
     /// forwarding stay with administrators, because mail goes out in a mailbox owner's name.</summary>
     public const string MailRead = "mail.read";
@@ -130,6 +134,7 @@ public static class Permissions
         new(NonMoiJobWork, "Do Non-MOI jobs (technician)", "For technicians: shows the Non-MOI Jobs section in their portal, where they see the jobs issued to them, tick the work they did and complete it. They never see or change prices."),
         new(MoiJobManage, "MOI jobs & MOI services", "Can hand an MOI job to one technician, edit it, review the technician's work, give a discount and send the client the bill by email, then record cash or online payments. Also manages the MOI services price list (services, prices and pictures). Separate from Non-MOI jobs and from the MOI stock inventory."),
         new(MoiJobWork, "Do MOI jobs (technician)", "For technicians: shows the MOI Jobs section in their portal, where they see the MOI jobs issued to them, tick the work they did and complete it. They never see or change prices."),
+        new(AccountsManage, "Accountant: receive cash handovers", "For the accountant. At the end of the day, sees the cash each person collected on MOI and on Non-MOI jobs, counts it and records that it was handed over — noting any amount missing or extra. Also sees the online transfers to check against the bank. Cannot issue jobs, change bills or record payments."),
         new(MailRead, "Read company mail", "Can open the Company mail screen and read every company mailbox, incoming and outgoing. Read-only: cannot send, reply or forward — that stays with administrators."),
     ];
 

@@ -85,7 +85,9 @@ public sealed class MoiJobPaymentConfiguration : IEntityTypeConfiguration<MoiJob
         builder.Property(x => x.ReceiptContentType).HasMaxLength(120);
         builder.Property(x => x.RecordedByName).HasMaxLength(300).IsRequired();
         builder.HasOne(x => x.MoiJob).WithMany(x => x.Payments).HasForeignKey(x => x.MoiJobId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<CashHandover>().WithMany().HasForeignKey(x => x.CashHandoverId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(x => x.MoiJobId);
         builder.HasIndex(x => x.ReceivedOn);
+        builder.HasIndex(x => x.CashHandoverId);
     }
 }

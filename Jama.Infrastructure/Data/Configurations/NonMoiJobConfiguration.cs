@@ -85,6 +85,8 @@ public sealed class NonMoiJobPaymentConfiguration : IEntityTypeConfiguration<Non
         builder.Property(x => x.ReceiptContentType).HasMaxLength(120);
         builder.Property(x => x.RecordedByName).HasMaxLength(300).IsRequired();
         builder.HasOne(x => x.NonMoiJob).WithMany(x => x.Payments).HasForeignKey(x => x.NonMoiJobId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<CashHandover>().WithMany().HasForeignKey(x => x.CashHandoverId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(x => x.CashHandoverId);
         builder.HasIndex(x => x.NonMoiJobId);
         builder.HasIndex(x => x.ReceivedOn);
     }

@@ -147,6 +147,9 @@ public class NonMoiJobPayment : BaseEntity
     public Guid? CollectedById { get; set; }
     public string? CollectedByName { get; set; }
 
+    /// <summary>Set once the accountant has received this cash. Cash with a handover cannot be removed.</summary>
+    public Guid? CashHandoverId { get; set; }
+
     public string? Note { get; set; }
 
     public string? ReceiptFileName { get; set; }

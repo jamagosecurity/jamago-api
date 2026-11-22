@@ -44,6 +44,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<MoiJobLine> MoiJobLines => Set<MoiJobLine>();
     public DbSet<MoiJobEvent> MoiJobEvents => Set<MoiJobEvent>();
     public DbSet<MoiJobPayment> MoiJobPayments => Set<MoiJobPayment>();
+    public DbSet<CashHandover> CashHandovers => Set<CashHandover>();
     public DbSet<MoiServiceItem> MoiServiceItems => Set<MoiServiceItem>();
     public DbSet<MoiServiceImage> MoiServiceImages => Set<MoiServiceImage>();
     public DbSet<MailMessage> MailMessages => Set<MailMessage>();

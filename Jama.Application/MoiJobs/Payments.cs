@@ -149,6 +149,8 @@ public sealed class DeleteMoiJobPaymentCommandHandler(
         if (!actor.IsSuperAdmin) return ApiResult<bool>.Failure("Only the super admin can remove a payment.");
         var p = await context.MoiJobPayments.Include(x => x.MoiJob).FirstOrDefaultAsync(x => x.Id == r.PaymentId, ct);
         if (p is null) return ApiResult<bool>.Failure("Payment not found.");
+        if (p.CashHandoverId is not null)
+            return ApiResult<bool>.Failure("This cash was already handed over to the accountant, so it cannot be removed.");
 
         context.MoiJobPayments.Remove(p);
         context.MoiJobEvents.Add(new MoiJobEvent

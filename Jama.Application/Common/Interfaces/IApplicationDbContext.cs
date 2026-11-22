@@ -41,6 +41,7 @@ public interface IApplicationDbContext
     DbSet<MoiJobLine> MoiJobLines { get; }
     DbSet<MoiJobEvent> MoiJobEvents { get; }
     DbSet<MoiJobPayment> MoiJobPayments { get; }
+    DbSet<CashHandover> CashHandovers { get; }
     DbSet<MoiServiceItem> MoiServiceItems { get; }
     DbSet<MoiServiceImage> MoiServiceImages { get; }
     DbSet<MailMessage> MailMessages { get; }

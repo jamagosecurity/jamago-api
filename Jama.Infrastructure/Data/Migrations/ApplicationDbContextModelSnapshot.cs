@@ -607,6 +607,62 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.ToTable("CameraImages", (string)null);
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.CashHandover", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CollectorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CollectorName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("ExpectedAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("ReceivedAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid>("ReceivedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReceivedByName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Kind", "CollectorId");
+
+                    b.ToTable("CashHandovers", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CashHandovers_Kind", "\"Kind\" IN ('MOI', 'NonMOI')");
+                        });
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.ClientRegistration", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1798,6 +1854,9 @@ namespace Jama.Infrastructure.Data.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
 
+                    b.Property<Guid?>("CashHandoverId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("CollectedById")
                         .HasColumnType("uuid");
 
@@ -1847,6 +1906,8 @@ namespace Jama.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CashHandoverId");
 
                     b.HasIndex("MoiJobId");
 
@@ -2247,6 +2308,9 @@ namespace Jama.Infrastructure.Data.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("numeric(12,2)");
 
+                    b.Property<Guid?>("CashHandoverId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("CollectedById")
                         .HasColumnType("uuid");
 
@@ -2296,6 +2360,8 @@ namespace Jama.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CashHandoverId");
 
                     b.HasIndex("NonMoiJobId");
 
@@ -3026,6 +3092,11 @@ namespace Jama.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Jama.Domain.Entities.MoiJobPayment", b =>
                 {
+                    b.HasOne("Jama.Domain.Entities.CashHandover", null)
+                        .WithMany()
+                        .HasForeignKey("CashHandoverId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Jama.Domain.Entities.MoiJob", "MoiJob")
                         .WithMany("Payments")
                         .HasForeignKey("MoiJobId")
@@ -3081,6 +3152,11 @@ namespace Jama.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Jama.Domain.Entities.NonMoiJobPayment", b =>
                 {
+                    b.HasOne("Jama.Domain.Entities.CashHandover", null)
+                        .WithMany()
+                        .HasForeignKey("CashHandoverId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Jama.Domain.Entities.NonMoiJob", "NonMoiJob")
                         .WithMany("Payments")
                         .HasForeignKey("NonMoiJobId")
