@@ -79,9 +79,9 @@ public sealed class GetDashboardQueryHandler(IApplicationDbContext context, IOpt
 
         // ----- Open invoices: sent and not yet approved, or sent back by the client -----
         var open = await jobs.Where(j => j.Status == "Sent" || j.Status == "ChangesRequested")
-            .OrderBy(j => j.EmailSentAt)
+            .OrderBy(j => j.EmailSentAt ?? j.WhatsAppSentAt)
             .Select(j => new DashboardInvoiceDto(j.Id, j.JobNumber, j.CustomerName, j.AmountPayable, j.Status,
-                j.EmailSentAt, j.ClientMessage))
+                j.EmailSentAt ?? j.WhatsAppSentAt, j.ClientMessage))
             .ToListAsync(ct);
 
         // ----- Today's jobs (by visit time), plus anything still open from an earlier day -----

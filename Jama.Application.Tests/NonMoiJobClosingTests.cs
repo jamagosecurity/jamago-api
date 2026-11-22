@@ -42,14 +42,17 @@ public class NonMoiJobClosingTests
 
     private sealed class FakeWhatsApp(bool ok = true) : IWhatsAppSender
     {
+        public bool Ok { get; set; } = ok;
         public int Sent { get; private set; }
-        public string? LastUrl { get; private set; }
+        public List<(string To, WhatsAppMessage Message)> All { get; } = [];
+        public string? LastTo => All.Count == 0 ? null : All[^1].To;
+        public WhatsAppMessage? Last => All.Count == 0 ? null : All[^1].Message;
         public Task SendQuotationSentAsync(string toPhoneNumber, string customerName, string quoteNumber, decimal grandTotal, Guid quotationId, CancellationToken cancellationToken) => Task.CompletedTask;
-        public Task<WhatsAppSendResult> SendJobBillAsync(string toPhoneNumber, string customerName, string jobNumber, decimal amountPayable, string billUrl, CancellationToken cancellationToken)
+        public Task<WhatsAppSendResult> SendAsync(string toPhoneNumber, WhatsAppMessage message, CancellationToken cancellationToken)
         {
-            LastUrl = billUrl;
-            if (ok) Sent++;
-            return Task.FromResult(new WhatsAppSendResult(ok, ok ? null : "WhatsApp could not deliver the message: number not on WhatsApp"));
+            All.Add((toPhoneNumber, message));
+            if (Ok) Sent++;
+            return Task.FromResult(new WhatsAppSendResult(Ok, Ok ? null : "This number does not seem to be on WhatsApp."));
         }
     }
 
@@ -81,8 +84,12 @@ public class NonMoiJobClosingTests
         Accounts = [new MailAccountSettings { Key = "info", Address = "info@jamago.qa", Host = "imap.example.com", Password = "x", Signature = "Jama Go" }],
     });
 
-    private static IOptions<TwilioSettings> Twilio(bool configured = true) => Microsoft.Extensions.Options.Options.Create(configured
-        ? new TwilioSettings { AccountSid = "AC1", AuthToken = "t", WhatsAppFrom = "whatsapp:+14155238886", PublicApiBaseUrl = "https://api.example.com" }
+    private static IOptions<TwilioSettings> Twilio(bool configured = true, bool templates = false) => Microsoft.Extensions.Options.Options.Create(configured
+        ? new TwilioSettings
+        {
+            AccountSid = "AC1", AuthToken = "t", WhatsAppFrom = "whatsapp:+14155238886", PublicApiBaseUrl = "https://api.example.com",
+            JobBillContentSid = templates ? "HXbill" : "", JobApprovedContentSid = templates ? "HXthanks" : "", JobReplyReceivedContentSid = templates ? "HXreceived" : "",
+        }
         : new TwilioSettings());
 
     private static async Task<(ApplicationDbContext Context, NonMoiJob Job)> SeedAsync(string status = "Completed", Guid? issuer = null)
@@ -102,10 +109,10 @@ public class NonMoiJobClosingTests
     }
 
     private static CloseNonMoiJobCommandHandler Handler(
-        ApplicationDbContext context, ICurrentUser user, FakeMail? mail = null, FakeWhatsApp? whatsApp = null, FakePdf? pdf = null, bool twilio = true) =>
-        new(context, user, mail ?? new FakeMail(), whatsApp ?? new FakeWhatsApp(), pdf ?? new FakePdf(), Mail(), Twilio(twilio), TimeProvider.System);
+        ApplicationDbContext context, ICurrentUser user, FakeMail? mail = null, FakeWhatsApp? whatsApp = null, FakePdf? pdf = null, bool twilio = true, bool templates = false) =>
+        new(context, user, mail ?? new FakeMail(), whatsApp ?? new FakeWhatsApp(), pdf ?? new FakePdf(), Mail(), Twilio(twilio, templates), TimeProvider.System);
 
-    private static CloseNonMoiJobCommand Close(Guid id, decimal discount = 0m, bool email = true, bool whatsApp = true, string? to = null) =>
+    private static CloseNonMoiJobCommand Close(Guid id, decimal discount = 0m, bool email = true, bool whatsApp = false, string? to = null) =>
         new(id, discount, to, email, whatsApp, "info");
 
     [Fact]
@@ -121,7 +128,7 @@ public class NonMoiJobClosingTests
         Assert.Equal(100m, result.Data.Discount);
         Assert.Equal(900m, result.Data.AmountPayable);
         Assert.Equal(1, mail.Sent);
-        Assert.Equal(0, wa.Sent);                          // WhatsApp is never used, even if it was asked for
+        Assert.Equal(0, wa.Sent);                          // WhatsApp was not chosen this time
         Assert.Equal(900m, pdf.Last!.AmountPayable);
         var attachment = Assert.Single(mail.Last!.Attachments!);
         Assert.Equal("NMJ-00001 Bill.pdf", attachment.FileName);
@@ -181,14 +188,16 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public void Email_is_mandatory_and_so_is_a_mailbox_to_send_it_from()
+    public void The_bill_goes_by_email_whatsapp_or_both_and_always_names_a_mailbox()
     {
         var validator = new CloseNonMoiJobCommandValidator();
-        Assert.False(validator.Validate(Close(Guid.NewGuid(), email: false, whatsApp: false)).IsValid);
-        Assert.False(validator.Validate(Close(Guid.NewGuid(), email: false, whatsApp: true)).IsValid);   // WhatsApp alone is not enough
-        Assert.False(validator.Validate(new CloseNonMoiJobCommand(Guid.NewGuid(), 0m, null, true, false, null)).IsValid);
+        Assert.False(validator.Validate(Close(Guid.NewGuid(), email: false, whatsApp: false)).IsValid);   // it has to go somewhere
+        Assert.True(validator.Validate(Close(Guid.NewGuid(), email: false, whatsApp: true)).IsValid);    // WhatsApp alone is fine
+        Assert.True(validator.Validate(Close(Guid.NewGuid(), email: true, whatsApp: false)).IsValid);
+        Assert.True(validator.Validate(Close(Guid.NewGuid(), email: true, whatsApp: true)).IsValid);
+        // The mailbox is always needed: the team is told from it when the client answers.
+        Assert.False(validator.Validate(new CloseNonMoiJobCommand(Guid.NewGuid(), 0m, null, false, true, null)).IsValid);
         Assert.False(validator.Validate(Close(Guid.NewGuid(), to: "not-an-email")).IsValid);
-        Assert.True(validator.Validate(Close(Guid.NewGuid(), whatsApp: false)).IsValid);
     }
 
     [Fact]
@@ -206,18 +215,108 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public async Task Whatsapp_is_never_used_even_when_it_is_requested_or_would_fail()
+    public async Task A_client_with_no_email_gets_the_bill_on_whatsapp_with_the_link_to_approve_or_reject()
+    {
+        var (context, job) = await SeedAsync();
+        job.CustomerEmail = null;
+        job.CustomerNumber = "5550 1234";             // typed the Qatar way, without +974
+        await context.SaveChangesAsync();
+        var mail = new FakeMail(); var wa = new FakeWhatsApp();
+
+        var result = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, 100m, email: false, whatsApp: true), default);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("Sent", result.Data!.Status);
+        Assert.Equal(0, mail.Sent);
+        Assert.Equal(1, wa.Sent);
+        Assert.Equal("+97455501234", wa.LastTo);
+        var saved = await context.NonMoiJobs.Include(x => x.Events).SingleAsync();
+        Assert.Contains($"/bill/{saved.BillToken}", wa.Last!.Body);   // the same page as the email: Approve / Reject / Comment
+        Assert.Contains("approve, reject or comment", wa.Last.Body);
+        Assert.Contains("900.00", wa.Last.Body);
+        Assert.Contains("IBAN", wa.Last.Body);
+        Assert.Null(wa.Last.ContentSid);                                 // no approved template yet: plain text
+        Assert.NotNull(saved.WhatsAppSentAt);
+        Assert.Null(saved.EmailSentAt);
+        Assert.Equal("info", saved.SentFromAccount);                     // the team still hears from this mailbox
+        Assert.Equal("WhatsApp", saved.Events.Single(e => e.Action == "Sent").Note);
+    }
+
+    [Fact]
+    public async Task Both_email_and_whatsapp_can_go_together()
+    {
+        var (context, job) = await SeedAsync();
+        var mail = new FakeMail(); var wa = new FakeWhatsApp();
+
+        var result = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, email: true, whatsApp: true), default);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(1, mail.Sent);
+        Assert.Equal(1, wa.Sent);
+        var saved = await context.NonMoiJobs.Include(x => x.Events).SingleAsync();
+        Assert.Equal("email + WhatsApp", saved.Events.Single(e => e.Action == "Sent").Note);
+    }
+
+    [Fact]
+    public async Task With_an_approved_template_the_bill_goes_as_the_template()
+    {
+        var (context, job) = await SeedAsync();
+        var wa = new FakeWhatsApp();
+
+        await Handler(context, new FakeUser(Issuer), whatsApp: wa, templates: true).Handle(Close(job.Id, 100m, email: false, whatsApp: true), default);
+
+        var saved = await context.NonMoiJobs.SingleAsync();
+        Assert.Equal("HXbill", wa.Last!.ContentSid);
+        Assert.Equal("Al Noor", wa.Last.Variables["1"]);
+        Assert.Equal("NMJ-00001", wa.Last.Variables["2"]);
+        Assert.Equal("900.00", wa.Last.Variables["3"]);
+        Assert.EndsWith($"/bill/{saved.BillToken}", wa.Last.Variables["4"]);
+    }
+
+    [Fact]
+    public async Task When_whatsapp_fails_after_the_email_a_retry_sends_only_the_whatsapp()
     {
         var (context, job) = await SeedAsync();
         var mail = new FakeMail(); var wa = new FakeWhatsApp(ok: false);
 
-        var result = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, 50m), default);   // whatsApp: true by default
+        var failed = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, email: true, whatsApp: true), default);
 
-        Assert.True(result.Succeeded);
-        Assert.Equal(1, mail.Sent);
+        Assert.False(failed.Succeeded);
+        Assert.Contains("The email was sent, but WhatsApp failed", failed.Errors.Single());
+        Assert.Contains("not seem to be on WhatsApp", failed.Errors.Single());
+        var half = await context.NonMoiJobs.SingleAsync();
+        Assert.Equal("Completed", half.Status);       // not with the client yet
+        Assert.NotNull(half.EmailSentAt);
+        Assert.Null(half.WhatsAppSentAt);
+
+        wa.Ok = true;
+        var retried = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, email: true, whatsApp: true), default);
+
+        Assert.True(retried.Succeeded);
+        Assert.Equal(1, mail.Sent);                    // the client never gets the email twice
+        Assert.Equal(1, wa.Sent);
+        Assert.Equal("Sent", retried.Data!.Status);
+    }
+
+    [Fact]
+    public async Task Whatsapp_is_refused_when_the_server_has_none_or_the_number_is_not_a_phone_number()
+    {
+        var (context, job) = await SeedAsync();
+        var mail = new FakeMail(); var wa = new FakeWhatsApp();
+
+        var notSetUp = await Handler(context, new FakeUser(Issuer), mail, wa, twilio: false).Handle(Close(job.Id, whatsApp: true), default);
+        Assert.False(notSetUp.Succeeded);
+        Assert.Contains("not set up", notSetUp.Errors.Single());
+
+        job.CustomerNumber = "n/a";
+        await context.SaveChangesAsync();
+        var badNumber = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, whatsApp: true), default);
+        Assert.False(badNumber.Succeeded);
+        Assert.Contains("not a WhatsApp number", badNumber.Errors.Single());
+
+        Assert.Equal(0, mail.Sent);                    // nothing went out either time
         Assert.Equal(0, wa.Sent);
-        Assert.Null((await context.NonMoiJobs.SingleAsync()).WhatsAppSentAt);
-        Assert.Equal("Sent", (await context.NonMoiJobs.SingleAsync()).Status);
+        Assert.Equal("Completed", (await context.NonMoiJobs.SingleAsync()).Status);
     }
 
     [Fact]
@@ -243,14 +342,15 @@ public class NonMoiJobClosingTests
     }
 
     [Fact]
-    public async Task A_request_with_email_turned_off_is_refused_and_nothing_is_sent()
+    public async Task A_request_with_neither_email_nor_whatsapp_is_refused_and_nothing_is_sent()
     {
         var (context, job) = await SeedAsync();
-        var mail = new FakeMail();
-        var result = await Handler(context, new FakeUser(Issuer), mail).Handle(Close(job.Id, email: false), default);
+        var mail = new FakeMail(); var wa = new FakeWhatsApp();
+        var result = await Handler(context, new FakeUser(Issuer), mail, wa).Handle(Close(job.Id, email: false, whatsApp: false), default);
 
         Assert.False(result.Succeeded);
         Assert.Equal(0, mail.Sent);
+        Assert.Equal(0, wa.Sent);
         Assert.Equal("Completed", (await context.NonMoiJobs.SingleAsync()).Status);
     }
 
@@ -309,9 +409,42 @@ public class NonMoiJobClosingTests
 
     // ===== The client's answer =====
 
-    private static RespondToNonMoiJobCommandHandler Responder(ApplicationDbContext context, FakeMail mail) =>
-        new(context, mail, new InlineWork(), Mail(), TimeProvider.System,
+    private static RespondToNonMoiJobCommandHandler Responder(ApplicationDbContext context, FakeMail mail, FakeWhatsApp? wa = null) =>
+        new(context, mail, wa ?? new FakeWhatsApp(), new InlineWork(), Mail(), Twilio(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<RespondToNonMoiJobCommandHandler>.Instance);
+
+    [Fact]
+    public async Task A_client_reached_on_whatsapp_is_answered_on_whatsapp_too()
+    {
+        // Approve: a thank-you with the payment details.
+        var (context, job) = await SeedAsync();
+        job.CustomerEmail = null;
+        await context.SaveChangesAsync();
+        Assert.True((await Handler(context, new FakeUser(Issuer)).Handle(Close(job.Id, email: false, whatsApp: true), default)).Succeeded);
+        var wa = new FakeWhatsApp();
+        Assert.True((await Responder(context, new FakeMail(), wa).Handle(new RespondToNonMoiJobCommand(job.BillToken!, "approve", null, null), default)).Succeeded);
+        Assert.Equal("+97455501234", wa.LastTo);
+        Assert.Contains("thank you for approving invoice NMJ-00001", wa.Last!.Body);
+        Assert.Contains("IBAN", wa.Last.Body);
+
+        // Reject: a receipt, and the job comes back to the team.
+        var (context2, job2) = await SeedAsync();
+        Assert.True((await Handler(context2, new FakeUser(Issuer)).Handle(Close(job2.Id, email: true, whatsApp: true), default)).Succeeded);
+        var wa2 = new FakeWhatsApp();
+        Assert.True((await Responder(context2, new FakeMail(), wa2).Handle(new RespondToNonMoiJobCommand(job2.BillToken!, "reject", "Too high", null), default)).Succeeded);
+        Assert.Contains("we have received your rejection on invoice NMJ-00001", wa2.Last!.Body);
+    }
+
+    [Fact]
+    public async Task A_bill_sent_only_by_email_gets_no_whatsapp_reply()
+    {
+        var (context, job, mail) = await SentAsync();     // email only
+        var wa = new FakeWhatsApp();
+
+        await Responder(context, mail, wa).Handle(new RespondToNonMoiJobCommand(job.BillToken!, "approve", null, null), default);
+
+        Assert.Empty(wa.All);
+    }
 
     private static async Task<(ApplicationDbContext Context, NonMoiJob Job, FakeMail Mail)> SentAsync()
     {
@@ -467,7 +600,7 @@ public class NonMoiJobClosingTests
     {
         var (context, job, mail) = await SentAsync();
         var held = new HeldWork();
-        var handler = new RespondToNonMoiJobCommandHandler(context, mail, held, Mail(), TimeProvider.System,
+        var handler = new RespondToNonMoiJobCommandHandler(context, mail, new FakeWhatsApp(), held, Mail(), Twilio(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<RespondToNonMoiJobCommandHandler>.Instance);
 
         var result = await handler.Handle(new RespondToNonMoiJobCommand(job.BillToken!, "approve", null, null), default);

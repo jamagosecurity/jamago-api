@@ -68,7 +68,7 @@ public sealed class GetPublicJobBillQueryHandler(IApplicationDbContext context)
             job.WorkTotal, job.Discount, job.AmountPayable,
             CompanyPaymentDetails.AccountName, CompanyPaymentDetails.CrNumber, CompanyPaymentDetails.Iban,
             job.Status == "Sent", job.ClientDecision, job.ClientMessage, job.ClientRespondedAt,
-            job.CustomerNumber, job.CompletedAt, issuedAt ?? job.EmailSentAt ?? job.UpdatedAt));
+            job.CustomerNumber, job.CompletedAt, issuedAt ?? job.EmailSentAt ?? job.WhatsAppSentAt ?? job.UpdatedAt));
     }
 }
 
@@ -94,8 +94,10 @@ public sealed class RespondToNonMoiJobCommandValidator : AbstractValidator<Respo
 public sealed class RespondToNonMoiJobCommandHandler(
     IApplicationDbContext context,
     IMailSender mail,
+    IWhatsAppSender whatsApp,
     IBackgroundWork background,
     IOptions<MailSettings> mailOptions,
+    IOptions<TwilioSettings> twilioOptions,
     TimeProvider timeProvider,
     ILogger<RespondToNonMoiJobCommandHandler> logger) : IRequestHandler<RespondToNonMoiJobCommand, ApiResult<PublicJobBillDto>>
 {
@@ -155,13 +157,31 @@ public sealed class RespondToNonMoiJobCommandHandler(
         // The answer is saved. Telling everyone takes several seconds of mail-server conversation, so it is handed to the
         // background: the client's page answers at once instead of hanging on our emails.
         var notes = await BuildNotificationsAsync(job, action, who, message, cancellationToken);
-        if (notes.Count > 0)
+
+        // A bill that reached the client on WhatsApp is answered on WhatsApp too: a thank-you with the payment details,
+        // or a receipt for their rejection or comment — the same as the emails.
+        var clientWhatsApp = job.WhatsAppSentAt is not null && twilioOptions.Value.IsConfigured
+            ? WhatsAppNumbers.ToE164(job.CustomerNumber) : null;
+        var reply = clientWhatsApp is null ? null
+            : action == "Approved" ? JobBillWhatsApp.Approved(twilioOptions.Value, job.CustomerName, job.JobNumber, job.AmountPayable)
+            : JobBillWhatsApp.ReplyReceived(twilioOptions.Value, job.CustomerName, job.JobNumber, rejected: action == "Rejected");
+
+        if (notes.Count > 0 || reply is not null)
             background.Enqueue(async token =>
             {
                 foreach (var note in notes)
                 {
                     try { await mail.SendAsync(note, token); }
                     catch (Exception ex) { logger.LogWarning(ex, "Could not send a notification email for job {JobNumber}.", job.JobNumber); }
+                }
+                if (reply is not null)
+                {
+                    try
+                    {
+                        var sent = await whatsApp.SendAsync(clientWhatsApp!, reply, token);
+                        if (!sent.Ok) logger.LogWarning("Could not WhatsApp the client about job {JobNumber}: {Error}", job.JobNumber, sent.Error);
+                    }
+                    catch (Exception ex) { logger.LogWarning(ex, "Could not WhatsApp the client about job {JobNumber}.", job.JobNumber); }
                 }
             });
 
