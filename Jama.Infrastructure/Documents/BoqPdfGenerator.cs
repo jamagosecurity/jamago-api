@@ -450,7 +450,13 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     page.Background().Element(ComposeWatermark);
                     if (model.Watermark) page.Foreground().Element(ComposeDraftStamp);
                     page.Header().Element(header => ComposeProposalHeader(header, model));
-                    page.Content().PaddingTop(14).Element(content => ComposeProposal(content, model));
+                    // The commercial offer is a one-page letter. With one language the content shrinks just
+                    // enough to fit when long typed terms would spill over — never onto a page of its own for a
+                    // few closing lines. English and Arabic together are two full letters, so they may run on.
+                    if (model.TermsLanguage == BoqTermsLanguage.Both)
+                        page.Content().PaddingTop(10).Element(content => ComposeProposal(content, model));
+                    else
+                        page.Content().PaddingTop(10).ScaleToFit().Element(content => ComposeProposal(content, model));
                     page.Footer().Element(footer => ComposeFooter(footer, model));
                 });
 
@@ -649,24 +655,28 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     {
         container.Column(column =>
         {
-            column.Item().AlignRight().Text(LongDate(model.IssueDate))
-                .FontSize(9).FontColor(InkSoft);
+            // Addressee on the left and the date on the right, on the same lines — the letter is
+            // meant to fit one page, and a date alone on its own line costs a line for nothing.
+            column.Item().Row(row =>
+            {
+                row.RelativeItem().Column(to =>
+                {
+                    to.Item().Text(CoverClient(model)).FontSize(10.5f).Bold().FontColor(Ink);
+                    to.Item().Text("Procurement Department").FontSize(9).FontColor(InkSoft);
+                });
+                row.AutoItem().PaddingLeft(12).Text(LongDate(model.IssueDate)).FontSize(9).FontColor(InkSoft);
+            });
 
-            // Addressee block, in the position a letter puts it.
-            column.Item().PaddingTop(10).Text(CoverClient(model))
-                .FontSize(10.5f).Bold().FontColor(Ink);
-            column.Item().Text("Procurement Department").FontSize(9).FontColor(InkSoft);
+            column.Item().PaddingTop(8).Element(subject => ComposeSubject(subject, model));
 
-            column.Item().PaddingTop(12).Element(subject => ComposeSubject(subject, model));
-
-            column.Item().PaddingTop(12).Text("Dear Sir / Madam,")
+            column.Item().PaddingTop(8).Text("Dear Sir / Madam,")
                 .FontSize(9.5f).Bold().FontColor(Ink);
 
-            column.Item().PaddingTop(7).Text(
+            column.Item().PaddingTop(4).Text(
                     "With reference to the above subject, and to the requirements stated in your " +
                     "request, we are pleased to submit our priced commercial offer with the scope " +
                     "of work set out below.")
-                .FontSize(9).FontColor(InkSoft).LineHeight(1.35f);
+                .FontSize(9).FontColor(InkSoft).LineHeight(1.28f);
 
             // English and Arabic are independent blocks, not columns beside
             // each other: the terms text is long freeform prose once someone
@@ -680,7 +690,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
             if (model.TermsLanguage == BoqTermsLanguage.Both)
             {
-                column.Item().PaddingTop(16).ContentFromRightToLeft().AlignRight()
+                column.Item().PaddingTop(12).ContentFromRightToLeft().AlignRight()
                     .Text("الشروط والأحكام")
                     .FontFamily(DocumentFonts.Arabic).FontSize(10.5f).Bold().FontColor(Brand);
                 column.Item().PaddingTop(3).PaddingBottom(2).Height(1).Background(PanelBorder);
@@ -689,7 +699,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             if (model.TermsLanguage != BoqTermsLanguage.English)
                 column.Item().Element(x => ComposeTermsArabic(x, model));
 
-            column.Item().PaddingTop(14).Text("Yours faithfully,")
+            column.Item().PaddingTop(10).Text("Yours faithfully,")
                 .FontSize(9).FontColor(InkSoft);
             // Who signs it, as label / value pairs: Name, Email, Designation (from their profile).
             var signedBy = PreparedBy(model.PreparedByName);
@@ -700,7 +710,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             else
             {
                 var email = PreparedByEmail(model.PreparedByName);
-                column.Item().PaddingTop(4).Table(table =>
+                column.Item().PaddingTop(3).Table(table =>
                 {
                     table.ColumnsDefinition(c =>
                     {
@@ -710,8 +720,8 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
                     void Row(string label, string value, bool strong = false)
                     {
-                        table.Cell().PaddingVertical(1.5f).Text(label + ":").FontSize(9).FontColor(Muted);
-                        var text = table.Cell().PaddingVertical(1.5f).Text(value).FontSize(9.5f).FontColor(Ink);
+                        table.Cell().PaddingVertical(1).Text(label + ":").FontSize(9).FontColor(Muted);
+                        var text = table.Cell().PaddingVertical(1).Text(value).FontSize(9.5f).FontColor(Ink);
                         if (strong) text.Bold();
                     }
 
@@ -720,7 +730,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     if (!string.IsNullOrWhiteSpace(model.PreparedByDesignation)) Row("Designation", model.PreparedByDesignation);
                 });
             }
-            column.Item().PaddingTop(4).Text(CompanyName).FontSize(8.5f).FontColor(Muted);
+            column.Item().PaddingTop(3).Text(CompanyName).FontSize(8.5f).FontColor(Muted);
         });
     }
 
@@ -736,13 +746,13 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             {
                 var number = 0;
                 foreach (var term in Terms)
-                    column.Item().PaddingTop(10).Element(x => ComposeTerm(x, ++number, term));
+                    column.Item().PaddingTop(7).Element(x => ComposeTerm(x, ++number, term));
 
-                column.Item().PaddingTop(12).Border(1).BorderColor(PanelBorder).Padding(9).Column(inner =>
+                column.Item().PaddingTop(8).Border(1).BorderColor(PanelBorder).PaddingVertical(6).PaddingHorizontal(9).Column(inner =>
                 {
                     inner.Item().Text(WarrantyVoid)
                         .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
-                    inner.Item().PaddingTop(6).Text(VariationNote)
+                    inner.Item().PaddingTop(4).Text(VariationNote)
                         .FontSize(7.8f).FontColor(Muted).LineHeight(1.35f);
                 });
             }
@@ -754,7 +764,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 // "- " lines get a bullet, everything else is a paragraph.
                 // There is no further structure to trust once someone has
                 // been free to edit the text.
-                column.Item().PaddingTop(10).Element(x => ComposeFreeformTerms(x, model.TermsOverride));
+                column.Item().PaddingTop(6).Element(x => ComposeFreeformTerms(x, model.TermsOverride));
             }
         });
     }
@@ -771,19 +781,19 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             {
                 var number = 0;
                 foreach (var term in TermsAr)
-                    column.Item().PaddingTop(10).Element(x => ComposeTermArabic(x, ++number, term));
+                    column.Item().PaddingTop(7).Element(x => ComposeTermArabic(x, ++number, term));
 
-                column.Item().PaddingTop(12).Border(1).BorderColor(PanelBorder).Padding(9).Column(inner =>
+                column.Item().PaddingTop(8).Border(1).BorderColor(PanelBorder).PaddingVertical(6).PaddingHorizontal(9).Column(inner =>
                 {
                     inner.Item().ContentFromRightToLeft().AlignRight().Text(WarrantyVoidAr)
                         .FontFamily(DocumentFonts.Arabic).FontSize(7.8f).FontColor(Muted).LineHeight(1.5f);
-                    inner.Item().PaddingTop(6).ContentFromRightToLeft().AlignRight().Text(VariationNoteAr)
+                    inner.Item().PaddingTop(4).ContentFromRightToLeft().AlignRight().Text(VariationNoteAr)
                         .FontFamily(DocumentFonts.Arabic).FontSize(7.8f).FontColor(Muted).LineHeight(1.5f);
                 });
             }
             else
             {
-                column.Item().PaddingTop(10).Element(x => ComposeFreeformTermsArabic(x, model.TermsOverrideAr));
+                column.Item().PaddingTop(6).Element(x => ComposeFreeformTermsArabic(x, model.TermsOverrideAr));
             }
         });
     }
@@ -808,18 +818,18 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 if (line.Length == 0) continue;
 
                 if (NumberedHeading.IsMatch(line))
-                    column.Item().PaddingTop(8).Text(line)
+                    column.Item().PaddingTop(6).Text(line)
                         .FontSize(9.5f).Bold().FontColor(BrandStrong);
                 else if (line.StartsWith("- ", StringComparison.Ordinal))
-                    column.Item().PaddingTop(3).PaddingLeft(16).Row(row =>
+                    column.Item().PaddingTop(2).PaddingLeft(16).Row(row =>
                     {
-                        row.ConstantItem(14).Text("•").FontSize(8.6f).FontColor(Accent);
+                        row.ConstantItem(14).Text("•").FontSize(8.6f).LineHeight(1.25f).FontColor(Accent);
                         row.RelativeItem().Text(line[2..].Trim())
-                            .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                            .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.25f);
                     });
                 else
-                    column.Item().PaddingTop(3).PaddingLeft(16).Text(line)
-                        .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                    column.Item().PaddingTop(2).PaddingLeft(16).Text(line)
+                        .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.25f);
             }
         });
     }
@@ -837,18 +847,18 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 if (line.Length == 0) continue;
 
                 if (NumberedHeading.IsMatch(line))
-                    column.Item().PaddingTop(8).ContentFromRightToLeft().AlignRight().Text(line)
+                    column.Item().PaddingTop(6).ContentFromRightToLeft().AlignRight().Text(line)
                         .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(BrandStrong);
                 else if (line.StartsWith("- ", StringComparison.Ordinal))
-                    column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().Row(row =>
+                    column.Item().PaddingTop(2).PaddingRight(16).ContentFromRightToLeft().Row(row =>
                     {
+                        row.ConstantItem(14).AlignRight().Text("•").FontSize(8.6f).LineHeight(1.4f).FontColor(Accent);
                         row.RelativeItem().AlignRight().Text(line[2..].Trim())
-                            .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
-                        row.ConstantItem(14).AlignRight().Text("•").FontSize(8.6f).FontColor(Accent);
+                            .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.4f);
                     });
                 else
-                    column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().AlignRight().Text(line)
-                        .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
+                    column.Item().PaddingTop(2).PaddingRight(16).ContentFromRightToLeft().AlignRight().Text(line)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.4f);
             }
         });
     }
@@ -882,26 +892,26 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 .FontSize(9.5f).Bold().FontColor(BrandStrong);
 
             if (!string.IsNullOrWhiteSpace(term.Body))
-                column.Item().PaddingTop(3).PaddingLeft(16).Text(term.Body)
-                    .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                column.Item().PaddingTop(2).PaddingLeft(16).Text(term.Body)
+                    .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.25f);
 
             if (!string.IsNullOrWhiteSpace(term.Emphasis))
-                column.Item().PaddingTop(5).PaddingLeft(16).Text(term.Emphasis)
-                    .FontSize(8.8f).Bold().FontColor(Ink).LineHeight(1.35f);
+                column.Item().PaddingTop(3).PaddingLeft(16).Text(term.Emphasis)
+                    .FontSize(8.8f).Bold().FontColor(Ink).LineHeight(1.25f);
 
             var item = 0;
             foreach (var bullet in term.Bullets)
             {
                 var marker = term.Numbered ? $"{++item}." : "•";
 
-                column.Item().PaddingTop(3).PaddingLeft(term.Numbered ? 28 : 16).Row(row =>
+                column.Item().PaddingTop(2).PaddingLeft(term.Numbered ? 28 : 16).Row(row =>
                 {
                     // Marker in its own track, so a line that wraps aligns under
                     // its own text rather than back under the dot.
-                    row.ConstantItem(14).Text(marker).FontSize(8.6f)
+                    row.ConstantItem(14).Text(marker).FontSize(8.6f).LineHeight(1.25f)
                         .FontColor(term.Numbered ? InkSoft : Accent);
                     row.RelativeItem().Text(bullet)
-                        .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.35f);
+                        .FontSize(8.6f).FontColor(InkSoft).LineHeight(1.25f);
                 });
             }
         });
@@ -919,27 +929,28 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 .FontFamily(DocumentFonts.Arabic).FontSize(9.5f).Bold().FontColor(BrandStrong);
 
             if (!string.IsNullOrWhiteSpace(term.Body))
-                column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().AlignRight()
+                column.Item().PaddingTop(2).PaddingRight(16).ContentFromRightToLeft().AlignRight()
                     .Text(term.Body)
-                    .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
+                    .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.4f);
 
             if (!string.IsNullOrWhiteSpace(term.Emphasis))
-                column.Item().PaddingTop(5).PaddingRight(16).ContentFromRightToLeft().AlignRight()
+                column.Item().PaddingTop(3).PaddingRight(16).ContentFromRightToLeft().AlignRight()
                     .Text(term.Emphasis)
-                    .FontFamily(DocumentFonts.Arabic).FontSize(8.8f).Bold().FontColor(Ink).LineHeight(1.5f);
+                    .FontFamily(DocumentFonts.Arabic).FontSize(8.8f).Bold().FontColor(Ink).LineHeight(1.4f);
 
             var item = 0;
             foreach (var bullet in term.Bullets)
             {
                 var marker = term.Numbered ? $"{++item}." : "•";
 
-                column.Item().PaddingTop(3).PaddingRight(term.Numbered ? 28 : 16)
+                column.Item().PaddingTop(2).PaddingRight(term.Numbered ? 28 : 16)
                     .ContentFromRightToLeft().Row(row =>
                 {
-                    row.RelativeItem().AlignRight().Text(bullet)
-                        .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.5f);
-                    row.ConstantItem(14).AlignRight().Text(marker).FontSize(8.6f)
+                    // Right to left, the first item sits on the right: the marker, then its text beside it.
+                    row.ConstantItem(14).AlignRight().Text(marker).FontSize(8.6f).LineHeight(1.4f)
                         .FontColor(term.Numbered ? InkSoft : Accent);
+                    row.RelativeItem().AlignRight().Text(bullet)
+                        .FontFamily(DocumentFonts.Arabic).FontSize(8.6f).FontColor(InkSoft).LineHeight(1.4f);
                 });
             }
         });
