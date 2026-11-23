@@ -129,6 +129,28 @@ public class DashboardTests
     }
 
     [Fact]
+    public async Task Uber_bills_show_what_waits_for_approval_what_is_owed_and_the_longest_wait()
+    {
+        var d = await Run(c =>
+        {
+            TravelClaim Claim(string no, TravelClaimStatus status, decimal total, int daysAgo) => new()
+            {
+                Id = Guid.NewGuid(), ClaimNumber = no, ClaimantId = Ali, ClaimantName = "Ali", TripOn = new DateOnly(2026, 11, 1),
+                Status = status, Total = total, SubmittedAt = Now.AddDays(-daysAgo),
+            };
+            c.TravelClaims.AddRange(Claim("UB-1", TravelClaimStatus.Submitted, 20, 2), Claim("UB-2", TravelClaimStatus.Approved, 35, 6),
+                Claim("UB-3", TravelClaimStatus.Rejected, 99, 20), Claim("UB-4", TravelClaimStatus.Withdrawn, 50, 1));
+            c.Reimbursements.AddRange(
+                new Reimbursement { Id = Guid.NewGuid(), Number = "RB-1", PayeeName = "Omar", PaidByName = "Acc", Amount = 44, PaidAt = Now.AddDays(-3) },
+                new Reimbursement { Id = Guid.NewGuid(), Number = "RB-0", PayeeName = "Omar", PaidByName = "Acc", Amount = 70, PaidAt = Now.AddDays(-30) });
+        });
+
+        Assert.Equal((1, 20m, 1, 35m), (d.Travel.ToApproveCount, d.Travel.ToApproveTotal, d.Travel.OwedCount, d.Travel.OwedTotal));
+        Assert.Equal(6, d.Travel.OldestOpenDays);
+        Assert.Equal(44m, d.Travel.PaidThisMonth);        // last month's payout is not counted
+    }
+
+    [Fact]
     public async Task Revenue_is_the_money_received_this_Doha_month()
     {
         var d = await Run(c =>

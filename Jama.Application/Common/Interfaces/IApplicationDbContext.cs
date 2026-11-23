@@ -42,10 +42,20 @@ public interface IApplicationDbContext
     DbSet<MoiJobEvent> MoiJobEvents { get; }
     DbSet<MoiJobPayment> MoiJobPayments { get; }
     DbSet<CashHandover> CashHandovers { get; }
+    DbSet<TravelClaim> TravelClaims { get; }
+    DbSet<TravelClaimLine> TravelClaimLines { get; }
+    DbSet<TravelClaimPerson> TravelClaimPeople { get; }
+    DbSet<TravelClaimEvent> TravelClaimEvents { get; }
+    DbSet<Reimbursement> Reimbursements { get; }
+    DbSet<LunchRate> LunchRates { get; }
     DbSet<MoiServiceItem> MoiServiceItems { get; }
     DbSet<MoiServiceImage> MoiServiceImages { get; }
     DbSet<MailMessage> MailMessages { get; }
     DbSet<MailAccountState> MailAccountStates { get; }
     DbSet<MailSendLog> MailSendLogs { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>The next value of a document-number sequence (see <see cref="DocumentSequences"/>). Each value is handed out
+    /// once, even to two requests at the same moment, so two documents never get the same number.</summary>
+    Task<long> NextSequenceValueAsync(string sequence, CancellationToken cancellationToken = default);
 }

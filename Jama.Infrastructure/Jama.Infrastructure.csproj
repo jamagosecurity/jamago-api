@@ -44,6 +44,8 @@
 
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
 
+    <PackageReference Include="PdfPig" Version="0.1.16" />
+
     <!-- Stamps a watermark onto an already-uploaded drawing PDF. QuestPDF only
          builds new documents from scratch — it cannot open and mark up one that
          already exists, which a drawing's plotted PDF always is. -->

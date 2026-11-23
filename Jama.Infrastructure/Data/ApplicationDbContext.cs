@@ -45,11 +45,30 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<MoiJobEvent> MoiJobEvents => Set<MoiJobEvent>();
     public DbSet<MoiJobPayment> MoiJobPayments => Set<MoiJobPayment>();
     public DbSet<CashHandover> CashHandovers => Set<CashHandover>();
+    public DbSet<TravelClaim> TravelClaims => Set<TravelClaim>();
+    public DbSet<TravelClaimLine> TravelClaimLines => Set<TravelClaimLine>();
+    public DbSet<TravelClaimPerson> TravelClaimPeople => Set<TravelClaimPerson>();
+    public DbSet<TravelClaimEvent> TravelClaimEvents => Set<TravelClaimEvent>();
+    public DbSet<Reimbursement> Reimbursements => Set<Reimbursement>();
+    public DbSet<LunchRate> LunchRates => Set<LunchRate>();
     public DbSet<MoiServiceItem> MoiServiceItems => Set<MoiServiceItem>();
     public DbSet<MoiServiceImage> MoiServiceImages => Set<MoiServiceImage>();
     public DbSet<MailMessage> MailMessages => Set<MailMessage>();
     public DbSet<MailAccountState> MailAccountStates => Set<MailAccountState>();
     public DbSet<MailSendLog> MailSendLogs => Set<MailSendLog>();
+
+    /// <summary>Stand-in counters for databases without sequences (the in-memory one the tests use).</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, long> _localSequences = new();
+
+    public async Task<long> NextSequenceValueAsync(string sequence, CancellationToken cancellationToken = default)
+    {
+        if (!DocumentSequences.All.Contains(sequence))
+            throw new ArgumentOutOfRangeException(nameof(sequence), sequence, "Unknown document sequence.");
+        if (!Database.IsRelational())
+            return _localSequences.AddOrUpdate(sequence, 1, (_, value) => value + 1);
+        // The name is one of the fixed constants above, never user input.
+        return await Database.SqlQueryRaw<long>($"SELECT nextval('\"{sequence}\"') AS \"Value\"").SingleAsync(cancellationToken);
+    }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -85,6 +104,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     {
         base.OnModelCreating(builder);
         builder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+        foreach (var sequence in DocumentSequences.All)
+            builder.HasSequence<long>(sequence);
 
         // Every BaseEntity.Id is assigned in application code (Guid.CreateVersion7(),
         // or BaseEntity's own Guid.NewGuid() default) before it ever reaches the

@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddSingleton<IBackgroundWork>(sp => sp.GetRequiredService<Jama.Infrastructure.Background.BackgroundWorkQueue>());
         services.AddHostedService(sp => sp.GetRequiredService<Jama.Infrastructure.Background.BackgroundWorkQueue>());
         services.AddScoped<IJobBillPdfGenerator, Jama.Infrastructure.Documents.NonMoiJobBillPdfGenerator>();
+        services.AddSingleton<IPdfTextReader, Jama.Infrastructure.Documents.PdfPigTextReader>();
 
         return services;
     }

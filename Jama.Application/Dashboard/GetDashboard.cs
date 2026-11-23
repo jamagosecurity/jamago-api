@@ -38,12 +38,16 @@ public sealed record DashboardCashDto(
     public decimal WaitingTotal => WaitingNonMoi + WaitingMoi;
 }
 
+/// <summary>Uber bills: waiting for the accountant's approval, approved and still owed to staff, the longest a still-open
+/// claim has waited, and what was paid back this month.</summary>
+public sealed record DashboardTravelDto(int ToApproveCount, decimal ToApproveTotal, int OwedCount, decimal OwedTotal, int OldestOpenDays, decimal PaidThisMonth);
+
 public sealed record DashboardDto(
     DateTime Now,
     decimal RevenueThisMonth, decimal RevenueLastMonth, int PaymentsThisMonth, decimal CashThisMonth, decimal OnlineThisMonth,
     decimal QuotationsApprovedThisMonth, int QuotationsApprovedCount,
     decimal RevenueNonMoiThisMonth, decimal RevenueMoiThisMonth, decimal UnpaidTotal, int UnpaidJobs,
-    DashboardCashDto Cash,
+    DashboardCashDto Cash, DashboardTravelDto Travel,
     decimal OpenInvoicesTotal, IReadOnlyList<DashboardInvoiceDto> OpenInvoices,
     IReadOnlyList<DashboardJobDto> TodayJobs, int OverdueJobs,
     IReadOnlyList<DashboardTechnicianDto> Technicians,
@@ -116,6 +120,17 @@ public sealed class GetDashboardQueryHandler(IApplicationDbContext context, IOpt
             holdNon.Sum(x => x.Amount), holdNon.Select(x => x.Holder).Distinct().Count(),
             holdMoi.Sum(x => x.Amount), holdMoi.Select(x => x.Holder).Distinct().Count(),
             handoversToday.Sum(), handoversToday.Count, differenceMonth.Sum());
+
+        // ----- Uber bills: what waits for the accountant and what is owed to staff -----
+        var openClaims = await context.TravelClaims.AsNoTracking()
+            .Where(c => c.Status == TravelClaimStatus.Submitted || c.Status == TravelClaimStatus.Approved)
+            .Select(c => new { c.Status, Total = c.ApprovedAmount ?? c.Total, c.SubmittedAt }).ToListAsync(ct);
+        var paidBack = await context.Reimbursements.AsNoTracking().Where(r => r.PaidAt >= monthStart).Select(r => r.Amount).ToListAsync(ct);
+        var travel = new DashboardTravelDto(
+            openClaims.Count(c => c.Status == TravelClaimStatus.Submitted), openClaims.Where(c => c.Status == TravelClaimStatus.Submitted).Sum(c => c.Total),
+            openClaims.Count(c => c.Status == TravelClaimStatus.Approved), openClaims.Where(c => c.Status == TravelClaimStatus.Approved).Sum(c => c.Total),
+            openClaims.Count == 0 ? 0 : openClaims.Max(c => DateOnly.FromDateTime(local).DayNumber - DateOnly.FromDateTime(c.SubmittedAt + Doha).DayNumber),
+            paidBack.Sum());
 
         // ----- Open invoices: sent and not yet approved, or sent back by the client (MOI and Non-MOI) -----
         var open = (await nonJobs.Where(j => j.Status == "Sent" || j.Status == "ChangesRequested")
@@ -192,7 +207,7 @@ public sealed class GetDashboardQueryHandler(IApplicationDbContext context, IOpt
         return ApiResult<DashboardDto>.Success(new DashboardDto(
             now, revenue, revenueLast, thisMonth.Count, thisMonth.Where(a => a.Method == "Cash").Sum(a => a.Amount),
             thisMonth.Where(a => a.Method == "Online").Sum(a => a.Amount), quotes.Sum(), quotes.Count,
-            revenueNon, revenueMoi, owed.Sum(), owed.Count, cash,
+            revenueNon, revenueMoi, owed.Sum(), owed.Count, cash, travel,
             open.Sum(o => o.AmountPayable), open, today, overdue, technicians,
             mailboxes.Sum(m => m.Unread), mailboxes, approvals));
     }

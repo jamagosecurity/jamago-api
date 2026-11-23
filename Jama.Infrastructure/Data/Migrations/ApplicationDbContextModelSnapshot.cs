@@ -23,6 +23,10 @@ namespace Jama.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("ReimbursementNumbers");
+
+            modelBuilder.HasSequence("TravelClaimNumbers");
+
             modelBuilder.Entity("Jama.Domain.Entities.AdminUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1156,6 +1160,39 @@ namespace Jama.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("KpoiDetails", (string)null);
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.LunchRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountPerPerson")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("SetById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SetByName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EffectiveFrom");
+
+                    b.ToTable("LunchRates", (string)null);
                 });
 
             modelBuilder.Entity("Jama.Domain.Entities.MailAccountState", b =>
@@ -2520,6 +2557,64 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.ToTable("QuotationLines", (string)null);
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.Reimbursement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("PaidAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PaidById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PaidByName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("PayeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PayeeName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("PayeeId", "PaidAt");
+
+                    b.ToTable("Reimbursements", (string)null);
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.Staff", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2651,6 +2746,274 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.HasIndex("TechnicianInspectionId", "CreatedAt");
 
                     b.ToTable("TechnicianInspectionHistory", (string)null);
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaim", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AdjustmentReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal?>("ApprovedAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApprovedByName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("ClaimNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("ClaimantAteLunch")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ClaimantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClaimantName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Dropoff")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Pickup")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("ReimbursementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RejectReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("RejectedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RejectedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RejectedByName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("SiteName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Total")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateOnly>("TripOn")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("TripTime")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<string>("TripType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<DateTime?>("WithdrawnAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClaimNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ReimbursementId");
+
+                    b.HasIndex("TripOn");
+
+                    b.HasIndex("ClaimantId", "Status");
+
+                    b.HasIndex("Status", "SubmittedAt");
+
+                    b.ToTable("TravelClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaimEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("TravelClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TravelClaimId", "CreatedAt");
+
+                    b.ToTable("TravelClaimEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaimLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<decimal>("BillAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("Persons")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("RatePerPerson")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<bool>("ReadFromReceipt")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<Guid>("TravelClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileHash");
+
+                    b.HasIndex("TravelClaimId");
+
+                    b.ToTable("TravelClaimLines", (string)null);
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaimPerson", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AteLunch")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PersonName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("TravelClaimId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("TravelClaimId");
+
+                    b.ToTable("TravelClaimPeople", (string)null);
                 });
 
             modelBuilder.Entity("Jama.Domain.Entities.UpsGeneralDetail", b =>
@@ -3216,6 +3579,49 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Navigation("TechnicianInspection");
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaim", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.Reimbursement", "Reimbursement")
+                        .WithMany("Claims")
+                        .HasForeignKey("ReimbursementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Reimbursement");
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaimEvent", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.TravelClaim", "TravelClaim")
+                        .WithMany("Events")
+                        .HasForeignKey("TravelClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TravelClaim");
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaimLine", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.TravelClaim", "TravelClaim")
+                        .WithMany("Lines")
+                        .HasForeignKey("TravelClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TravelClaim");
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaimPerson", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.TravelClaim", "TravelClaim")
+                        .WithMany("People")
+                        .HasForeignKey("TravelClaimId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TravelClaim");
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.UpsGeneralDetail", b =>
                 {
                     b.HasOne("Jama.Domain.Entities.TechnicianInspection", "TechnicianInspection")
@@ -3356,6 +3762,11 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Navigation("Lines");
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.Reimbursement", b =>
+                {
+                    b.Navigation("Claims");
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.TechnicianInspection", b =>
                 {
                     b.Navigation("Anpr");
@@ -3373,6 +3784,15 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Navigation("UpsGeneral");
 
                     b.Navigation("Vms");
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.TravelClaim", b =>
+                {
+                    b.Navigation("Events");
+
+                    b.Navigation("Lines");
+
+                    b.Navigation("People");
                 });
 
             modelBuilder.Entity("Jama.Domain.Entities.VipClient", b =>
