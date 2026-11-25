@@ -6,6 +6,7 @@ public static class DocumentSequences
 {
     public const string TravelClaimNumbers = "TravelClaimNumbers";
     public const string ReimbursementNumbers = "ReimbursementNumbers";
+    public const string ProformaNumbers = "ProformaNumbers";
 
-    public static readonly string[] All = [TravelClaimNumbers, ReimbursementNumbers];
+    public static readonly string[] All = [TravelClaimNumbers, ReimbursementNumbers, ProformaNumbers];
 }

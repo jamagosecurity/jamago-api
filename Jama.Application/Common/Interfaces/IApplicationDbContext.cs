@@ -48,6 +48,7 @@ public interface IApplicationDbContext
     DbSet<TravelClaimEvent> TravelClaimEvents { get; }
     DbSet<Reimbursement> Reimbursements { get; }
     DbSet<LunchRate> LunchRates { get; }
+    DbSet<ProformaInvoice> ProformaInvoices { get; }
     DbSet<MoiServiceItem> MoiServiceItems { get; }
     DbSet<MoiServiceImage> MoiServiceImages { get; }
     DbSet<MailMessage> MailMessages { get; }

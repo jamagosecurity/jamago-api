@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Jama.Infrastructure.Documents;
+namespace Jama.Application.Common;
 
 /// <summary>
 /// An amount of Qatari riyals written out as a sentence, in English and in Arabic.
@@ -14,12 +14,12 @@ namespace Jama.Infrastructure.Documents;
 /// Both languages close the sentence — "only", "لا غير" — for the same reason:
 /// the phrase marks the end of the amount, so nothing can be appended to it.
 /// </summary>
-internal static class MoneyWords
+public static class MoneyWords
 {
     /// <summary>
     /// "Eighty-five thousand two hundred forty-eight riyals and seventy dirhams only".
     /// </summary>
-    internal static string English(decimal amount)
+    public static string English(decimal amount)
     {
         var (riyals, dirhams) = Split(amount);
 
@@ -36,7 +36,7 @@ internal static class MoneyWords
     /// <summary>
     /// "فقط خمسة وثمانون ألفاً ومائتان وثمانية وأربعون ريالاً قطرياً وسبعون درهماً لا غير".
     /// </summary>
-    internal static string Arabic(decimal amount)
+    public static string Arabic(decimal amount)
     {
         var (riyals, dirhams) = Split(amount);
 

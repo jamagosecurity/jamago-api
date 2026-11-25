@@ -23,6 +23,8 @@ namespace Jama.Infrastructure.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.HasSequence("ProformaNumbers");
+
             modelBuilder.HasSequence("ReimbursementNumbers");
 
             modelBuilder.HasSequence("TravelClaimNumbers");
@@ -2407,6 +2409,76 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.ToTable("NonMoiJobPayments", (string)null);
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.ProformaInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BoqId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContactNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CustomerName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("IssuedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IssuedByName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateOnly>("IssuedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateOnly?>("PoDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("PoNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("ProjectName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoqId")
+                        .IsUnique();
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.ToTable("ProformaInvoices", (string)null);
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.Quotation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3527,6 +3599,17 @@ namespace Jama.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("NonMoiJob");
+                });
+
+            modelBuilder.Entity("Jama.Domain.Entities.ProformaInvoice", b =>
+                {
+                    b.HasOne("Jama.Domain.Entities.Boq", "Boq")
+                        .WithMany()
+                        .HasForeignKey("BoqId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Boq");
                 });
 
             modelBuilder.Entity("Jama.Domain.Entities.QuotationLine", b =>

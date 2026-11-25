@@ -41,5 +41,11 @@ public static class BoqNames
 
         var events = await context.BoqApprovalEvents.IgnoreQueryFilters().Where(e => e.ActorId == id).ToListAsync(ct);
         foreach (var e in events) e.ActorName = name;
+
+        if (name is not null)
+        {
+            var proformas = await context.ProformaInvoices.IgnoreQueryFilters().Where(p => p.IssuedById == id).ToListAsync(ct);
+            foreach (var p in proformas) p.IssuedByName = name;
+        }
     }
 }

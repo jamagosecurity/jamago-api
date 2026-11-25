@@ -51,6 +51,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TravelClaimEvent> TravelClaimEvents => Set<TravelClaimEvent>();
     public DbSet<Reimbursement> Reimbursements => Set<Reimbursement>();
     public DbSet<LunchRate> LunchRates => Set<LunchRate>();
+    public DbSet<ProformaInvoice> ProformaInvoices => Set<ProformaInvoice>();
     public DbSet<MoiServiceItem> MoiServiceItems => Set<MoiServiceItem>();
     public DbSet<MoiServiceImage> MoiServiceImages => Set<MoiServiceImage>();
     public DbSet<MailMessage> MailMessages => Set<MailMessage>();

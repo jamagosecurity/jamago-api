@@ -97,6 +97,10 @@ public static class Permissions
     /// Non-MOI separately — and checks the online transfers. Does not issue jobs or take payments.</summary>
     public const string AccountsManage = "accounts.manage";
 
+    /// <summary>The office administrator: sees every quotation, whoever made it and whatever its status, and makes the
+    /// short proforma invoice for any of them (no descriptions, no pictures). Cannot build, approve or change quotations.</summary>
+    public const string ProformaManage = "proforma.manage";
+
     /// <summary>Reading the company mailboxes in the Company mail screen. Read-only: sending, replying and
     /// forwarding stay with administrators, because mail goes out in a mailbox owner's name.</summary>
     public const string MailRead = "mail.read";
@@ -135,6 +139,7 @@ public static class Permissions
         new(MoiJobManage, "MOI jobs & MOI services", "Can hand an MOI job to one technician, edit it, review the technician's work, give a discount and send the client the bill by email, then record cash or online payments. Also manages the MOI services price list (services, prices and pictures). Separate from Non-MOI jobs and from the MOI stock inventory."),
         new(MoiJobWork, "Do MOI jobs (technician)", "For technicians: shows the MOI Jobs section in their portal, where they see the MOI jobs issued to them, tick the work they did and complete it. They never see or change prices."),
         new(AccountsManage, "Accountant: receive cash handovers", "For the accountant. At the end of the day, sees the cash each person collected on MOI and on Non-MOI jobs, counts it and records that it was handed over — noting any amount missing or extra. Also sees the online transfers to check against the bank. Cannot issue jobs, change bills or record payments."),
+        new(ProformaManage, "Administrator: all quotations & proforma invoices", "For the office administrator. Opens an Administrator section listing every quotation of every staff member, in any status, and downloads the short proforma invoice for any of them — item, brand, model, unit, quantity, price and totals, without descriptions or pictures. Can add the client's P.O. number and date. Cannot build, approve or change quotations."),
         new(MailRead, "Read company mail", "Can open the Company mail screen and read every company mailbox, incoming and outgoing. Read-only: cannot send, reply or forward — that stays with administrators."),
     ];
 
