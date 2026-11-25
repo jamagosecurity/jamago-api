@@ -54,6 +54,8 @@ public sealed class Boqs : EndpointGroupBase
             .MapPost(SeenNotifications, "notifications/seen", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetDefaultTerms, "default-terms", permission: Permissions.BoqManage)
             .MapGet(GetPdf, "{id:guid}/pdf", permission: AuthorizationPolicies.BoqRead)
+            // The same download as PDF, Excel or Word: ?format=pdf (default), excel or word.
+            .MapGet(GetPdf, "{id:guid}/file", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetContractPdf, "{id:guid}/contract", permission: AuthorizationPolicies.BoqRead)
             .MapGet(GetDefaultContractText, "{id:guid}/default-contract-text", permission: AuthorizationPolicies.BoqRead)
             .MapPut(UpdateContractText, "{id:guid}/contract-text", permission: Permissions.BoqManage)
@@ -159,9 +161,12 @@ public sealed class Boqs : EndpointGroupBase
     }
 
     public async Task<IResult> GetPdf(
-        ISender sender, Guid id, bool? includeTermsPage, string? termsLanguage,
+        ISender sender, Guid id, bool? includeTermsPage, string? termsLanguage, string? format,
         CancellationToken cancellationToken)
     {
+        if (ExportFormats.Parse(format) is not { } chosen)
+            return Results.BadRequest(ApiResult<string>.Failure("Choose PDF, Excel or Word."));
+
         // Missing query param means "not specified", not "false" — the default
         // stays ON, same as before this option existed.
         var language = Enum.TryParse<BoqTermsLanguage>(termsLanguage, ignoreCase: true, out var parsed)
@@ -169,11 +174,11 @@ public sealed class Boqs : EndpointGroupBase
             : BoqTermsLanguage.English;
 
         var result = await sender.Send(
-            new GetBoqPdfQuery(id, includeTermsPage ?? true, language), cancellationToken);
+            new GetBoqPdfQuery(id, includeTermsPage ?? true, language, chosen), cancellationToken);
         if (!result.Succeeded || result.Data is null)
             return Results.NotFound(ApiResult<string>.Failure(result.Errors));
 
-        return Results.File(result.Data.Content, "application/pdf", result.Data.FileName);
+        return Results.File(result.Data.Content, result.Data.ContentType, result.Data.FileName);
     }
 
     public async Task<IResult> GetContractPdf(ISender sender, Guid id, CancellationToken cancellationToken)

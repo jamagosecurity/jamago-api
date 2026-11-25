@@ -26,11 +26,11 @@ public sealed class ProformaPdfGenerator : IProformaPdfGenerator
     private static readonly Color SectionBg = Color.FromHex("#EAF3FA");
     private static readonly Color DraftRed = Color.FromHex("#47D1273D");
 
-    private static readonly byte[] LogoBytes = ProformaLook.Logo;
+    private static readonly byte[] LogoBytes = DocumentLook.Logo;
 
-    private static string Money(decimal value) => ProformaLook.Money(value);
-    private static string Date(DateOnly value) => ProformaLook.Date(value);
-    private static string Qty(decimal value) => ProformaLook.Qty(value);
+    private static string Money(decimal value) => DocumentLook.Money(value);
+    private static string Date(DateOnly value) => DocumentLook.Date(value);
+    private static string Qty(decimal value) => DocumentLook.Qty(value);
     private static string Unit(string uom) => ProformaText.Unit(uom);
 
     public byte[] Generate(ProformaModel model)

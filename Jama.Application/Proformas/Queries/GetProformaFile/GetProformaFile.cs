@@ -1,3 +1,4 @@
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using MediatR;
@@ -14,7 +15,7 @@ public sealed record ProformaFileDto(byte[] Content, string FileName, string Con
 /// <paramref name="Typed"/> is a preview: the document with the values typed on screen. Nothing is saved and no number
 /// is used up; an approved quotation that has no PI number yet says the number is given on download.
 /// </summary>
-public sealed record GetProformaFileQuery(Guid BoqId, ProformaFormat Format = ProformaFormat.Pdf, ProformaInput? Typed = null)
+public sealed record GetProformaFileQuery(Guid BoqId, ExportFormat Format = ExportFormat.Pdf, ProformaInput? Typed = null)
     : IRequest<ApiResult<ProformaFileDto>>;
 
 public sealed class GetProformaFileQueryHandler(
@@ -36,14 +37,13 @@ public sealed class GetProformaFileQueryHandler(
         var name = source.Kept?.Number
             ?? (source.Draft ? $"Proforma-DRAFT-{source.Boq.BoqNumber}" : $"Proforma-PREVIEW-{source.Boq.BoqNumber}");
 
-        var file = r.Format switch
+        var content = r.Format switch
         {
-            ProformaFormat.Excel => new ProformaFileDto(excel.Generate(model), $"{name}.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-            ProformaFormat.Word => new ProformaFileDto(word.Generate(model), $"{name}.docx",
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
-            _ => new ProformaFileDto(pdf.Generate(model), $"{name}.pdf", "application/pdf"),
+            ExportFormat.Excel => excel.Generate(model),
+            ExportFormat.Word => word.Generate(model),
+            _ => pdf.Generate(model),
         };
-        return ApiResult<ProformaFileDto>.Success(file);
+        return ApiResult<ProformaFileDto>.Success(
+            new ProformaFileDto(content, $"{name}.{r.Format.Extension()}", r.Format.ContentType()));
     }
 }

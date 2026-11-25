@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jama.Application.Common;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using MediatR;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Boqs.Queries.GetBoqPdf;
 
-public sealed record BoqPdfDto(byte[] Content, string FileName);
+public sealed record BoqPdfDto(byte[] Content, string FileName, string ContentType = "application/pdf");
 
 /// <summary>Downloads the quotation PDF. <paramref name="IncludeTermsPage"/>
 /// defaults true — some clients already have the standard terms agreed
@@ -17,13 +18,16 @@ public sealed record BoqPdfDto(byte[] Content, string FileName);
 public sealed record GetBoqPdfQuery(
     Guid Id,
     bool IncludeTermsPage = true,
-    BoqTermsLanguage TermsLanguage = BoqTermsLanguage.English) : IRequest<ApiResult<BoqPdfDto>>;
+    BoqTermsLanguage TermsLanguage = BoqTermsLanguage.English,
+    ExportFormat Format = ExportFormat.Pdf) : IRequest<ApiResult<BoqPdfDto>>;
 
 public sealed class GetBoqPdfQueryHandler(
     IApplicationDbContext context,
     IBoqPdfGenerator generator,
     IFileStorage storage,
-    ICurrentUser actor)
+    ICurrentUser actor,
+    IBoqExcelGenerator excel,
+    IBoqWordGenerator word)
     : IRequestHandler<GetBoqPdfQuery, ApiResult<BoqPdfDto>>
 {
     public async Task<ApiResult<BoqPdfDto>> Handle(
@@ -67,8 +71,9 @@ public sealed class GetBoqPdfQueryHandler(
             })
             .ToDictionaryAsync(x => x.Id, cancellationToken);
 
+        // Excel carries no pictures, so it does not wait on reading them.
         var photos = new Dictionary<Guid, byte[]?>();
-        foreach (var item in items.Values)
+        foreach (var item in items.Values.Where(_ => request.Format != ExportFormat.Excel))
         {
             if (string.IsNullOrWhiteSpace(item.StorageKey)) continue;
 
@@ -149,7 +154,13 @@ public sealed class GetBoqPdfQueryHandler(
             PreparedByDesignation = string.IsNullOrWhiteSpace(designation) ? null : designation.Trim(),
         };
 
-        return ApiResult<BoqPdfDto>.Success(
-            new BoqPdfDto(generator.Generate(model), $"{boq.BoqNumber}.pdf"));
+        var content = request.Format switch
+        {
+            ExportFormat.Excel => excel.Generate(model),
+            ExportFormat.Word => word.Generate(model),
+            _ => generator.Generate(model),
+        };
+        return ApiResult<BoqPdfDto>.Success(new BoqPdfDto(
+            content, $"{boq.BoqNumber}.{request.Format.Extension()}", request.Format.ContentType()));
     }
 }

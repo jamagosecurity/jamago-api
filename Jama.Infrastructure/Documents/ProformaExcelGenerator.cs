@@ -13,14 +13,14 @@ namespace Jama.Infrastructure.Documents;
 /// </summary>
 public sealed class ProformaExcelGenerator : IProformaExcelGenerator
 {
-    private static readonly XLColor Brand = XLColor.FromHtml("#" + ProformaLook.Brand);
-    private static readonly XLColor BrandStrong = XLColor.FromHtml("#" + ProformaLook.BrandStrong);
-    private static readonly XLColor Ink = XLColor.FromHtml("#" + ProformaLook.Ink);
-    private static readonly XLColor Muted = XLColor.FromHtml("#" + ProformaLook.Muted);
-    private static readonly XLColor Border = XLColor.FromHtml("#" + ProformaLook.Border);
-    private static readonly XLColor HeadBg = XLColor.FromHtml("#" + ProformaLook.HeadBg);
-    private static readonly XLColor SectionBg = XLColor.FromHtml("#" + ProformaLook.SectionBg);
-    private static readonly XLColor DraftRed = XLColor.FromHtml("#" + ProformaLook.DraftRed);
+    private static readonly XLColor Brand = XLColor.FromHtml("#" + DocumentLook.Brand);
+    private static readonly XLColor BrandStrong = XLColor.FromHtml("#" + DocumentLook.BrandStrong);
+    private static readonly XLColor Ink = XLColor.FromHtml("#" + DocumentLook.Ink);
+    private static readonly XLColor Muted = XLColor.FromHtml("#" + DocumentLook.Muted);
+    private static readonly XLColor Border = XLColor.FromHtml("#" + DocumentLook.Border);
+    private static readonly XLColor HeadBg = XLColor.FromHtml("#" + DocumentLook.HeadBg);
+    private static readonly XLColor SectionBg = XLColor.FromHtml("#" + DocumentLook.SectionBg);
+    private static readonly XLColor DraftRed = XLColor.FromHtml("#" + DocumentLook.DraftRed);
 
     private const int Columns = 8;
     private static readonly double[] Widths = [6, 46, 13, 22, 8, 7, 13, 15];
@@ -103,16 +103,16 @@ public sealed class ProformaExcelGenerator : IProformaExcelGenerator
             var cell = ws.Range(top + 1 + i, 1, top + 1 + i, 4).Merge().FirstCell();
             var text = cell.CreateRichText();
             text.AddText($"{customer[i].Label} : ").SetBold().SetFontColor(Muted);
-            text.AddText(ProformaLook.Dash(customer[i].Value)).SetBold();
+            text.AddText(DocumentLook.Dash(customer[i].Value)).SetBold();
         }
         Box(ws.Range(top, 1, top + 4, 4));
 
         (string Label, string? Value)[] references =
         [
-            ("Date#", ProformaLook.Date(m.Date)),
+            ("Date#", DocumentLook.Date(m.Date)),
             ("PI No", m.Number ?? (m.Draft ? "DRAFT" : "Given on download")),
             ("Quote No#", m.QuoteNumber),
-            ("Quote Date#", ProformaLook.Date(m.QuoteDate)),
+            ("Quote Date#", DocumentLook.Date(m.QuoteDate)),
             ("Ref#", m.Ref),
         ];
         for (var i = 0; i < references.Length; i++)
@@ -122,7 +122,7 @@ public sealed class ProformaExcelGenerator : IProformaExcelGenerator
             label.Value = references[i].Label;
             label.Style.Font.SetBold().Fill.SetBackgroundColor(HeadBg);
             var value = ws.Range(r, 7, r, Columns).Merge();
-            value.Value = ProformaLook.Dash(references[i].Value);
+            value.Value = DocumentLook.Dash(references[i].Value);
             value.Style.Font.SetBold().Alignment.SetHorizontal(XLAlignmentHorizontalValues.Right);
         }
         Box(ws.Range(top, 5, top + 4, Columns));
@@ -215,7 +215,7 @@ public sealed class ProformaExcelGenerator : IProformaExcelGenerator
         }
         Grid(ws.Range(top, 6, top + 2, Columns));
 
-        var po = ProformaLook.PoNote(m.PoNumber, m.PoDate);
+        var po = DocumentLook.PoNote(m.PoNumber, m.PoDate);
         if (po is not null)
         {
             var note = ws.Range(top, 1, top, 4).Merge().FirstCell().CreateRichText();

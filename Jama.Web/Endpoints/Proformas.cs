@@ -56,7 +56,7 @@ public sealed class Proformas : EndpointGroupBase
 
     public async Task<IResult> GetFile(ISender sender, Guid boqId, string? format, CancellationToken ct)
     {
-        if (!Enum.TryParse<ProformaFormat>(format ?? nameof(ProformaFormat.Pdf), ignoreCase: true, out var chosen) || !Enum.IsDefined(chosen))
+        if (ExportFormats.Parse(format) is not { } chosen)
             return Results.BadRequest(ApiResult<string>.Failure("Choose PDF, Excel or Word."));
         return File(await sender.Send(new GetProformaFileQuery(boqId, chosen), ct));
     }
@@ -69,7 +69,7 @@ public sealed class Proformas : EndpointGroupBase
         DateOnly? date = DateOnly.TryParseExact(poDate?.Trim() ?? "", "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
             ? d
             : null;
-        return File(await sender.Send(new GetProformaFileQuery(boqId, ProformaFormat.Pdf, new ProformaInput(poNumber, date, customer)), ct));
+        return File(await sender.Send(new GetProformaFileQuery(boqId, ExportFormat.Pdf, new ProformaInput(poNumber, date, customer)), ct));
     }
 
     private static IResult File(ApiResult<ProformaFileDto> result) =>

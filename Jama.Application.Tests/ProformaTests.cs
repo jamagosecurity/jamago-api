@@ -165,7 +165,7 @@ public class ProformaTests
         var (db, approved, _, _) = await SeedAsync();
 
         var result = await Files(db, LateEvening()).Handle(
-            new GetProformaFileQuery(approved.Id, ProformaFormat.Pdf, new ProformaInput(null, null, new ProformaCustomer("Typed Client", null, "5555 1234", null))), default);
+            new GetProformaFileQuery(approved.Id, ExportFormat.Pdf, new ProformaInput(null, null, new ProformaCustomer("Typed Client", null, "5555 1234", null))), default);
 
         var text = Text(result.Data!.Content);
         Assert.Contains("Typed Client", text);
@@ -211,7 +211,7 @@ public class ProformaTests
         var files = Files(db, clock);
 
         // Excel
-        var xlsx = (await files.Handle(new GetProformaFileQuery(approved.Id, ProformaFormat.Excel), default)).Data!;
+        var xlsx = (await files.Handle(new GetProformaFileQuery(approved.Id, ExportFormat.Excel), default)).Data!;
         Assert.Equal("PI-JG-00001.xlsx", xlsx.FileName);
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", xlsx.ContentType);
         using (var book = new ClosedXML.Excel.XLWorkbook(new MemoryStream(xlsx.Content)))
@@ -236,7 +236,7 @@ public class ProformaTests
         }
 
         // Word
-        var docx = (await files.Handle(new GetProformaFileQuery(approved.Id, ProformaFormat.Word), default)).Data!;
+        var docx = (await files.Handle(new GetProformaFileQuery(approved.Id, ExportFormat.Word), default)).Data!;
         Assert.Equal("PI-JG-00001.docx", docx.FileName);
         using (var word = DocumentFormat.OpenXml.Packaging.WordprocessingDocument.Open(new MemoryStream(docx.Content), false))
         {
@@ -264,7 +264,7 @@ public class ProformaTests
         }
 
         // A draft says so in every format.
-        var draftXlsx = (await files.Handle(new GetProformaFileQuery(draft.Id, ProformaFormat.Excel), default)).Data!;
+        var draftXlsx = (await files.Handle(new GetProformaFileQuery(draft.Id, ExportFormat.Excel), default)).Data!;
         Assert.StartsWith("Proforma-DRAFT-", draftXlsx.FileName);
         using var draftBook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(draftXlsx.Content));
         Assert.Contains(draftBook.Worksheet(1).CellsUsed(), c => c.GetString() == "DRAFT — NOT APPROVED");
@@ -374,7 +374,7 @@ public class ProformaTests
         var (db, approved, _, _) = await SeedAsync();
 
         var result = await Files(db, LateEvening())
-            .Handle(new GetProformaFileQuery(approved.Id, ProformaFormat.Pdf, new ProformaInput(" BRE-PO-26-169 ", new DateOnly(2026, 11, 10), ProformaCustomer.AsQuotation)), default);
+            .Handle(new GetProformaFileQuery(approved.Id, ExportFormat.Pdf, new ProformaInput(" BRE-PO-26-169 ", new DateOnly(2026, 11, 10), ProformaCustomer.AsQuotation)), default);
 
         Assert.True(result.Succeeded, string.Join(", ", result.Errors));
         var text = Text(result.Data!.Content);

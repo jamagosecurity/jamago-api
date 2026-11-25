@@ -117,3 +117,17 @@ public interface IBoqPdfGenerator
     /// same role, same round-trip guarantee, for the Arabic box.</summary>
     string DefaultTermsTextArabic();
 }
+
+/// <summary>The quotation's priced items as an Excel workbook: sections, items, descriptions, quantities, prices,
+/// section totals and the grand total — no cover, letter or pictures.</summary>
+public interface IBoqExcelGenerator
+{
+    byte[] Generate(BoqPdfModel model);
+}
+
+/// <summary>The whole quotation as a Word document, like the PDF: cover, the letter with its terms, and the priced
+/// items with pictures and descriptions.</summary>
+public interface IBoqWordGenerator
+{
+    byte[] Generate(BoqPdfModel model);
+}

@@ -39,6 +39,8 @@ public static class DependencyInjection
         services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
         services.AddSingleton<IQuotationPdfGenerator, QuotationPdfGenerator>();
         services.AddSingleton<IBoqPdfGenerator, BoqPdfGenerator>();
+        services.AddSingleton<IBoqExcelGenerator, BoqExcelGenerator>();
+        services.AddSingleton<IBoqWordGenerator, BoqWordGenerator>();
         services.AddSingleton<IProformaPdfGenerator, ProformaPdfGenerator>();
         services.AddSingleton<IProformaExcelGenerator, ProformaExcelGenerator>();
         services.AddSingleton<IProformaWordGenerator, ProformaWordGenerator>();

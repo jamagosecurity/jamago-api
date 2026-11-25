@@ -146,7 +146,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     /// <summary>How long a quotation stands. Two weeks, counted from the issue
     /// date — long enough for a client to decide, short enough that supplier
     /// prices have not moved underneath us.</summary>
-    private const int ValidityDays = 14;
+    internal const int ValidityDays = 14;
 
     // ===== Letterhead =====
     //
@@ -155,20 +155,20 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     // document must not start printing a blank address because a service was
     // not wired up, and there is no configuration source for these yet.
 
-    private const string CompanyName = "Jama Go Security Equipment";
-    private const string CompanyShort = "Jama Go";
+    internal const string CompanyName = "Jama Go Security Equipment";
+    internal const string CompanyShort = "Jama Go";
     private const string CompanyShortAr = "شركة جاما جو";
-    private const string CompanyTagline = "A trusted partner to customers and suppliers";
-    private const string CompanyAddress =
+    internal const string CompanyTagline = "A trusted partner to customers and suppliers";
+    internal const string CompanyAddress =
         "Unit 41, Zone 56, Street 340, Building No. 349, Al Ain Complex, Salwa Road";
-    private const string CompanyCity = "Doha – Qatar";
+    internal const string CompanyCity = "Doha – Qatar";
     // Listed one per line on the letterhead, the way a switchboard is printed,
     // rather than run together on one line separated by dots.
-    private const string CompanyPhone1 = "+974 3064 4006";
-    private const string CompanyPhone2 = "+974 3139 5879";
-    private const string CompanyPhone3 = "+974 4001 3599";
-    private const string CompanyEmail = "info@jamago.qa";
-    private const string CompanyWebsite = "www.jamago.qa";
+    internal const string CompanyPhone1 = "+974 3064 4006";
+    internal const string CompanyPhone2 = "+974 3139 5879";
+    internal const string CompanyPhone3 = "+974 4001 3599";
+    internal const string CompanyEmail = "info@jamago.qa";
+    internal const string CompanyWebsite = "www.jamago.qa";
 
     /// <summary>One clause of the commercial offer. <paramref name="Body"/> is the
     /// paragraph beneath the heading, where there is one; the bullets follow it.</summary>
@@ -365,7 +365,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     /// <summary>"Jane Doe &lt;jane@jamago.qa&gt;" becomes "Jane Doe": the name alone, no email or brackets.
     /// A stored value that is only an email stays as it is.</summary>
-    private static string? PreparedBy(string? value)
+    internal static string? PreparedBy(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
         var name = EmbeddedEmail.Replace(value, string.Empty).Trim();
@@ -373,18 +373,18 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     }
 
     /// <summary>The email inside a stored name like "Jane Doe &lt;jane@jamago.qa&gt;"; null when there is none.</summary>
-    private static string? PreparedByEmail(string? value) =>
+    internal static string? PreparedByEmail(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : EmbeddedEmail.Match(value) is { Success: true } m ? m.Groups[1].Value : null;
 
-    private static string Money(decimal value) => value.ToString("N2", CultureInfo.InvariantCulture);
+    internal static string Money(decimal value) => value.ToString("N2", CultureInfo.InvariantCulture);
 
-    private static string Date(DateOnly value) =>
+    internal static string Date(DateOnly value) =>
         value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
 
     /// <summary>"26th July 2026" — the long form the cover and the letter open
     /// with. The compact "26 Jul 2026" the tables use reads as a filing code,
     /// which is right above a column of figures and wrong under a signature.</summary>
-    private static string LongDate(DateOnly value) =>
+    internal static string LongDate(DateOnly value) =>
         $"{value.Day}{DayOrdinal(value.Day)} {value.ToString("MMMM yyyy", CultureInfo.InvariantCulture)}";
 
     /// <summary>11th, 12th and 13th break the last-digit rule and have to be
@@ -400,13 +400,13 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     /// <summary>Trims a trailing ".00" so quantities read "12" not "12.00", while
     /// "2.5" keeps its half — cable is measured in metres.</summary>
-    private static string Qty(decimal value) =>
+    internal static string Qty(decimal value) =>
         value == Math.Floor(value)
             ? ((long)value).ToString(CultureInfo.InvariantCulture)
             : value.ToString("0.##", CultureInfo.InvariantCulture);
 
     /// <summary>"JMG-00004" for the first issue (revision 0); "JMG-00004 · Rev 1", "Rev 2"… after.</summary>
-    private static string NumberWithRevision(BoqPdfModel model) =>
+    internal static string NumberWithRevision(BoqPdfModel model) =>
         model.RevisionNumber > 0
             ? $"{model.BoqNumber}  ·  Rev {model.RevisionNumber}"
             : model.BoqNumber;
@@ -571,7 +571,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
     /// <summary>The client and where they are, on one line — "Bahzat Group, Doha
     /// – Qatar". The location is dropped rather than printed empty when a BOQ
     /// never recorded one.</summary>
-    private static string CoverClient(BoqPdfModel model)
+    internal static string CoverClient(BoqPdfModel model)
     {
         var parts = new[] { model.ClientName, model.SiteLocation }
             .Where(part => !string.IsNullOrWhiteSpace(part));
@@ -1250,12 +1250,12 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
             ["Lot"] = "Lot",
         };
 
-    private static string Unit(string uom) =>
+    internal static string Unit(string uom) =>
         UnitNames.TryGetValue(uom, out var name) ? name : uom;
 
     /// <summary>An em dash for an empty cell, so a blank reads as "not recorded"
     /// rather than as a column that failed to print.</summary>
-    private static string Dash(string? value) =>
+    internal static string Dash(string? value) =>
         string.IsNullOrWhiteSpace(value) ? EmDash : value;
 
     private static void HeaderCell(IContainer container, string text, bool alignRight)
@@ -1340,7 +1340,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
 
     /// <summary>A subtracted amount, written the way a reader checks it: with the
     /// sign against the figure, not implied by the label.</summary>
-    private static string Minus(decimal value) => "−" + Money(value);
+    internal static string Minus(decimal value) => "−" + Money(value);
 
     /// <summary>
     /// One line of the totals block, labelled in both languages.

@@ -54,7 +54,8 @@ public class BoqPdfDesignationTests
     private static async Task<BoqPdfModel> RenderAsync(ApplicationDbContext db, Guid boqId)
     {
         var generator = new CapturingGenerator();
-        var result = await new GetBoqPdfQueryHandler(db, generator, new NoFiles(), new Viewer()).Handle(new GetBoqPdfQuery(boqId), default);
+        var result = await new GetBoqPdfQueryHandler(db, generator, new NoFiles(), new Viewer(),
+            new Jama.Infrastructure.Documents.BoqExcelGenerator(), new Jama.Infrastructure.Documents.BoqWordGenerator(generator)).Handle(new GetBoqPdfQuery(boqId), default);
         Assert.True(result.Succeeded);
         return generator.Last!;
     }

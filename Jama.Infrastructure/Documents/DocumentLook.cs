@@ -5,12 +5,15 @@ using System.Reflection;
 namespace Jama.Infrastructure.Documents;
 
 /// <summary>
-/// What every proforma file shares — the logo, the palette and how numbers and dates are written — so the PDF, the
-/// Excel workbook and the Word document look like one document.
+/// What the exported documents share — the logo, the QR code, the palette and how numbers and dates are written — so
+/// a PDF, its Excel workbook and its Word document look like one document.
 /// </summary>
-internal static class ProformaLook
+internal static class DocumentLook
 {
     public static readonly byte[] Logo = LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-logo.png");
+
+    /// <summary>The QR code to the website, printed in the corner of the quotation's cover and letter.</summary>
+    public static readonly byte[] Qr = LoadEmbedded("Jama.Infrastructure.Documents.Assets.jamago-qr.png");
 
     /// <summary>The logo's size in pixels, read from the PNG header (width, height).</summary>
     public static readonly (int Width, int Height) LogoSize = PngSize(Logo);
@@ -24,6 +27,9 @@ internal static class ProformaLook
     public const string HeadBg = "D9E9F6";
     public const string SectionBg = "EAF3FA";
     public const string DraftRed = "D1273D";
+    public const string Accent = "C2660F";
+    public const string InkSoft = "3E5872";
+    public const string PanelBg = "F2F8FC";
 
     public static string Money(decimal value) => value.ToString("N2", CultureInfo.InvariantCulture);
     public static string Date(DateOnly value) => value.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
@@ -45,7 +51,7 @@ internal static class ProformaLook
         return memory.ToArray();
     }
 
-    private static (int, int) PngSize(byte[] png) =>
+    public static (int, int) PngSize(byte[] png) =>
         png.Length >= 24
             ? (BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16, 4)), BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(20, 4)))
             : (1, 1);
