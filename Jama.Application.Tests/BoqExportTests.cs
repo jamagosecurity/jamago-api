@@ -193,6 +193,29 @@ public class BoqExportTests
         Assert.NotEmpty(result.Data.Content);
     }
 
+    [Fact]
+    public void A_per_point_item_prints_Point_in_every_format()
+    {
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        var model = Model() with
+        {
+            Sections =
+            [
+                new BoqPdfSection("1", "Cabling", 2400m,
+                    [new BoqPdfLine("1.1", "Cat6 cable termination", "CAT6", "Generic", "Cabling", nameof(UnitOfMeasurement.Point), 24, 100m, 2400m)]),
+            ],
+        };
+
+        using var book = new XLWorkbook(new MemoryStream(new BoqExcelGenerator().Generate(model)));
+        Assert.Contains(book.Worksheet(1).CellsUsed(), c => c.GetString() == "Point");
+
+        var word = WordText(new BoqWordGenerator(Pdf).Generate(model), out var doc);
+        using (doc) Assert.Contains("Point", word);
+
+        using var pdf = UglyToad.PdfPig.PdfDocument.Open(Pdf.Generate(model));
+        Assert.Contains("Point", string.Join(" ", pdf.GetPages().SelectMany(pg => pg.GetWords()).Select(w => w.Text)));
+    }
+
     [Theory]
     [InlineData(null, ExportFormat.Pdf)]
     [InlineData("excel", ExportFormat.Excel)]

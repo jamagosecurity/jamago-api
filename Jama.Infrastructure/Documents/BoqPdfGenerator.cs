@@ -1096,7 +1096,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                 // The client's own layout: image, brand, model and description
                 // each get a column instead of being stacked into one cell.
                 // Page is A4 less 28pt margins = 539pt, so the fixed columns
-                // total 426 and description takes what is left.
+                // total 432 and description takes what is left.
                 table.ColumnsDefinition(columns =>
                 {
                     columns.ConstantColumn(30);   // s.no
@@ -1105,7 +1105,7 @@ public sealed class BoqPdfGenerator : IBoqPdfGenerator
                     columns.ConstantColumn(44);   // type
                     columns.ConstantColumn(66);   // model
                     columns.RelativeColumn(1);    // description
-                    columns.ConstantColumn(32);   // unit
+                    columns.ConstantColumn(38);   // unit — wide enough for "Point"
                     columns.ConstantColumn(28);   // qty
                     columns.ConstantColumn(52);   // unit price
                     // 74, not 62. The section total prints larger and bolder

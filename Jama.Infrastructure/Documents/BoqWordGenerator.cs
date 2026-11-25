@@ -246,7 +246,7 @@ public sealed partial class BoqWordGenerator(IBoqPdfGenerator pdf) : IBoqWordGen
 
         yield return Details(m);
 
-        int[] widths = [500, 1000, 1000, 850, 1250, ContentWidth - 7800, 550, 500, 1000, 1150];
+        int[] widths = [500, 1000, 1000, 850, 1250, ContentWidth - 7900, 650, 500, 1000, 1150];
         string[] headings = ["S.No", "Brand", "Image", "Type", "Model", "Description", "Unit", "Qty", "Unit Price", "Total Amount"];
 
         foreach (var section in m.Sections)

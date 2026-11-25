@@ -84,6 +84,10 @@ public enum UnitOfMeasurement
     /// <summary>A job lot: work or supply priced as one lump rather than per
     /// item. Written "Lot" on a quotation, which is what the trade calls it.</summary>
     Lot,
+
+    /// <summary>Priced per point: cabling, termination and the like, charged for each point installed.
+    /// Offered as "Per point" in the dropdown; printed "Point" in a document's unit column.</summary>
+    Point,
 }
 
 /// <summary>
