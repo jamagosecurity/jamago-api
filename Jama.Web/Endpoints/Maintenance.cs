@@ -54,10 +54,11 @@ public sealed class Maintenance : EndpointGroupBase
             // Served without a token so an <img src> can show it, as a stock
             // item's pictures are; the ids are unguessable guids.
             .MapGet(GetCatalogueImage, "issue-catalogue/images/{imageId:guid}")
-            .MapPost(UploadCatalogueImage, "issue-catalogue/{id:guid}/images", permission: Permissions.NonMoiJobManage, allowFileUpload: true)
+            // Adding, editing and pictures: the office or any Non-MOI technician. Deleting: the office only.
+            .MapPost(UploadCatalogueImage, "issue-catalogue/{id:guid}/images", permission: AuthorizationPolicies.NonMoiCatalogueEdit, allowFileUpload: true)
             .MapDelete(DeleteCatalogueImage, "issue-catalogue/images/{imageId:guid}", permission: Permissions.NonMoiJobManage)
-            .MapPost(CreateCatalogueItem, "issue-catalogue", permission: Permissions.NonMoiJobManage)
-            .MapPut(UpdateCatalogueItem, "issue-catalogue/{id:guid}", permission: Permissions.NonMoiJobManage)
+            .MapPost(CreateCatalogueItem, "issue-catalogue", permission: AuthorizationPolicies.NonMoiCatalogueEdit)
+            .MapPut(UpdateCatalogueItem, "issue-catalogue/{id:guid}", permission: AuthorizationPolicies.NonMoiCatalogueEdit)
             .MapDelete(DeleteCatalogueItem, "issue-catalogue/{id:guid}", permission: Permissions.NonMoiJobManage)
             .MapPost(RenameCategory, "issue-catalogue/categories/rename", permission: Permissions.NonMoiJobManage)
             .MapDelete(DeleteCategory, "issue-catalogue/categories", permission: Permissions.NonMoiJobManage)

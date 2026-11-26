@@ -34,4 +34,8 @@ public static class AuthorizationPolicies
     /// drawing.approve — an approver has to open the document to decide on it.
     /// Mirrors <see cref="BoqRead"/>.</summary>
     public const string DrawingRead = "drawing.read";
+
+    /// <summary>Adding items to the Non-MOI inventory and changing their details or price: the Non-MOI office
+    /// (nonmoijob.manage) OR any Non-MOI technician (nonmoijob.work). Deleting stays with the office.</summary>
+    public const string NonMoiCatalogueEdit = "nonmoi.catalogue.edit";
 }

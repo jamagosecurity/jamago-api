@@ -49,6 +49,8 @@ public sealed class MaintenanceCatalogueItemConfiguration : IEntityTypeConfigura
         builder.Property(x => x.DescriptionEn).HasMaxLength(500);
         builder.Property(x => x.DescriptionAr).HasMaxLength(500);
         builder.Property(x => x.Price).HasPrecision(10, 2);
+        builder.Property(x => x.AddedByName).HasMaxLength(300);
+        builder.Property(x => x.PriceChangedByName).HasMaxLength(300);
 
         // Backstop only — the commands refuse a duplicate case-insensitively
         // before it gets this far.
@@ -91,5 +93,19 @@ public sealed class MaintenanceRequestLineConfiguration : IEntityTypeConfigurati
 
         builder.HasIndex(x => new { x.MaintenanceRequestId, x.SortOrder });
         builder.HasIndex(x => x.Category);
+    }
+}
+
+public sealed class MaintenanceCatalogueChangeConfiguration : IEntityTypeConfiguration<MaintenanceCatalogueChange>
+{
+    public void Configure(EntityTypeBuilder<MaintenanceCatalogueChange> builder)
+    {
+        builder.ToTable("MaintenanceCatalogueChanges");
+        builder.Property(x => x.ItemName).HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Action).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(x => x.OldPrice).HasPrecision(10, 2);
+        builder.Property(x => x.NewPrice).HasPrecision(10, 2);
+        builder.Property(x => x.ByName).HasMaxLength(300).IsRequired();
+        builder.HasIndex(x => new { x.ItemId, x.CreatedAt });
     }
 }

@@ -1392,6 +1392,53 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.ToTable("MailSendLogs", (string)null);
                 });
 
+            modelBuilder.Entity("Jama.Domain.Entities.MaintenanceCatalogueChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("ById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ByName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("NewPrice")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<decimal?>("OldPrice")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId", "CreatedAt");
+
+                    b.ToTable("MaintenanceCatalogueChanges", (string)null);
+                });
+
             modelBuilder.Entity("Jama.Domain.Entities.MaintenanceCatalogueImage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1439,6 +1486,13 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AddedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AddedByName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -1463,6 +1517,16 @@ namespace Jama.Infrastructure.Data.Migrations
                     b.Property<decimal>("Price")
                         .HasPrecision(10, 2)
                         .HasColumnType("numeric(10,2)");
+
+                    b.Property<DateTime?>("PriceChangedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("PriceChangedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PriceChangedByName")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");

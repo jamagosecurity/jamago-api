@@ -2,13 +2,15 @@ using FluentValidation;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
 using Jama.Domain.Entities;
+using Jama.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace Jama.Application.Maintenance.Commands.CreateMaintenanceCatalogueItem;
 
-/// <summary>Adds a service to the Non-MOI price list, at the end of its
-/// category. Gated on maintenance.manage at the endpoint.</summary>
+/// <summary>Adds a service to the Non-MOI price list, at the end of its category — live at once for every job.
+/// The office or any Non-MOI technician may add one (AuthorizationPolicies.NonMoiCatalogueEdit); who added it is
+/// kept on the item and in the change log.</summary>
 public sealed record CreateMaintenanceCatalogueItemCommand : IRequest<ApiResult<MaintenanceIssueOptionDto>>
 {
     public string? Category { get; init; }
@@ -36,7 +38,7 @@ public sealed class CreateMaintenanceCatalogueItemCommandValidator : AbstractVal
     }
 }
 
-public sealed class CreateMaintenanceCatalogueItemCommandHandler(IApplicationDbContext context)
+public sealed class CreateMaintenanceCatalogueItemCommandHandler(IApplicationDbContext context, ICurrentUser actor, TimeProvider clock)
     : IRequestHandler<CreateMaintenanceCatalogueItemCommand, ApiResult<MaintenanceIssueOptionDto>>
 {
     public async Task<ApiResult<MaintenanceIssueOptionDto>> Handle(
@@ -60,9 +62,13 @@ public sealed class CreateMaintenanceCatalogueItemCommandHandler(IApplicationDbC
             DescriptionAr = MaintenanceCatalogueRules.Clean(request.DescriptionAr),
             Price = request.Price,
             SortOrder = (last ?? -1) + 1,
+            AddedById = actor.UserId,
+            AddedByName = actor.DisplayName,
+            CreatedAt = clock.GetUtcNow().UtcDateTime,
         };
 
         context.MaintenanceCatalogueItems.Add(item);
+        MaintenanceCatalogueRules.Log(context, item, CatalogueChangeAction.Added, actor, item.CreatedAt, newPrice: item.Price);
         await context.SaveChangesAsync(cancellationToken);
 
         return ApiResult<MaintenanceIssueOptionDto>.Success(MaintenanceCatalogueRules.ToDto(item));

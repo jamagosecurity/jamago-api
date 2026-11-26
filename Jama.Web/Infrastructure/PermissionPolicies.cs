@@ -52,6 +52,14 @@ public static class PermissionPolicies
                 || context.User.HasClaim(PermissionClaims.Type, Permissions.DrawingManage)
                 || context.User.HasClaim(PermissionClaims.Type, Permissions.DrawingApprove)));
 
+        // The Non-MOI inventory is kept up to date by the office and the technicians alike.
+        builder.AddPolicy(AuthorizationPolicies.NonMoiCatalogueEdit, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.IsInRole(Roles.Admin)
+                || context.User.HasClaim(PermissionClaims.Type, Permissions.NonMoiJobManage)
+                || context.User.HasClaim(PermissionClaims.Type, Permissions.NonMoiJobWork)));
+
         return builder;
     }
 

@@ -33,6 +33,7 @@ public interface IApplicationDbContext
     DbSet<MaintenanceRequestLine> MaintenanceRequestLines { get; }
     DbSet<MaintenanceCatalogueItem> MaintenanceCatalogueItems { get; }
     DbSet<MaintenanceCatalogueImage> MaintenanceCatalogueImages { get; }
+    DbSet<MaintenanceCatalogueChange> MaintenanceCatalogueChanges { get; }
     DbSet<NonMoiJob> NonMoiJobs { get; }
     DbSet<NonMoiJobLine> NonMoiJobLines { get; }
     DbSet<NonMoiJobEvent> NonMoiJobEvents { get; }

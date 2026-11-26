@@ -36,6 +36,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<MaintenanceRequestLine> MaintenanceRequestLines => Set<MaintenanceRequestLine>();
     public DbSet<MaintenanceCatalogueItem> MaintenanceCatalogueItems => Set<MaintenanceCatalogueItem>();
     public DbSet<MaintenanceCatalogueImage> MaintenanceCatalogueImages => Set<MaintenanceCatalogueImage>();
+    public DbSet<MaintenanceCatalogueChange> MaintenanceCatalogueChanges => Set<MaintenanceCatalogueChange>();
     public DbSet<NonMoiJob> NonMoiJobs => Set<NonMoiJob>();
     public DbSet<NonMoiJobLine> NonMoiJobLines => Set<NonMoiJobLine>();
     public DbSet<NonMoiJobEvent> NonMoiJobEvents => Set<NonMoiJobEvent>();

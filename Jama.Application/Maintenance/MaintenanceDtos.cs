@@ -73,7 +73,12 @@ public sealed record MaintenanceIssueOptionDto(
     string? DescriptionEn,
     string? DescriptionAr,
     decimal DefaultFee,
-    IReadOnlyList<MaintenanceImageDto> Images);
+    IReadOnlyList<MaintenanceImageDto> Images)
+{
+    public string? AddedByName { get; init; }
+    public string? PriceChangedByName { get; init; }
+    public DateTime? PriceChangedAt { get; init; }
+}
 
 public sealed record MaintenanceImageDto(
     Guid Id,

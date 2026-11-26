@@ -1,6 +1,7 @@
 using FluentValidation;
 using Jama.Application.Common.Interfaces;
 using Jama.Application.Common.Models;
+using Jama.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,7 +39,7 @@ public sealed class UpdateMaintenanceCatalogueItemCommandValidator : AbstractVal
     }
 }
 
-public sealed class UpdateMaintenanceCatalogueItemCommandHandler(IApplicationDbContext context)
+public sealed class UpdateMaintenanceCatalogueItemCommandHandler(IApplicationDbContext context, ICurrentUser actor, TimeProvider clock)
     : IRequestHandler<UpdateMaintenanceCatalogueItemCommand, ApiResult<MaintenanceIssueOptionDto>>
 {
     public async Task<ApiResult<MaintenanceIssueOptionDto>> Handle(
@@ -56,7 +57,8 @@ public sealed class UpdateMaintenanceCatalogueItemCommandHandler(IApplicationDbC
             return ApiResult<MaintenanceIssueOptionDto>.Failure($"\"{name}\" is already on the list in this category.");
 
         // Moved to another category: it joins the end of that one's list.
-        if (item.Category != category)
+        var categoryChanged = item.Category != category;
+        if (categoryChanged)
         {
             var last = await context.MaintenanceCatalogueItems
                 .Where(i => i.Category == category)
@@ -65,11 +67,29 @@ public sealed class UpdateMaintenanceCatalogueItemCommandHandler(IApplicationDbC
             item.SortOrder = (last ?? -1) + 1;
         }
 
+        var now = clock.GetUtcNow().UtcDateTime;
+        var descriptionEn = MaintenanceCatalogueRules.Clean(request.DescriptionEn);
+        var descriptionAr = MaintenanceCatalogueRules.Clean(request.DescriptionAr);
+        var detailsChanged = item.Name != name || categoryChanged || item.DescriptionEn != descriptionEn || item.DescriptionAr != descriptionAr;
+        var oldPrice = item.Price;
+
         item.Name = name;
-        item.DescriptionEn = MaintenanceCatalogueRules.Clean(request.DescriptionEn);
-        item.DescriptionAr = MaintenanceCatalogueRules.Clean(request.DescriptionAr);
-        item.Price = request.Price;
-        item.UpdatedAt = DateTime.UtcNow;
+        item.DescriptionEn = descriptionEn;
+        item.DescriptionAr = descriptionAr;
+        item.UpdatedAt = now;
+
+        // Every change is kept with who made it: the office and the technicians both keep this list up to date.
+        if (oldPrice != request.Price)
+        {
+            item.Price = request.Price;
+            item.PriceChangedById = actor.UserId;
+            item.PriceChangedByName = actor.DisplayName;
+            item.PriceChangedAt = now;
+            MaintenanceCatalogueRules.Log(context, item, CatalogueChangeAction.PriceChanged, actor, now, oldPrice, request.Price);
+        }
+        if (detailsChanged)
+            MaintenanceCatalogueRules.Log(context, item, CatalogueChangeAction.Edited, actor, now);
+
         await context.SaveChangesAsync(cancellationToken);
 
         return ApiResult<MaintenanceIssueOptionDto>.Success(MaintenanceCatalogueRules.ToDto(item));

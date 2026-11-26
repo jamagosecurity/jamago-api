@@ -1,3 +1,4 @@
+using Jama.Domain.Enums;
 using Jama.Application.Common.Interfaces;
 using Jama.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +18,29 @@ internal static class MaintenanceCatalogueRules
     /// <summary>Needs <c>Images</c> loaded, or the service shows none.</summary>
     internal static MaintenanceIssueOptionDto ToDto(MaintenanceCatalogueItem item) =>
         new(item.Id, item.Category, item.Name, item.DescriptionEn, item.DescriptionAr, item.Price,
-            item.Images.OrderBy(i => i.SortOrder).Select(ToDto).ToList());
+            item.Images.OrderBy(i => i.SortOrder).Select(ToDto).ToList())
+        {
+            AddedByName = item.AddedByName,
+            PriceChangedByName = item.PriceChangedByName,
+            PriceChangedAt = item.PriceChangedAt,
+        };
+
+    /// <summary>Records one change to the inventory, with who made it.</summary>
+    internal static void Log(
+        IApplicationDbContext context, MaintenanceCatalogueItem item, CatalogueChangeAction action, ICurrentUser actor,
+        DateTime at, decimal? oldPrice = null, decimal? newPrice = null) =>
+        context.MaintenanceCatalogueChanges.Add(new MaintenanceCatalogueChange
+        {
+            Id = Guid.CreateVersion7(),
+            ItemId = item.Id,
+            ItemName = item.Name,
+            Action = action,
+            OldPrice = oldPrice,
+            NewPrice = newPrice,
+            ById = actor.UserId,
+            ByName = actor.DisplayName ?? "Unknown",
+            CreatedAt = at,
+        });
 
     /// <summary>The stored category for what the caller typed or picked — a
     /// custom name takes the casing of the one already on the list.</summary>

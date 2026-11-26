@@ -88,6 +88,9 @@ public class MaintenanceRequestTests
 
     private static TimeProvider Clock => TimeProvider.System;
 
+    /// <summary>Who edits the Non-MOI inventory in the older catalogue tests.</summary>
+    private static readonly FakeCurrentUser Office = new(Guid.NewGuid(), "Office <office@jamago.qa>", canManage: true);
+
     private static MaintenanceRequest Ticket(
         string number, string category, string issue,
         MaintenanceStatus status = MaintenanceStatus.Open) => new()
@@ -413,7 +416,7 @@ public class MaintenanceRequestTests
     public async Task A_service_admin_adds_is_what_the_next_ticket_is_charged()
     {
         var context = NewContext();
-        var added = await new CreateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var added = await new CreateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new CreateMaintenanceCatalogueItemCommand
             {
                 Category = "PowerService",
@@ -438,7 +441,7 @@ public class MaintenanceRequestTests
     public async Task A_services_descriptions_are_copied_onto_the_ticket_line()
     {
         var context = NewContext();
-        await new CreateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        await new CreateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new CreateMaintenanceCatalogueItemCommand
             {
                 Category = "NvrStorage",
@@ -473,7 +476,7 @@ public class MaintenanceRequestTests
             CancellationToken.None);
 
         var service = await context.MaintenanceCatalogueItems.SingleAsync(i => i.Name == "Camera replacement");
-        var repriced = await new UpdateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var repriced = await new UpdateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new UpdateMaintenanceCatalogueItemCommand
             {
                 Id = service.Id, Category = "Camera", Name = "Camera replacement", Price = 600m,
@@ -497,7 +500,7 @@ public class MaintenanceRequestTests
         var context = NewContext();
         var service = await context.MaintenanceCatalogueItems.SingleAsync(i => i.Name == "NVR power issue");
 
-        var result = await new UpdateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var result = await new UpdateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new UpdateMaintenanceCatalogueItemCommand
             {
                 Id = service.Id, Category = "NvrStorage", Name = "NVR power issue", Price = 250m,
@@ -513,7 +516,7 @@ public class MaintenanceRequestTests
     {
         var context = NewContext();
 
-        var result = await new CreateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var result = await new CreateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new CreateMaintenanceCatalogueItemCommand { Category = "Camera", Name = "camera replacement", Price = 1m },
             CancellationToken.None);
 
@@ -542,7 +545,7 @@ public class MaintenanceRequestTests
     {
         var context = NewContext();
 
-        var result = await new CreateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var result = await new CreateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new CreateMaintenanceCatalogueItemCommand { Category = "  Access   control ", Name = "Door lock replacement", Price = 300m },
             CancellationToken.None);
 
@@ -551,7 +554,7 @@ public class MaintenanceRequestTests
 
         // A second service typed in a different case joins the same section
         // rather than starting another one.
-        var second = await new CreateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var second = await new CreateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new CreateMaintenanceCatalogueItemCommand { Category = "ACCESS CONTROL", Name = "Card reader", Price = 150m },
             CancellationToken.None);
         Assert.Equal("Access control", second.Data!.Category);
@@ -566,7 +569,7 @@ public class MaintenanceRequestTests
     {
         var context = NewContext();
 
-        var result = await new CreateMaintenanceCatalogueItemCommandHandler(context).Handle(
+        var result = await new CreateMaintenanceCatalogueItemCommandHandler(context, Office, Clock).Handle(
             new CreateMaintenanceCatalogueItemCommand { Category = typed, Name = "Brand new service", Price = 1m },
             CancellationToken.None);
 
